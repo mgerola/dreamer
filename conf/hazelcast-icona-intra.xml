@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <!--
-  ~  Copyright (c) 2008-2013, Hazelcast, Inc. All Rights Reserved.
-  ~ Copyright 2014 Open Networking Laboratory
+  ~ Copyright (c) 2008-2013, Hazelcast, Inc. All Rights Reserved.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
   ~ You may obtain a copy of the License at
   ~
-  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~ http://www.apache.org/licenses/LICENSE-2.0
   ~
   ~ Unless required by applicable law or agreed to in writing, software
   ~ distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,17 +25,11 @@
            xmlns="http://www.hazelcast.com/schema/config"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <group>
-        <name>onos</name>
+        <name>icona-intra</name>
         <password>rocks</password>
     </group>
-    <management-center enabled="false">http://localhost:8080/mancenter</management-center>
-    <properties>
-        <property name="hazelcast.max.no.heartbeat.seconds">30</property>
-        <property name="hazelcast.merge.first.run.delay.seconds">30</property>
-        <property name="hazelcast.merge.next.run.delay.seconds">30</property>
-    </properties> 
     <network>
-        <port auto-increment="true" port-count="100">5701</port>
+        <port auto-increment="true" port-count="100">5801</port>
         <outbound-ports>
             <!--
             Allowed port range when connecting to other nodes.
@@ -184,6 +176,7 @@
             com.hazelcast.map.merge.LatestUpdateMapMergePolicy ; entry with the latest update wins.
         -->
         <merge-policy>com.hazelcast.map.merge.PutIfAbsentMapMergePolicy</merge-policy>
+
     </map>
 
     <multimap name="default">

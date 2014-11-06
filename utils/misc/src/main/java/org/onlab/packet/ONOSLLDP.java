@@ -16,7 +16,10 @@
 package org.onlab.packet;
 
 import com.google.common.collect.Lists;
+
 import org.apache.commons.lang.ArrayUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -26,9 +29,11 @@ import java.nio.charset.StandardCharsets;
  */
 public class ONOSLLDP extends LLDP {
 
+    private static Logger log = LoggerFactory.getLogger(ONOSLLDP.class);
+
     public static final byte[] ONLAB_OUI = {(byte) 0xa4, 0x23, 0x05};
     public static final String DEFAULT_DEVICE = "INVALID";
-    public static final String DEFAULT_NAME = "ONOS Discovery";
+    public static final String DEFAULT_NAME = "DREAMER";
 
     public static final byte[] LLDP_NICIRA = {0x01, 0x23, 0x20, 0x00, 0x00,
             0x01};
@@ -139,6 +144,14 @@ public class ONOSLLDP extends LLDP {
         return null;
     }
 
+    public String getOUIString() {
+        LLDPOrganizationalTLV tlv = getNameTLV();
+        if (tlv != null) {
+            return new String(tlv.getOUI());
+        }
+        return null;
+    }
+
     public String getNameString() {
         LLDPOrganizationalTLV tlv = getNameTLV();
         if (tlv != null) {
@@ -171,15 +184,22 @@ public class ONOSLLDP extends LLDP {
         if (eth.getEtherType() == Ethernet.TYPE_LLDP ||
                 eth.getEtherType() == Ethernet.TYPE_BSN) {
            ONOSLLDP onosLldp = new ONOSLLDP((LLDP) eth.getPayload()); //(ONOSLLDP) eth.getPayload();
-           if (ONOSLLDP.DEFAULT_NAME.equals(onosLldp.getNameString())) {
-               return onosLldp;
-           }
+           log.info("ONOS OUI ori {} and pa {}", ONOSLLDP.ONLAB_OUI, onosLldp.getOUIString());
+//           if (ONOSLLDP.ONLAB_OUI.equals(onosLldp.getOUIString())){
+                   return onosLldp;
+//           }
         }
         return null;
     }
 
-
-
+    public static boolean isClusterLLDP(ONOSLLDP lldp) {
+        log.info("DEF NAME orig {} and pa {}", ONOSLLDP.DEFAULT_NAME,
+                 lldp.getNameString());
+        if (ONOSLLDP.DEFAULT_NAME.equals(lldp.getNameString())) {
+            return true;
+        }
+        return false;
+    }
 
 
 }
