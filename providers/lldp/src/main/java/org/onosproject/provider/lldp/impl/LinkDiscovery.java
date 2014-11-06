@@ -50,6 +50,10 @@ import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketService;
+import org.onlab.onos.icona.IconaService;
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.ONOSLLDP;
+import org.onlab.util.Timer;
 import org.slf4j.Logger;
 
 // TODO: add 'fast discovery' mode: drop LLDPs in destination switch but listen for flow_removed messages
@@ -84,6 +88,9 @@ public class LinkDiscovery implements TimerTask {
     private Timeout timeout;
     private volatile boolean isStopped;
 
+    private IconaService iconaService;
+
+
     /**
      * Instantiates discovery manager for the given physical switch. Creates a
      * generic LLDP packet that will be customized for the port it is sent out on.
@@ -97,11 +104,12 @@ public class LinkDiscovery implements TimerTask {
      */
     public LinkDiscovery(Device device, PacketService pktService,
                          MastershipService masterService,
-                         LinkProviderService providerService, Boolean... useBDDP) {
+                         LinkProviderService providerService, IconaService iconaService, Boolean... useBDDP) {
         this.device = device;
         this.probeRate = 3000;
         this.linkProvider = providerService;
         this.pktService = pktService;
+        this.iconaService = iconaService;
 
         this.mastershipService = checkNotNull(masterService, "WTF!");
         this.slowPorts = Collections.synchronizedSet(new HashSet<Long>());
@@ -214,24 +222,44 @@ public class LinkDiscovery implements TimerTask {
 
         ONOSLLDP onoslldp = ONOSLLDP.parseONOSLLDP(eth);
         if (onoslldp != null) {
-            final PortNumber dstPort =
-                    context.inPacket().receivedFrom().port();
-            final PortNumber srcPort = portNumber(onoslldp.getPort());
-            final DeviceId srcDeviceId = DeviceId.deviceId(onoslldp.getDeviceString());
-            final DeviceId dstDeviceId = context.inPacket().receivedFrom().deviceId();
-            this.ackProbe(dstPort.toLong());
-            ConnectPoint src = new ConnectPoint(srcDeviceId, srcPort);
-            ConnectPoint dst = new ConnectPoint(dstDeviceId, dstPort);
+            if (ONOSLLDP.isClusterLLDP(onoslldp)) {
 
-            LinkDescription ld;
-            if (eth.getEtherType() == Ethernet.TYPE_BSN) {
-                ld = new DefaultLinkDescription(src, dst, Type.INDIRECT);
+                final PortNumber dstPort = context.inPacket().receivedFrom()
+                        .port();
+                final PortNumber srcPort = portNumber(onoslldp.getPort());
+                final DeviceId srcDeviceId = DeviceId.deviceId(onoslldp
+                        .getDeviceString());
+                final DeviceId dstDeviceId = context.inPacket().receivedFrom()
+                        .deviceId();
+                this.ackProbe(dstPort.toLong());
+                ConnectPoint src = new ConnectPoint(srcDeviceId, srcPort);
+                ConnectPoint dst = new ConnectPoint(dstDeviceId, dstPort);
+
+                LinkDescription ld;
+                if (eth.getEtherType() == Ethernet.TYPE_BSN) {
+                    ld = new DefaultLinkDescription(src, dst, Type.INDIRECT);
+                } else {
+                    ld = new DefaultLinkDescription(src, dst, Type.DIRECT);
+                }
+                linkProvider.linkDetected(ld);
+                return true;
             } else {
-                ld = new DefaultLinkDescription(src, dst, Type.DIRECT);
+                final PortNumber localPort = context.inPacket().receivedFrom()
+                        .port();
+                final PortNumber remotePort = portNumber(onoslldp.getPort());
+                final DeviceId remoteDeviceId = DeviceId.deviceId(onoslldp
+                        .getDeviceString());
+                final DeviceId localDeviceId = context.inPacket()
+                        .receivedFrom().deviceId();
+
+                iconaService.handleELLDP(onoslldp.getNameString(),
+                                         localDeviceId.uri().toString(),
+                                         localPort.toLong(), remoteDeviceId
+                                                 .uri().toString(), remotePort
+                                                 .toLong());
             }
-            linkProvider.linkDetected(ld);
-            return true;
         }
+        log.info("ONOSLLDP null!");
         return false;
     }
 
@@ -364,5 +392,6 @@ public class LinkDiscovery implements TimerTask {
     public boolean isStopped() {
         return isStopped;
     }
+
 
 }
