@@ -51,6 +51,7 @@ import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.osgi.service.component.ComponentContext;
+import org.onlab.onos.icona.IconaService;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -97,7 +98,10 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
     protected MastershipService masterService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+
     protected ComponentConfigService cfgService;
+
+    protected IconaService iconaService;
 
     private LinkProviderService providerService;
 
@@ -158,8 +162,10 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                 log.debug("LinkDiscovery from {} disabled by configuration", device.id());
                 continue;
             }
+            
             ld = new LinkDiscovery(device, packetService, masterService,
-                                   providerService, useBDDP);
+                              providerService, iconaService, useBDDP);
+
             discoverers.put(device.id(), ld);
             for (Port p : deviceService.getPorts(device.id())) {
                 if (rules.isSuppressed(p)) {
@@ -281,7 +287,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                               event.type(), deviceId);
                     discoverers.put(deviceId, new LinkDiscovery(device,
                                                                 packetService, masterService, providerService,
-                                                                useBDDP));
+                                                                iconaService, useBDDP));
                 }
             }
         }
@@ -315,7 +321,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                                       deviceId);
                             discoverers.put(deviceId, new LinkDiscovery(device,
                                                                         packetService, masterService,
-                                                                        providerService, useBDDP));
+                                                                        providerService, iconaService, useBDDP));
                         } else {
                             if (ld.isStopped()) {
                                 log.debug("Device restarted ({}) {}", event.type(),
@@ -420,7 +426,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                     synchronized (discoverers) {
                         if (!discoverers.containsKey(did)) {
                             ld = new LinkDiscovery(dev, packetService,
-                                                   masterService, providerService, useBDDP);
+                                                   masterService, providerService, iconaService, useBDDP);
                             discoverers.put(did, ld);
                             for (Port p : deviceService.getPorts(did)) {
                                 if (rules.isSuppressed(p)) {
