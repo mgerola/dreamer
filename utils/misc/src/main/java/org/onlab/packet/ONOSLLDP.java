@@ -184,7 +184,6 @@ public class ONOSLLDP extends LLDP {
         if (eth.getEtherType() == Ethernet.TYPE_LLDP ||
                 eth.getEtherType() == Ethernet.TYPE_BSN) {
            ONOSLLDP onosLldp = new ONOSLLDP((LLDP) eth.getPayload()); //(ONOSLLDP) eth.getPayload();
-           log.info("ONOS OUI ori {} and pa {}", ONOSLLDP.ONLAB_OUI, onosLldp.getOUIString());
 //           if (ONOSLLDP.ONLAB_OUI.equals(onosLldp.getOUIString())){
                    return onosLldp;
 //           }
@@ -192,10 +191,8 @@ public class ONOSLLDP extends LLDP {
         return null;
     }
 
-    public static boolean isClusterLLDP(ONOSLLDP lldp) {
-        log.info("DEF NAME orig {} and pa {}", ONOSLLDP.DEFAULT_NAME,
-                 lldp.getNameString());
-        if (ONOSLLDP.DEFAULT_NAME.equals(lldp.getNameString())) {
+    public static boolean isClusterLLDP(ONOSLLDP lldp, String clusterName) {
+        if (clusterName.equals(lldp.getNameString())) {
             return true;
         }
         return false;

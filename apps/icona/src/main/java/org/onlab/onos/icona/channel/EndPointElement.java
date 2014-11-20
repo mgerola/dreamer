@@ -1,4 +1,4 @@
-package org.onlab.onos.icona;
+package org.onlab.onos.icona.channel;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;

@@ -3,7 +3,7 @@ package org.onlab.onos.icona;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
-public class IntentEvent implements Serializable {
+public class IconaIntentEvent implements Serializable {
 
     /**
      *
@@ -38,7 +38,7 @@ public class IntentEvent implements Serializable {
         EMPTY,
     }
 
-    public IntentEvent() {
+    public IconaIntentEvent() {
     }
 
     // public IntentEvent(String clusterLeader, String pwId,
