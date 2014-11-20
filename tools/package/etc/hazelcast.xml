@@ -55,7 +55,7 @@
             </tcp-ip>
         </join>
         <interfaces enabled="true">
-            <interface>172.16.160.*</interface>
+            <interface>172.16.0.*</interface>
         </interfaces>
         <ssl enabled="false"/>
         <socket-interceptor enabled="false"/>

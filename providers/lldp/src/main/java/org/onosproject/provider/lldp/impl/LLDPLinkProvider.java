@@ -150,7 +150,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                 continue;
             }
             ld = new LinkDiscovery(device, packetSevice, masterService,
-                              providerService, iconaService, useBDDP);
+                              providerService, iconaService, iconaService.getCusterName(), useBDDP);
             discoverers.put(device.id(), ld);
             for (Port p : deviceService.getPorts(device.id())) {
                 if (rules.isSuppressed(p)) {
@@ -266,7 +266,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                             event.type(), deviceId);
                     discoverers.put(deviceId, new LinkDiscovery(device,
                             packetSevice, masterService, providerService,
-                            iconaService, useBDDP));
+                            iconaService, iconaService.getCusterName(), useBDDP));
                 }
             }
         }
@@ -386,6 +386,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
         }
     }
 
+
     private final class SyncDeviceInfoTask implements Runnable {
 
         @Override
@@ -405,7 +406,8 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                     synchronized (discoverers) {
                         if (!discoverers.containsKey(did)) {
                             ld = new LinkDiscovery(dev, packetSevice,
-                                    masterService, providerService, iconaService, useBDDP);
+                                    masterService, providerService, iconaService, 
+                                    iconaService.getCusterName(), useBDDP);
                             discoverers.put(did, ld);
                             for (Port p : deviceService.getPorts(did)) {
                                 if (rules.isSuppressed(p)) {

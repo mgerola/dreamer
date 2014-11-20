@@ -1,13 +1,9 @@
-package org.onlab.onos.icona;
+package org.onlab.onos.icona.channel;
 
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-
-import org.onlab.onos.icona.channel.EndPointElement;
-import org.onlab.onos.icona.channel.IconaTopologyElement;
-import org.onlab.onos.icona.channel.InterLinkElement;
 
 
 public class IconaTopologyEvent implements Serializable {

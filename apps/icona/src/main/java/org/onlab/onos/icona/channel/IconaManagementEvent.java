@@ -1,10 +1,10 @@
-package org.onlab.onos.icona;
+package org.onlab.onos.icona.channel;
 
 import java.io.Serializable;
 import java.util.Date;
 
 
-public class ManagementEvent implements Serializable {
+public class IconaManagementEvent implements Serializable {
 
     /**
      *
@@ -17,15 +17,15 @@ public class ManagementEvent implements Serializable {
     private Integer counter;
     private String id;
 
-    enum MessageType {
+    public enum MessageType {
         HELLO,
     }
 
-    public ManagementEvent() {
+    public IconaManagementEvent() {
 
     }
 
-    public ManagementEvent(String clusterName,
+    public IconaManagementEvent(String clusterName,
             MessageType messageType, Integer counter) {
         super();
         this.clusterName = clusterName;
