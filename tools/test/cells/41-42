@@ -1,0 +1,9 @@
+# Default ONOS Controller VM instances 1,2                 
+export OC1="10.216.160.41"
+export OC2="10.216.160.42"
+
+# for node clustering
+export ONOS_NIC=”10.216.160.*”
+ 
+# ONOS features to load
+export ONOS_FEATURES="webconsole,onos-api,onos-core,onos-cli,onos-openflow,onos-gui,onos-rest,onos-app-fwd,onos-app-proxyarp,onos-app-tvue"

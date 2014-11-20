@@ -2,7 +2,9 @@ package org.onlab.onos.icona;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
-import java.io.FileNotFoundException;
+import java.util.Date;
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -12,41 +14,23 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.onos.core.ApplicationId;
 import org.onlab.onos.core.CoreService;
+import org.onlab.onos.icona.channel.impl.InterChannel;
+import org.onlab.onos.icona.channel.impl.InterChannelService;
+import org.onlab.onos.icona.store.Cluster;
+import org.onlab.onos.icona.store.impl.IconaStore;
+import org.onlab.onos.icona.store.impl.IconaStoreService;
+import org.onlab.onos.mastership.MastershipService;
+import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.MastershipRole;
+import org.onlab.onos.net.device.DeviceEvent;
+import org.onlab.onos.net.device.DeviceListener;
 import org.onlab.onos.net.device.DeviceService;
-import com.hazelcast.config.Config;
-import com.hazelcast.config.FileSystemXmlConfig;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.core.IMap;
 
 @Component(immediate = true)
-@Service
-public class IconaManager implements IconaService {
+@Service(value = IconaService.class)
+public class IconaManager implements IconaService, DeviceListener {
 
-    private static final Logger log = getLogger(IconaManager.class);
-
-    private Config interHazelcastConfig;
-    private HazelcastInstance interHazelcastInstance;
-    public static final String ICONA_INTER_HAZELCAST_CONFIG = "conf/hazelcast-icona-inter.xml";
-
-    private Config intraHazelcastConfig;
-    private HazelcastInstance intraHazelcastInstance;
-    public static final String ICONA_INTRA_HAZELCAST_CONFIG = "conf/hazelcast-icona-intra.xml";
-
-    // Inter channels
-    // Topology channel
-    private static IMap<byte[], IconaTopologyEvent> topologyChannel;
-    public static final String ICONA_TOPOLOGY_CHANNEL_NAME = "icona.topology";
-
-    // Intent channel
-    private static IMap<byte[], IntentEvent> intentChannel;
-    public static final String ICONA_INTENT_CHANNEL_NAME = "icona.intent";
-    // Management channel
-    private IMap<String, ManagementEvent> mgmtChannel;
-
-    // Intra channel
-    // Intent and Interlink event to be notify to the master
-    private static IMap<byte[], IconaIntraEvent> intraEventChannel;
-    public static final String ICONA_PW_CHANNEL_NAME = "icona.intra";
+    private final Logger log = getLogger(getClass());
 
     // ICONA interval to send HELLO
     private static int helloInterval = 1000;
@@ -54,6 +38,10 @@ public class IconaManager implements IconaService {
     // of time
     // longer than the HELLO interval multiplied by
     // DEAD_OCCURRENCE, the cluster is considered dead.
+    private static short deadOccurence = 3;
+    private static String clusterName = "DREAMER";
+    private static InterChannelService interChannelService;
+    private static IconaStoreService storeService;
 
     private ApplicationId appId;
 
@@ -63,15 +51,19 @@ public class IconaManager implements IconaService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected DeviceService deviceService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected MastershipService mastershipService;
+
     @Activate
     public void activate() {
         appId = coreService.registerApplication("org.onlab.onos.icona");
         log.info("Started with Application ID {}", appId.id());
-        interHazelcastConfig = setHazelcastConfig("ICONA-INTER",
-                                                  ICONA_INTER_HAZELCAST_CONFIG);
+        deviceService.addListener(this);
+        storeService = new IconaStore();
+        interChannelService = new InterChannel(storeService);
+        new MgmtHandler().start();
 
-        intraHazelcastConfig = setHazelcastConfig("ICONA-INTRA",
-                                                  ICONA_INTRA_HAZELCAST_CONFIG);
+        storeService.addCluster(new Cluster(getCusterName(), new Date()));
 
     }
 
@@ -80,26 +72,112 @@ public class IconaManager implements IconaService {
         log.info("Stopped");
     }
 
-    private Config setHazelcastConfig(String instanceName, String iconaConfig) {
-        try {
-            intraHazelcastConfig = new FileSystemXmlConfig(iconaConfig);
-        } catch (FileNotFoundException e) {
-            log.error("Error opening fall back Hazelcast XML configuration. "
-                    + "File not found: " + iconaConfig, e);
-            e.printStackTrace();
-            intraHazelcastConfig = new Config();
+    @Override
+    public void handleELLDP(String remoteclusterName, DeviceId localId,
+                            long localPort, DeviceId remoteId, long remotePort) {
+
+        log.info("Received ELLDP from cluster {}: local switch DPID {} and port {} "
+                         + "and remote switch DPID {} and port {}",
+                 remoteclusterName, localId, localPort, remoteId, remotePort);
+        // Publish a new "IL add" and if an EPs exits, an "EP remove" is
+        // published
+        log.info("ClusterName {}", storeService.getCluster(remoteclusterName));
+
+        if (mastershipService.getLocalRole(localId) == MastershipRole.MASTER) {
+            if (!remoteclusterName.isEmpty() && remoteclusterName != null
+                    && storeService.getCluster(remoteclusterName) != null) {
+                if (storeService.getInterLink(localId, localPort) == null) {
+                    manageInterLinkAdded(remoteclusterName, localId, localPort,
+                                         remoteId, remotePort);
+                }
+            } else {
+                log.debug("Received an LLDP from another ONOS cluster {} not actually registered with ICONA",
+                          remoteclusterName);
+            }
         }
-        intraHazelcastConfig.setInstanceName(instanceName);
-        return interHazelcastConfig;
+
     }
 
     @Override
-    public void handleELLDP(String remoteclusterName, String localDpid,
-                            long localPort, String remoteDpid, long remotePort) {
+    public String getCusterName() {
+        return clusterName;
+    }
 
-        log.info("Received LLDP from cluster {}: local switch DPID {} and port {} "
-                + "and remote switch DPID {} and port {}",
-                 remoteclusterName, localDpid, localPort, remoteDpid,
-                 remotePort);
+    @Override
+    public void event(DeviceEvent event) {
+        switch (event.type()) {
+        case DEVICE_ADDED:
+            if (MastershipRole.MASTER == mastershipService.getLocalRole(event
+                    .subject().id())) {
+
+            } else {
+
+            }
+            break;
+        // case DEVICE_AVAILABILITY_CHANGED:
+        // break;
+        // case DEVICE_MASTERSHIP_CHANGED:
+        // break;
+        case DEVICE_REMOVED:
+            break;
+        // case DEVICE_SUSPENDED:
+        // break;
+        // case DEVICE_UPDATED:
+        // break;
+        case PORT_ADDED:
+            break;
+        case PORT_REMOVED:
+            break;
+        case PORT_UPDATED:
+
+            break;
+        default:
+            break;
+
+        }
+    }
+
+    class MgmtHandler extends Thread {
+
+        @Override
+        public void run() {
+            // TODO: to be changed: add new hello is equal to update. I do not
+            // need to remove previousHello and maybe I can use a simpler index
+
+            // TODO: manage mastership! We cannot use the swtiches master...
+            while (true) {
+                try {
+                    interChannelService.helloManagement(new Date(),
+                                                        getCusterName());
+                    List<Cluster> oldCluster = storeService
+                            .remOldCluster(helloInterval * deadOccurence);
+                    if (oldCluster != null) {
+                        for (Cluster cluster : oldCluster) {
+                            log.warn("Cluster {} is down: no HELLO received in the last {} milliseconds",
+                                     cluster.getClusterName(), helloInterval
+                                             * deadOccurence);
+                        }
+                        // TODO: clean all info of the cluster: destroy
+                        // ILs between this cluster and
+                        // the dead one, remove all EPs.
+                    }
+
+                    Thread.sleep(helloInterval);
+                } catch (InterruptedException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+
+            }
+        }
+    }
+
+    private void manageInterLinkAdded(String dstClusterName, DeviceId localId,
+                                      long srcPort, DeviceId remoteId,
+                                      long dstPort) {
+
+        interChannelService.addInterLinkEvent(clusterName, dstClusterName,
+                                              localId, srcPort, remoteId,
+                                              dstPort);
     }
 }

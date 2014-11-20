@@ -1,8 +1,12 @@
 package org.onlab.onos.icona;
 
+import org.onlab.onos.net.DeviceId;
+
 public interface IconaService {
 
-    void handleELLDP(String remoteclusterName, String localDpid,
-                     long localPort, String remoteDpid, long remotePort);
 
+    public String getCusterName();
+
+    void handleELLDP(String remoteclusterName, DeviceId localDpid, long localPort,
+                     DeviceId remoteDpid, long remotePort);
 }
