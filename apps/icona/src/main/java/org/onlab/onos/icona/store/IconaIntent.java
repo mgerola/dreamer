@@ -3,18 +3,18 @@ package org.onlab.onos.icona.store;
 import java.util.Date;
 
 import org.onlab.onos.icona.store.PseudoWire.PathInstallationStatus;
-
-
+import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.PortNumber;
 
 public class IconaIntent {
 
     private String dstClusterName;
 
-    private long srcDpid;
-    private int srcPort;
+    private DeviceId srcId;
+    private PortNumber srcPort;
 
-    private long dstDpid;
-    private int dstPort;
+    private DeviceId dstId;
+    private PortNumber dstPort;
 
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
@@ -22,14 +22,15 @@ public class IconaIntent {
     private String srcMacAddress;
     private String dstMacAddress;
 
-    public IconaIntent(String dstCluster, long srcDpid, int srcPort, long dstDpid,
-            int dstPort, PathInstallationStatus installationStatus, String srcMacAddress,
-            String dstMacAddress) {
+    public IconaIntent(String dstCluster, String srcDpid, long srcPort,
+                       String dstDpid, long dstPort,
+                       PathInstallationStatus installationStatus,
+                       String srcMacAddress, String dstMacAddress) {
         this.dstClusterName = dstCluster;
-        this.srcDpid = srcDpid;
-        this.srcPort = srcPort;
-        this.dstDpid = dstDpid;
-        this.dstPort = dstPort;
+        this.srcId = DeviceId.deviceId(srcDpid);
+        this.srcPort = PortNumber.portNumber(srcPort);
+        this.dstId = DeviceId.deviceId(dstDpid);
+        this.dstPort = PortNumber.portNumber(dstPort);
         this.installationStatus = installationStatus;
         this.lastStatusUpdate = new Date();
 
@@ -38,34 +39,34 @@ public class IconaIntent {
 
     }
 
-    public IconaIntent(EndPoint srcEndPoint, EndPoint dstEndPoint,
-            PathInstallationStatus installationStatus, String srcMacAddress,
-            String dstMacAddress) {
-        this.dstClusterName = srcEndPoint.getClusterName();
-        this.srcDpid = srcEndPoint.getDpid();
-        this.srcPort = srcEndPoint.getPort();
-        this.dstDpid = dstEndPoint.getDpid();
-        this.dstPort = dstEndPoint.getPort();
-        this.installationStatus = installationStatus;
-        this.lastStatusUpdate = new Date();
+    // public IconaIntent(EndPoint srcEndPoint, EndPoint dstEndPoint,
+    // PathInstallationStatus installationStatus, String srcMacAddress,
+    // String dstMacAddress) {
+    // this.dstClusterName = srcEndPoint.getClusterName();
+    // this.srcDpid = srcEndPoint.getDpid();
+    // this.srcPort = srcEndPoint.getPort();
+    // this.dstDpid = dstEndPoint.getDpid();
+    // this.dstPort = dstEndPoint.getPort();
+    // this.installationStatus = installationStatus;
+    // this.lastStatusUpdate = new Date();
+    //
+    // this.srcMacAddress = srcMacAddress;
+    // this.dstMacAddress = dstMacAddress;
+    // }
 
-        this.srcMacAddress = srcMacAddress;
-        this.dstMacAddress = dstMacAddress;
+    public DeviceId getSrcId() {
+        return srcId;
     }
 
-    public long getSrcDpid() {
-        return srcDpid;
-    }
-
-    public int getSrcPort() {
+    public PortNumber getSrcPort() {
         return srcPort;
     }
 
-    public long getDstDpid() {
-        return dstDpid;
+    public DeviceId getDstId() {
+        return dstId;
     }
 
-    public int getDstPort() {
+    public PortNumber getDstPort() {
         return dstPort;
     }
 
@@ -96,10 +97,11 @@ public class IconaIntent {
 
     @Override
     public String toString() {
-        return "IconaIntent [dstClusterName=" + dstClusterName + ", srcDpid=" + srcDpid
-                + ", srcPort=" + srcPort + ", dstDpid=" + dstDpid + ", dstPort="
-                + dstPort + ", installationStatus=" + installationStatus
-                + ", lastStatusUpdate=" + lastStatusUpdate + "]";
+        return "IconaIntent [dstClusterName=" + dstClusterName + ", srcDpid="
+                + srcId + ", srcPort=" + srcPort + ", dstDpid=" + dstId
+                + ", dstPort=" + dstPort + ", installationStatus="
+                + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate
+                + "]";
     }
 
 }

@@ -12,23 +12,18 @@ public class PseudoWire {
     // private Map<String, PathInstallationStatus> clusterIntentStatusMap;
     private Map<String, IconaIntent> clusterIntentMap;
 
-
     // private InterClusterPath interClusterPath;
 
-    public enum PathInstallationStatus{
-        RECEIVED,
-        INITIALIZED,
-        RESERVED,
-        COMMITTED,
-        INSTALLED,
+    public enum PathInstallationStatus {
+        RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
 
     }
 
     public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint) {
         this.dstEndPoint = dstEndPoint;
         this.srcEndPoint = srcEndPoint;
-        this.pseudoWireId = srcEndPoint.getDpid() + "/" + srcEndPoint.getPort() + "-"
-                + dstEndPoint.getDpid() + "/" + dstEndPoint.getPort();
+        this.pseudoWireId = srcEndPoint.getId() + "/" + srcEndPoint.getPort()
+                + "-" + dstEndPoint.getId() + "/" + dstEndPoint.getPort();
         this.pwStatus = PathInstallationStatus.RECEIVED;
         this.clusterIntentMap = new HashMap<String, IconaIntent>();
     }
@@ -42,9 +37,10 @@ public class PseudoWire {
     }
 
     public void setIntentStatus(String clusterName,
-            PathInstallationStatus installationStatus) {
+                                PathInstallationStatus installationStatus) {
         if (clusterIntentMap.get(clusterName) != null) {
-            clusterIntentMap.get(clusterName).setInstallationStatus(installationStatus);
+            clusterIntentMap.get(clusterName)
+                    .setInstallationStatus(installationStatus);
         }
     }
 
@@ -70,9 +66,10 @@ public class PseudoWire {
 
     @Override
     public String toString() {
-        return "PseudoWire [srcEndPoint=" + srcEndPoint + ", dstEndPoint=" + dstEndPoint
-                + ", pseudoWireId=" + pseudoWireId + ", pwStatus=" + pwStatus
-                + ", clusterIntentMap=" + clusterIntentMap + "]";
+        return "PseudoWire [srcEndPoint=" + srcEndPoint + ", dstEndPoint="
+                + dstEndPoint + ", pseudoWireId=" + pseudoWireId
+                + ", pwStatus=" + pwStatus + ", clusterIntentMap="
+                + clusterIntentMap + "]";
     }
 
 }

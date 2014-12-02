@@ -406,7 +406,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                     synchronized (discoverers) {
                         if (!discoverers.containsKey(did)) {
                             ld = new LinkDiscovery(dev, packetSevice,
-                                    masterService, providerService, iconaService, 
+                                    masterService, providerService, iconaService,
                                     iconaService.getCusterName(), useBDDP);
                             discoverers.put(did, ld);
                             for (Port p : deviceService.getPorts(did)) {

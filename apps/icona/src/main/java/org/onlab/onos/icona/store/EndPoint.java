@@ -1,25 +1,25 @@
 package org.onlab.onos.icona.store;
 
-
-
+import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.PortNumber;
 
 public class EndPoint {
 
     private String clusterName;
-    long dpid;
-    int port;
+    private DeviceId id;
+    private PortNumber port;
 
-    public EndPoint(String clusterName, long dpid, int port) {
+    public EndPoint(String clusterName, String dpid, long port) {
         this.clusterName = clusterName;
-        this.dpid = dpid;
-        this.port = port;
+        this.id = DeviceId.deviceId(dpid);
+        this.port = PortNumber.portNumber(port);
     }
 
-    public long getDpid() {
-        return dpid;
+    public DeviceId getId() {
+        return id;
     }
 
-    public int getPort() {
+    public PortNumber getPort() {
         return port;
     }
 
@@ -29,7 +29,7 @@ public class EndPoint {
 
     @Override
     public String toString() {
-        return "EndPoint [clusterName=" + clusterName + ", dpid=" + dpid + ", port="
-                + port + "]";
+        return "EndPoint [clusterName=" + clusterName + ", dpid=" + id
+                + ", port=" + port + "]";
     }
 }

@@ -5,7 +5,6 @@ import java.nio.ByteBuffer;
 
 public abstract class IconaIntraElement<T> implements Serializable {
 
-
     /**
      *
      */

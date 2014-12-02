@@ -3,35 +3,35 @@ package org.onlab.onos.icona.channel;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
-public class EndPointElement extends IconaTopologyElement<EndPointElement> implements
-        Serializable {
+import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.PortNumber;
+
+public class EndPointElement extends IconaTopologyElement<EndPointElement>
+        implements Serializable {
 
     /**
      *
      */
     private static final long serialVersionUID = -8487845250398385171L;
 
-    private long dpid;
-    private int port;
+    private String dpid;
+    private long port;
 
     // TODO: metrics ILs
 
-    public EndPointElement(long dpid, int portNumber) {
-        this.dpid = dpid;
-        this.port = portNumber;
+    public EndPointElement(DeviceId dpid, PortNumber portNumber) {
+        this.dpid = dpid.toString();
+        this.port = portNumber.toLong();
 
     }
 
-    public long getDpid() {
+    public String getDpid() {
         return dpid;
     }
 
-    public int getPortNumber() {
+    public long getPortNumber() {
         return port;
     }
-
-
-
 
     @Override
     public String toString() {
@@ -43,12 +43,10 @@ public class EndPointElement extends IconaTopologyElement<EndPointElement> imple
         return getEndPointLink(this.dpid, this.port);
     }
 
-    public static ByteBuffer getEndPointLink(long dpid, int port) {
-        return (ByteBuffer) ByteBuffer
-                .allocate(Long.SIZE + Character.SIZE + Integer.SIZE)
-                .putChar('E')
-                .putLong(dpid)
-                .putInt(port).flip();
+    public static ByteBuffer getEndPointLink(String dpid, long port) {
+        return (ByteBuffer) ByteBuffer.allocate(2 * Long.SIZE + Character.SIZE)
+                .putChar('E').putLong(Long.parseLong(dpid.split(":")[1], 16))
+                .putLong(port).flip();
     }
 
 }

@@ -2,7 +2,8 @@ package org.onlab.onos.icona;
 
 import java.nio.ByteBuffer;
 
-public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireElement> {
+public class IntraPseudoWireElement
+        extends IconaIntraElement<IntraPseudoWireElement> {
 
     // private String srcClusterName;
     // private String dstClusterName;
@@ -19,15 +20,14 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
     private IntentUpdateType intentUpdateType;
 
     public enum IntentUpdateType {
-        INSTALL,
-        DELETE,
+        INSTALL, DELETE,
     }
 
     public IntraPseudoWireElement() {
     }
 
-    public IntraPseudoWireElement(long srcDpid, int srcPort, long dstDpid, int dstPort,
-            IntentUpdateType intentUpdateType) {
+    public IntraPseudoWireElement(long srcDpid, int srcPort, long dstDpid,
+                                  int dstPort, IntentUpdateType intentUpdateType) {
         this.srcDpid = srcDpid;
         this.srcPort = srcPort;
         this.dstDpid = dstDpid;
@@ -35,8 +35,10 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
         this.intentUpdateType = intentUpdateType;
     }
 
-    public IntraPseudoWireElement(long srcDpid, int srcPort, long dstDpid, int dstPort,
-            IntentUpdateType intentUpdateType, String srcMacAddress, String dstMacAddress) {
+    public IntraPseudoWireElement(long srcDpid, int srcPort, long dstDpid,
+                                  int dstPort,
+                                  IntentUpdateType intentUpdateType,
+                                  String srcMacAddress, String dstMacAddress) {
         this.srcDpid = srcDpid;
         this.srcPort = srcPort;
         this.dstDpid = dstDpid;
@@ -78,12 +80,13 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
     @Override
     ByteBuffer getIDasByteBuffer() {
 
-        return getIntentElementId(this.srcDpid, this.srcPort, this.dstDpid, this.dstPort,
-                this.intentUpdateType);
+        return getIntentElementId(this.srcDpid, this.srcPort, this.dstDpid,
+                                  this.dstPort, this.intentUpdateType);
     }
 
     public static ByteBuffer getIntentElementId(long srcDpid, int srcPort,
-            long dstDpid, int dstPort, IntentUpdateType intentType) {
+                                                long dstDpid, int dstPort,
+                                                IntentUpdateType intentType) {
         char type = 0;
         switch (intentType) {
         case DELETE:
@@ -97,20 +100,15 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
         }
         return (ByteBuffer) ByteBuffer
                 .allocate(2 * Character.SIZE + 2 * Long.SIZE + 2 * Integer.SIZE)
-                .putChar('W')
-                .putChar(type)
-                .putLong(srcDpid)
-                .putInt(srcPort)
-                .putLong(dstDpid)
-                .putInt(dstPort)
-                .flip();
+                .putChar('W').putChar(type).putLong(srcDpid).putInt(srcPort)
+                .putLong(dstDpid).putInt(dstPort).flip();
     }
 
     @Override
     public String toString() {
         return "IntentElement [srcDPID=" + srcDpid + ", srcPort=" + srcPort
-                + ", dstDPID=" + dstDpid + ", dstPort=" + dstPort + ", intentUpdateType="
-                + intentUpdateType + "]";
+                + ", dstDPID=" + dstDpid + ", dstPort=" + dstPort
+                + ", intentUpdateType=" + intentUpdateType + "]";
     }
 
 }

@@ -6,7 +6,7 @@ import java.util.Date;
 
 import org.onlab.onos.icona.channel.IconaManagementEvent;
 import org.onlab.onos.icona.store.Cluster;
-import org.onlab.onos.icona.store.impl.IconaStoreService;
+import org.onlab.onos.icona.store.IconaStoreService;
 import org.slf4j.Logger;
 
 import com.hazelcast.core.EntryEvent;
@@ -34,7 +34,7 @@ public class IconaMgmtListener
             return;
         }
         storeService.addCluster(new Cluster(update.getValue().getClusterName(),
-                                           new Date()));
+                                            new Date()));
 
         log.info("Added cluster {} ", update.getValue().getClusterName());
 

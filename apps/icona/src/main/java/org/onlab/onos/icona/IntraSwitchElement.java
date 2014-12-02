@@ -30,7 +30,8 @@ public class IntraSwitchElement extends IconaIntraElement<IntraSwitchElement> {
         return getSwElementId(this.dpid, this.swUpdateType);
     }
 
-    public static ByteBuffer getSwElementId(long dpid, SwUpdateType linkUpdateType) {
+    public static ByteBuffer getSwElementId(long dpid,
+                                            SwUpdateType linkUpdateType) {
         char type = 0;
         switch (linkUpdateType) {
         case DISCONNETED:
@@ -39,18 +40,14 @@ public class IntraSwitchElement extends IconaIntraElement<IntraSwitchElement> {
         default:
             break;
         }
-        return (ByteBuffer) ByteBuffer
-                .allocate(Character.SIZE + Long.SIZE)
-                .putChar('S')
-                .putChar(type)
-                .putLong(dpid)
-                .flip();
+        return (ByteBuffer) ByteBuffer.allocate(Character.SIZE + Long.SIZE)
+                .putChar('S').putChar(type).putLong(dpid).flip();
     }
 
     @Override
     public String toString() {
-        return "IntraSwitchElement [dpid=" + dpid + ", swUpdateType=" + swUpdateType
-                + "]";
+        return "IntraSwitchElement [dpid=" + dpid + ", swUpdateType="
+                + swUpdateType + "]";
     }
 
 }

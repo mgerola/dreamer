@@ -13,9 +13,8 @@ public class InterLink {
     private DeviceId dstDpid;
     private PortNumber dstPort;
 
-
-    public InterLink(String srcClusterName, String dstClusterName, String srcDpid,
-             Long srcPort, String dstDpid, Long dstPort) {
+    public InterLink(String srcClusterName, String dstClusterName,
+                     String srcDpid, Long srcPort, String dstDpid, Long dstPort) {
         this.srcDpid = DeviceId.deviceId(srcDpid);
         this.srcPort = PortNumber.portNumber(srcPort);
         this.srcClusterName = srcClusterName;
@@ -25,7 +24,7 @@ public class InterLink {
         this.dstClusterName = dstClusterName;
     }
 
-    public DeviceId getSrcDpid() {
+    public DeviceId getSrcId() {
         return srcDpid;
     }
 
@@ -33,7 +32,7 @@ public class InterLink {
         return srcPort;
     }
 
-    public DeviceId getDstDpid() {
+    public DeviceId getDstId() {
         return dstDpid;
     }
 
@@ -49,13 +48,12 @@ public class InterLink {
         return dstClusterName;
     }
 
-
     @Override
     public String toString() {
-        return "InterLink [localClusterName=" + srcClusterName + ", remoteClusterName="
-                + dstClusterName + ", localDpid=" + srcDpid + ", localPort="
-                + srcPort + ", remoteDpid=" + dstDpid + ", remotePort=" + dstPort
-                + "]";
+        return "InterLink [localClusterName=" + srcClusterName
+                + ", remoteClusterName=" + dstClusterName + ", localDpid="
+                + srcDpid + ", localPort=" + srcPort + ", remoteDpid="
+                + dstDpid + ", remotePort=" + dstPort + "]";
     }
 
 }
