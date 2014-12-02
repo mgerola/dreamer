@@ -1,10 +1,8 @@
 package org.onlab.onos.icona.channel;
 
-
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-
 
 public class IconaTopologyEvent implements Serializable {
     /**
@@ -16,11 +14,11 @@ public class IconaTopologyEvent implements Serializable {
     private String clusterName;
 
     public enum ElementType {
-        ENDPOINT,
-        INTERLINK,
+        ENDPOINT, INTERLINK,
     }
 
-    public IconaTopologyEvent(EndPointElement entryPointElement, String clusterName) {
+    public IconaTopologyEvent(EndPointElement entryPointElement,
+                              String clusterName) {
         super();
         this.elementType = ElementType.ENDPOINT;
         this.topologyElement = entryPointElement;
@@ -31,7 +29,8 @@ public class IconaTopologyEvent implements Serializable {
 
     }
 
-    public IconaTopologyEvent(InterLinkElement interLinkElement, String clusterName) {
+    public IconaTopologyEvent(InterLinkElement interLinkElement,
+                              String clusterName) {
         super();
         this.elementType = ElementType.INTERLINK;
         this.topologyElement = interLinkElement;
@@ -75,11 +74,10 @@ public class IconaTopologyEvent implements Serializable {
 
         element = topologyElement.getIDasByteBuffer();
 
-        byte[] cluster =
-                ("@" + clusterName).getBytes(StandardCharsets.UTF_8);
+        byte[] cluster = ("@" + clusterName).getBytes(StandardCharsets.UTF_8);
 
-        ByteBuffer buf =
-                ByteBuffer.allocate(element.capacity() + cluster.length);
+        ByteBuffer buf = ByteBuffer.allocate(element.capacity()
+                + cluster.length);
         buf.put(element);
         buf.put(cluster);
         buf.flip();
@@ -89,8 +87,7 @@ public class IconaTopologyEvent implements Serializable {
     @Override
     public String toString() {
         return "IconaTopologyElement [" + "localCluster=" + clusterName
-                + "elementType=" + elementType
-                + "+ topologyElement="
+                + "elementType=" + elementType + "+ topologyElement="
                 + topologyElement.toString() + "]";
     }
 

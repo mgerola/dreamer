@@ -15,12 +15,10 @@ public class BitSetIndex {
 
     public enum IndexType {
 
-        MGMT_CHANNEL((int) Math.pow(2, 5)),
-        INTENT_ID((int) Math.pow(2, 64));
+        MGMT_CHANNEL((int) Math.pow(2, 5)), INTENT_ID((int) Math.pow(2, 64));
         // TOPOLOGY_CHANNEL((int) Math.pow(2, 64)),
         // INTENT_CHANNEL((int) Math.pow(2, 64)),
         // PSEUDOWIRE_CHANNEL((int) Math.pow(2, 64));
-
 
         protected Integer value;
 
@@ -64,7 +62,6 @@ public class BitSetIndex {
         }
         return index;
     }
-
 
     public synchronized boolean releaseIndex(Integer index) {
         if (this.set.get(index)) {

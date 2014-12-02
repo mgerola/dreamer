@@ -3,7 +3,6 @@ package org.onlab.onos.icona.channel;
 import java.io.Serializable;
 import java.util.Date;
 
-
 public class IconaManagementEvent implements Serializable {
 
     /**
@@ -25,8 +24,8 @@ public class IconaManagementEvent implements Serializable {
 
     }
 
-    public IconaManagementEvent(String clusterName,
-            MessageType messageType, Integer counter) {
+    public IconaManagementEvent(String clusterName, MessageType messageType,
+                                Integer counter) {
         super();
         this.clusterName = clusterName;
         this.messageType = messageType;
@@ -34,7 +33,6 @@ public class IconaManagementEvent implements Serializable {
         this.counter = counter;
         this.id = clusterName + "-" + counter;
     }
-
 
     public String getClusterName() {
         return clusterName;

@@ -243,7 +243,6 @@
             <feature name="onos-app-icona" version="1.0.0"
              description="ICONA application">
         <bundle>mvn:org.onlab.onos/onos-app-icona/1.0.0-SNAPSHOT</bundle>
-
     </feature>
     
 

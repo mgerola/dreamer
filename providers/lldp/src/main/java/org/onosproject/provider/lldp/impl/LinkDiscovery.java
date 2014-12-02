@@ -210,7 +210,6 @@ public class LinkDiscovery implements TimerTask {
     /**
      * Handles an incoming LLDP packet. Creates link in topology and sends ACK
      * to port where LLDP originated.
-     * 
      * @param context packet context
      * @return true if handled
      */
@@ -255,9 +254,9 @@ public class LinkDiscovery implements TimerTask {
                 // started
                 iconaService.handleELLDP(onoslldp.getNameString(),
                                          localDeviceId,
-                                         localPort.toLong(),
+                                         localPort,
                                          remoteDeviceId,
-                                         remotePort.toLong());
+                                         remotePort);
             }
         }
         return false;

@@ -3,6 +3,7 @@ package org.onlab.onos.icona.channel;
 import java.nio.ByteBuffer;
 
 import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.PortNumber;
 
 public class InterLinkElement extends IconaTopologyElement<InterLinkElement> {
 
@@ -16,13 +17,14 @@ public class InterLinkElement extends IconaTopologyElement<InterLinkElement> {
     private String remoteId;
     private long remotePort;
 
-    public InterLinkElement(String remoteClusterName, DeviceId srcDpid, long srcPort,
-                            DeviceId dstDpid, long dstPort) {
+    public InterLinkElement(String remoteClusterName, DeviceId srcDpid,
+                            PortNumber srcPort, DeviceId dstDpid,
+                            PortNumber dstPort) {
         this.remoteClusterName = remoteClusterName;
         this.localId = srcDpid.toString();
-        this.localPort = srcPort;
+        this.localPort = srcPort.toLong();
         this.remoteId = dstDpid.toString();
-        this.remotePort = dstPort;
+        this.remotePort = dstPort.toLong();
     }
 
     public String getLocalId() {
@@ -45,33 +47,29 @@ public class InterLinkElement extends IconaTopologyElement<InterLinkElement> {
         return remotePort;
     }
 
-
     @Override
     public ByteBuffer getIDasByteBuffer() {
         return getInterLinkId(this.localId, this.localPort, this.remoteId,
-                this.remotePort);
+                              this.remotePort);
     }
 
-    public static ByteBuffer getInterLinkId(String localId, long localPort, String remoteId,
-            long remotePort) {
+    public static ByteBuffer getInterLinkId(String localId, long localPort,
+                                            String remoteId, long remotePort) {
 
-
-        //TODO: to be fixed!
-        return (ByteBuffer) ByteBuffer
-                .allocate(Character.SIZE + 4 * Long.SIZE)
+        return (ByteBuffer) ByteBuffer.allocate(Character.SIZE + 4 * Long.SIZE)
                 .putChar('I')
-                .putLong(Long.parseLong(localId.split(":")[1],16))
+                .putLong(Long.parseLong(localId.split(":")[1], 16))
                 .putLong(localPort)
-                .putLong(Long.parseLong(remoteId.split(":")[1],16))
-                .putLong(remotePort)
-                .flip();
+                .putLong(Long.parseLong(remoteId.split(":")[1], 16))
+                .putLong(remotePort).flip();
     }
 
     @Override
     public String toString() {
-        return "InterLinkEvent [remoteClusterName=" + remoteClusterName + ", localDpid="
-                + localId + ", localPort=" + localPort + ", remoteDpid=" + remoteId
-                + ", remotePort=" + remotePort + "]";
+        return "InterLinkEvent [remoteClusterName=" + remoteClusterName
+                + ", localDpid=" + localId + ", localPort=" + localPort
+                + ", remoteDpid=" + remoteId + ", remotePort=" + remotePort
+                + "]";
     }
 
 }
