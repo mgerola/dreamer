@@ -5,5 +5,4 @@
  * @author michele
  *
  */
-package org.onlab.onos.icona.utils;
-
+package org.onlab.onos.icona.impl;

@@ -5,6 +5,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.io.FileNotFoundException;
 
 import org.onlab.onos.icona.IconaIntraEvent;
+import org.onlab.onos.icona.channel.IntraChannelService;
+import org.onlab.onos.icona.store.IconaStoreService;
 import org.slf4j.Logger;
 
 import com.hazelcast.config.Config;
@@ -13,7 +15,7 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
 
-public class IntraChannel {
+public class IntraChannel implements IntraChannelService {
 
     private final Logger log = getLogger(getClass());
     private Config intraHazelcastConfig;
@@ -24,7 +26,7 @@ public class IntraChannel {
     private static IMap<byte[], IconaIntraEvent> intraEventChannel;
     public static final String ICONA_PW_CHANNEL_NAME = "icona.intra";
 
-    public IntraChannel() {
+    public IntraChannel(IconaStoreService storeService) {
         try {
             intraHazelcastConfig = new FileSystemXmlConfig(
                                                            ICONA_INTRA_HAZELCAST_CONFIG);
@@ -36,11 +38,17 @@ public class IntraChannel {
         }
         intraHazelcastConfig.setInstanceName("ICONA-INTRA");
 
-        //TODO: check why it is needed...
+        // TODO: check why it is needed...
         ClassLoader classLoader = this.getClass().getClassLoader();
         this.intraHazelcastConfig.setClassLoader(classLoader);
 
         intraHazelcastInstance = Hazelcast
                 .getOrCreateHazelcastInstance(intraHazelcastConfig);
+    }
+
+    @Override
+    public void addNonLoSo() {
+        // TODO Auto-generated method stub
+
     }
 }

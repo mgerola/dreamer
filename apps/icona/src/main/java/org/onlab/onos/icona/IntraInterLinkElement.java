@@ -2,7 +2,8 @@ package org.onlab.onos.icona;
 
 import java.nio.ByteBuffer;
 
-public class IntraInterLinkElement extends IconaIntraElement<IntraInterLinkElement> {
+public class IntraInterLinkElement
+        extends IconaIntraElement<IntraInterLinkElement> {
 
     private String srcClusterName;
     private String dstClusterName;
@@ -19,7 +20,8 @@ public class IntraInterLinkElement extends IconaIntraElement<IntraInterLinkEleme
     // }
 
     public IntraInterLinkElement(String srcClusterName, String dstClusterName,
-            long srcDpid, int srcPort, long dstDpid, int dstPort) {
+                                 long srcDpid, int srcPort, long dstDpid,
+                                 int dstPort) {
         // InterLinkUpdateType interLinkUpdateType) {
         this.srcClusterName = srcClusterName;
         this.dstClusterName = dstClusterName;
@@ -59,27 +61,24 @@ public class IntraInterLinkElement extends IconaIntraElement<IntraInterLinkEleme
 
     @Override
     ByteBuffer getIDasByteBuffer() {
-        return getInterLinkId(this.srcDpid, this.srcPort, this.dstDpid, this.dstPort);
+        return getInterLinkId(this.srcDpid, this.srcPort, this.dstDpid,
+                              this.dstPort);
     }
 
-    public static ByteBuffer getInterLinkId(
-            long srcDpid, int srcPort, long dstDpid, int dstPort) {
+    public static ByteBuffer getInterLinkId(long srcDpid, int srcPort,
+                                            long dstDpid, int dstPort) {
         return (ByteBuffer) ByteBuffer
                 .allocate(Character.SIZE + 2 * Long.SIZE + 2 * Integer.SIZE)
-                .putChar('I')
-                .putLong(srcDpid)
-                .putInt(srcPort)
-                .putLong(dstDpid)
-                .putInt(dstPort)
-                .flip();
+                .putChar('I').putLong(srcDpid).putInt(srcPort).putLong(dstDpid)
+                .putInt(dstPort).flip();
     }
 
     @Override
     public String toString() {
         return "LocalInterLinkElement [srcClusterName=" + srcClusterName
                 + ", dstClusterName=" + dstClusterName + ", srcDpid=" + srcDpid
-                + ", srcPort=" + srcPort + ", dstDpid=" + dstDpid + ", dstPort="
-                + dstPort + "]";
+                + ", srcPort=" + srcPort + ", dstDpid=" + dstDpid
+                + ", dstPort=" + dstPort + "]";
     }
 
 }

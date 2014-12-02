@@ -27,15 +27,11 @@ public class IconaIntentEvent implements Serializable {
     private String dstMacAddress;
 
     enum IntentRequestType {
-        RESERVE,
-        INSTALL,
-        DELETE,
+        RESERVE, INSTALL, DELETE,
     }
 
     enum IntentReplayType {
-        ACK,
-        NACK,
-        EMPTY,
+        ACK, NACK, EMPTY,
     }
 
     public IconaIntentEvent() {

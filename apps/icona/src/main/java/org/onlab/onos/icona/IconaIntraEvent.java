@@ -4,8 +4,6 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
-
-
 public class IconaIntraEvent implements Serializable {
 
     /**
@@ -18,11 +16,9 @@ public class IconaIntraEvent implements Serializable {
     private String onosInstanceId;
 
     public enum IntraType {
-        PSEUDOWIRE,
-        INTERLINK,
-        //PORT,
-        LINK,
-        SWITCH,
+        PSEUDOWIRE, INTERLINK,
+        // PORT,
+        LINK, SWITCH,
 
     }
 
@@ -31,7 +27,7 @@ public class IconaIntraEvent implements Serializable {
     }
 
     public IconaIntraEvent(IntraPseudoWireElement intentElement,
-            String onosInstanceId) {
+                           String onosInstanceId) {
         super();
         this.intraType = IntraType.PSEUDOWIRE;
         this.intraElement = intentElement;
@@ -39,23 +35,22 @@ public class IconaIntraEvent implements Serializable {
     }
 
     public IconaIntraEvent(IntraInterLinkElement linkElement,
-            String onosInstanceId) {
+                           String onosInstanceId) {
         super();
         this.intraType = IntraType.INTERLINK;
         this.intraElement = linkElement;
         this.onosInstanceId = onosInstanceId;
     }
 
-//    public IconaIntraEvent(IntraPortElement portElement,
-//            String onosInstanceId) {
-//        super();
-//        this.intraType = IntraType.PORT;
-//        this.intraElement = portElement;
-//        this.onosInstanceId = onosInstanceId;
-//    }
+    // public IconaIntraEvent(IntraPortElement portElement,
+    // String onosInstanceId) {
+    // super();
+    // this.intraType = IntraType.PORT;
+    // this.intraElement = portElement;
+    // this.onosInstanceId = onosInstanceId;
+    // }
 
-    public IconaIntraEvent(IntraLinkElement linkElement,
-            String onosInstanceId) {
+    public IconaIntraEvent(IntraLinkElement linkElement, String onosInstanceId) {
         super();
         this.intraType = IntraType.LINK;
         this.intraElement = linkElement;
@@ -63,7 +58,7 @@ public class IconaIntraEvent implements Serializable {
     }
 
     public IconaIntraEvent(IntraSwitchElement switchElement,
-            String onosInstanceId) {
+                           String onosInstanceId) {
         super();
         this.intraType = IntraType.SWITCH;
         this.intraElement = switchElement;
@@ -86,13 +81,13 @@ public class IconaIntraEvent implements Serializable {
         return localPseudoWireElement;
     }
 
-//    public IntraPortElement getInterPortElement() {
-//        if (this.intraType != IntraType.PORT) {
-//            return null;
-//        }
-//        IntraPortElement portElement = (IntraPortElement) this.intraElement;
-//        return portElement;
-//    }
+    // public IntraPortElement getInterPortElement() {
+    // if (this.intraType != IntraType.PORT) {
+    // return null;
+    // }
+    // IntraPortElement portElement = (IntraPortElement) this.intraElement;
+    // return portElement;
+    // }
 
     public IntraLinkElement getIntraLinkElement() {
         if (this.intraType != IntraType.LINK) {
@@ -123,11 +118,11 @@ public class IconaIntraEvent implements Serializable {
 
         element = intraElement.getIDasByteBuffer();
 
-        byte[] instanceId =
-                ("@" + onosInstanceId).getBytes(StandardCharsets.UTF_8);
+        byte[] instanceId = ("@" + onosInstanceId)
+                .getBytes(StandardCharsets.UTF_8);
 
-        ByteBuffer buf =
-                ByteBuffer.allocate(element.capacity() + instanceId.length);
+        ByteBuffer buf = ByteBuffer.allocate(element.capacity()
+                + instanceId.length);
         buf.put(element);
         buf.put(instanceId);
         buf.flip();

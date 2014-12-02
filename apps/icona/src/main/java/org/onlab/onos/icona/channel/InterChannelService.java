@@ -1,0 +1,33 @@
+package org.onlab.onos.icona.channel;
+
+import java.util.Date;
+
+import org.onlab.onos.net.DeviceId;
+import org.onlab.onos.net.PortNumber;
+
+public interface InterChannelService {
+
+    public void addInterLinkEvent(String srcClusterName, String dstClusterName,
+                                  DeviceId srcId, PortNumber srcPort,
+                                  DeviceId dstId, PortNumber dstPort);
+
+    public void remInterLinkEvent(String srcClusterName, String dstClusterName,
+                                  DeviceId srcId, PortNumber srcPort,
+                                  DeviceId dstId, PortNumber dstPort);
+
+    public void addEndPointEvent(String clusterName, DeviceId id,
+                                 PortNumber port);
+
+    public void remEndPointEvent(String clusterName, DeviceId id,
+                                 PortNumber port);
+
+    public void helloManagement(Date date, String clusterName);
+
+    // public void addIntentEvent(IconaIntentEvent intentEvent);
+    //
+    // public void remIntentEvent(IconaIntentEvent intentEvent);
+    //
+    // public void addManagementEvent(IconaManagementEvent managementEvent);
+    //
+    // public void remManagementEvent(IconaManagementEvent managementEvent);
+}
