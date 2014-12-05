@@ -51,7 +51,8 @@ import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.osgi.service.component.ComponentContext;
-import org.onlab.onos.icona.IconaService;
+import org.onosproject.icona.IconaService;
+
 import org.slf4j.Logger;
 
 import java.io.IOException;
