@@ -14,6 +14,7 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
@@ -21,34 +22,30 @@
 
     <parent>
         <groupId>org.onosproject</groupId>
-        <artifactId>onos</artifactId>
+        <artifactId>onos-apps</artifactId>
         <version>1.1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>onos-cli</artifactId>
+    <artifactId>onos-app-election</artifactId>
     <packaging>bundle</packaging>
 
-    <description>ONOS administrative console command-line extensions
-    </description>
+    <description>ONOS app leadership election test</description>
 
     <dependencies>
+
         <dependency>
             <groupId>org.onosproject</groupId>
             <artifactId>onos-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.onosproject</groupId>
-            <artifactId>onlab-osgi</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+            <classifier>tests</classifier>
         </dependency>
 
         <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-cli</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -59,29 +56,7 @@
             <groupId>org.apache.karaf.shell</groupId>
             <artifactId>org.apache.karaf.shell.console</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.apache.felix</groupId>
-            <artifactId>org.apache.felix.scr.annotations</artifactId>
-        </dependency>
-        <dependency>
-        	<groupId>org.onosproject</groupId>
-        	<artifactId>onos-app-icona</artifactId>
-        	<version>1.1.0-SNAPSHOT</version>
-        </dependency>
+
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-scr-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>
