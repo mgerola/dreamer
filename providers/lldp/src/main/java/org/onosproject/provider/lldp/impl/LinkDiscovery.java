@@ -50,7 +50,7 @@ import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketService;
-import org.onlab.onos.icona.IconaService;
+import org.onosproject.icona.IconaService;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.ONOSLLDP;
 import org.onlab.util.Timer;
