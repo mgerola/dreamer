@@ -301,7 +301,7 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
                                       deviceId);
                             discoverers.put(deviceId, new LinkDiscovery(device,
                                                                         packetSevice, masterService, providerService,
-                                                                        iconaService, useBDDP));
+                                                                        iconaService, iconaService.getCusterName(), useBDDP));
                         } else {
                             if (ld.isStopped()) {
                                 log.debug("Device restarted ({}) {}", event.type(),

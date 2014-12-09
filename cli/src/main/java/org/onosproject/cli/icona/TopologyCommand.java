@@ -1,4 +1,4 @@
-package org.onosproject.cli.net;
+package org.onosproject.cli.icona;
 
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.cli.AbstractShellCommand;
@@ -7,7 +7,7 @@ import org.onosproject.icona.store.IconaStoreService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Command(scope = "icona", name = "topology", description = "Lists summary of the current icona topology")
-public class IconaTopologyCommand extends AbstractShellCommand {
+public class TopologyCommand extends AbstractShellCommand {
 
     protected IconaStoreService storeService;
 

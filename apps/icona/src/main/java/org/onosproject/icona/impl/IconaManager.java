@@ -4,6 +4,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collection;
 import java.util.Date;
+
 import org.slf4j.Logger;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -11,6 +12,8 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onosproject.cluster.ClusterService;
+import org.onosproject.cluster.LeadershipService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.icona.IconaService;
@@ -51,7 +54,8 @@ public class IconaManager implements IconaService {
     private static String clusterName = "DREAMER";
     private static IntraChannelService intraChannelService;
     private static MgmtHandler mgmtThread;
-
+    
+    private String iconaLeaderPath = "ICONA";
     private ApplicationId appId;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -62,6 +66,12 @@ public class IconaManager implements IconaService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected MastershipService mastershipService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected LeadershipService leadershipService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterService clusterService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected LinkService linkService;
@@ -84,6 +94,8 @@ public class IconaManager implements IconaService {
 
         intraChannelService = new IntraChannel(storeService);
 
+        leadershipService.runForLeadership(iconaLeaderPath);
+
         loadStartUp();
 
     }
@@ -96,11 +108,13 @@ public class IconaManager implements IconaService {
 
     private void loadStartUp() {
         storeService.addCluster(new Cluster(getCusterName(), new Date()));
-
+        interChannelService.addCluster(clusterName);
         for (Device device : deviceService.getDevices()) {
             for (Port devPort : deviceService.getPorts(device.id())) {
                 if (!devPort.number().equals(PortNumber.LOCAL)
-                        && devPort.number() != null) {
+                        && devPort.number() != null
+                        && !isLink(device.id(), devPort.number())
+                        && storeService.getInterLinks(device.id()).isEmpty()) {
                     interChannelService.addEndPointEvent(clusterName,
                                                          device.id(),
                                                          devPort.number());
@@ -233,8 +247,7 @@ public class IconaManager implements IconaService {
 
                 case PORT_ADDED:
                     if (!event.port().number().equals(PortNumber.LOCAL)
-                            && storeService.getInterLink(id, event.port()
-                                    .number()) == null
+                            && storeService.getInterLinks(id).isEmpty()
                             && !isLink(id, event.port().number())) {
                         interChannelService.addEndPointEvent(clusterName, id,
                                                              event.port()
@@ -321,18 +334,50 @@ public class IconaManager implements IconaService {
             // TODO: manage mastership! We cannot use the swtiches master...
             while (!isInterrupted()) {
                 try {
-                    interChannelService.helloManagement(new Date(),
-                                                        getCusterName());
-                    Collection<Cluster> oldCluster = storeService
-                            .remOldCluster(helloInterval * deadOccurence);
-                    if (!oldCluster.isEmpty()) {
-                        for (Cluster cluster : oldCluster) {
-                            log.warn("Cluster {} is down: no HELLO received in the last {} milliseconds",
-                                     cluster.getClusterName(), helloInterval
-                                             * deadOccurence);
+//                    log.info("IconaLeader {}",
+//                             leadershipService.getLeader(iconaLeaderPath));
+                    if (leadershipService.getLeader(iconaLeaderPath)!= null && clusterService.getLocalNode().id()
+                            .equals(leadershipService.getLeader(iconaLeaderPath))) {
+
+                        log.info("Sono icona-leader");
+                        interChannelService.helloManagement(new Date(),
+                                                            getCusterName());
+                        Collection<Cluster> oldCluster = storeService
+                                .getOldCluster(helloInterval * deadOccurence);
+                        if (!oldCluster.isEmpty()) {
+                            for (Cluster cluster : oldCluster) {
+                                for (EndPoint endPoint : cluster.getEndPoints()) {
+                                    interChannelService
+                                            .remEndPointEvent(endPoint
+                                                    .getClusterName(), endPoint
+                                                    .getId(), endPoint
+                                                    .getPort());
+                                }
+                                for (InterLink interLink : cluster
+                                        .getInterLinks()){
+                                    interChannelService
+                                            .remInterLinkEvent(interLink
+                                                                       .getSrcClusterName(),
+                                                               interLink
+                                                                       .getDstClusterName(),
+                                                               interLink
+                                                                       .getSrcId(),
+                                                               interLink
+                                                                       .getSrcPort(),
+                                                               interLink
+                                                                       .getDstId(),
+                                                               interLink
+                                                                       .getDstPort());
+                                }
+                                
+                                interChannelService.remCluster(cluster.getClusterName());
+                                
+                                log.warn("Cluster {} is down: no HELLO received in the last {} milliseconds",
+                                         cluster.getClusterName(),
+                                         helloInterval * deadOccurence);
+                            }
                         }
                     }
-
                     Thread.sleep(helloInterval);
                 } catch (InterruptedException e) {
                     // TODO Auto-generated catch block

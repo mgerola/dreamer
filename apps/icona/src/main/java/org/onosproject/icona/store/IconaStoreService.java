@@ -42,8 +42,10 @@ public interface IconaStoreService {
 
     Cluster addCluster(Cluster cluster);
 
-    Collection<Cluster> remOldCluster(int interval);
+    Collection<Cluster> getOldCluster(int interval);
 
     Collection<Cluster> getClusters();
+
+    void remCluster(String clusterName);
 
 }
