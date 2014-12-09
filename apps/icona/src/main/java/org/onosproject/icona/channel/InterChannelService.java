@@ -7,21 +7,25 @@ import org.onosproject.net.PortNumber;
 
 public interface InterChannelService {
 
-    public void addInterLinkEvent(String srcClusterName, String dstClusterName,
+    void addInterLinkEvent(String srcClusterName, String dstClusterName,
                                   DeviceId srcId, PortNumber srcPort,
                                   DeviceId dstId, PortNumber dstPort);
 
-    public void remInterLinkEvent(String srcClusterName, String dstClusterName,
+    void remInterLinkEvent(String srcClusterName, String dstClusterName,
                                   DeviceId srcId, PortNumber srcPort,
                                   DeviceId dstId, PortNumber dstPort);
 
-    public void addEndPointEvent(String clusterName, DeviceId id,
+    void addEndPointEvent(String clusterName, DeviceId id,
                                  PortNumber port);
 
-    public void remEndPointEvent(String clusterName, DeviceId id,
+    void remEndPointEvent(String clusterName, DeviceId id,
                                  PortNumber port);
 
-    public void helloManagement(Date date, String clusterName);
+    void helloManagement(Date date, String clusterName);
+    
+    void remCluster(String ClusterName);
+
+    void addCluster(String ClusterName);
 
     // public void addIntentEvent(IconaIntentEvent intentEvent);
     //

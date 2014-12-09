@@ -1,4 +1,4 @@
-package org.onosproject.cli.net;
+package org.onosproject.cli.icona;
 
 import java.util.Iterator;
 import java.util.List;
@@ -10,7 +10,7 @@ import org.onosproject.cli.AbstractShellCommand;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.IconaStoreService;
 
-public class IconaClusterIdCompleter implements Completer {
+public class ClusterIdCompleter implements Completer {
 
     @Override
     public int complete(String buffer, int cursor, List<String> candidates) {

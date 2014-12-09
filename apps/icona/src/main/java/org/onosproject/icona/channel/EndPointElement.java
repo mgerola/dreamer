@@ -40,10 +40,10 @@ public class EndPointElement extends IconaTopologyElement<EndPointElement>
 
     @Override
     public ByteBuffer getIDasByteBuffer() {
-        return getEndPointLink(this.dpid, this.port);
+        return getEndPointId(this.dpid, this.port);
     }
 
-    public static ByteBuffer getEndPointLink(String dpid, long port) {
+    public static ByteBuffer getEndPointId(String dpid, long port) {
         return (ByteBuffer) ByteBuffer.allocate(2 * Long.SIZE + Character.SIZE)
                 .putChar('E').putLong(Long.parseLong(dpid.split(":")[1], 16))
                 .putLong(port).flip();

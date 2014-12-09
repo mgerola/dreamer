@@ -218,4 +218,17 @@ public class InterChannelManager implements InterChannelService {
 
     }
 
+    
+    @Override
+    public void addCluster(String ClusterName) {
+        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName); 
+        topologyChannel.put(clusterEvent.getID(), clusterEvent);
+    }
+    
+    @Override
+    public void remCluster(String ClusterName) {
+        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName); 
+        topologyChannel.remove(clusterEvent.getID());
+    }
+
 }

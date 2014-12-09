@@ -173,6 +173,9 @@ public class IconaStoreManager implements IconaStoreService {
 
         clusterNameToCluster.get(interLink.getSrcClusterName())
                 .addInterLink(interLink);
+        clusterNameToCluster.get(interLink.getDstClusterName())
+                .addInterLink(interLink);
+        log.info("New interLink added {}", interLink);
     }
 
     @Override
@@ -188,11 +191,13 @@ public class IconaStoreManager implements IconaStoreService {
             if (localInterlink.getDstId().equals(interLink.getDstId())
                     && localInterlink.getDstPort()
                             .equals(interLink.getDstPort())) {
-                swPortInterLink.get(interLink.getSrcId()).remove(srcPort);
+                swPortInterLink.get(interLink.getSrcId())
+                        .remove(interLink.getSrcPort());
             }
         }
         clusterNameToCluster.get(interLink.getSrcClusterName())
                 .remInterLink(interLink);
+        log.info("New interLink removed {}", interLink);
 
     }
 
@@ -204,6 +209,7 @@ public class IconaStoreManager implements IconaStoreService {
 
     @Override
     public Cluster addCluster(Cluster cluster) {
+        log.info("New cluster added {}", cluster);
         return clusterNameToCluster.put(cluster.getClusterName(), cluster);
     }
 
@@ -215,25 +221,13 @@ public class IconaStoreManager implements IconaStoreService {
     }
 
     @Override
-    public Collection<Cluster> remOldCluster(int interval) {
+    public Collection<Cluster> getOldCluster(int interval) {
 
         Collection<Cluster> removedClusters = new HashSet<Cluster>();
         if (!clusterNameToCluster.isEmpty()) {
             for (Cluster cluster : clusterNameToCluster.values()) {
                 if ((cluster.getLastSeen().getTime() + interval) <= new Date()
                         .getTime()) {
-                    // Remove all ILs
-                    for (InterLink interLink : cluster.getInterLinks()) {
-                        swPortInterLink.get(interLink.getSrcId())
-                                .remove(interLink.getSrcPort());
-                        swPortEndPoint.get(interLink.getDstId())
-                                .remove(interLink.getDstPort());
-                    }
-                    // Remove all EPs
-                    for (EndPoint endPoint : cluster.getEndPoints()) {
-                        swPortEndPoint.get(endPoint).remove(endPoint.getPort());
-                    }
-                    clusterNameToCluster.remove(cluster.getClusterName());
                     removedClusters.add(cluster);
                     // TODO manage PWs
 
@@ -242,6 +236,13 @@ public class IconaStoreManager implements IconaStoreService {
             return removedClusters;
         }
         return Collections.emptyList();
+    }
+
+    @Override
+    public void remCluster(String clusterName) {
+        log.info("New cluster removed {}", clusterNameToCluster.get(clusterName));
+        clusterNameToCluster.remove(clusterName);
+
     }
 
 }

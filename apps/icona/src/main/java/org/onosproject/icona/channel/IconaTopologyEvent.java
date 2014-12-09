@@ -14,9 +14,13 @@ public class IconaTopologyEvent implements Serializable {
     private String clusterName;
 
     public enum ElementType {
-        ENDPOINT, INTERLINK,
+        ENDPOINT, INTERLINK, CLUSTER
     }
 
+    public IconaTopologyEvent() {
+
+    }
+    
     public IconaTopologyEvent(EndPointElement entryPointElement,
                               String clusterName) {
         super();
@@ -25,15 +29,18 @@ public class IconaTopologyEvent implements Serializable {
         this.clusterName = clusterName;
     }
 
-    public IconaTopologyEvent() {
-
-    }
-
     public IconaTopologyEvent(InterLinkElement interLinkElement,
                               String clusterName) {
         super();
         this.elementType = ElementType.INTERLINK;
         this.topologyElement = interLinkElement;
+        this.clusterName = clusterName;
+    }
+    
+    public IconaTopologyEvent(String clusterName) {
+        super();
+        this.elementType = ElementType.CLUSTER;
+        this.topologyElement = new ClusterElement(clusterName);
         this.clusterName = clusterName;
     }
 
@@ -50,6 +57,14 @@ public class IconaTopologyEvent implements Serializable {
             return null;
         }
         InterLinkElement interLinkElement = (InterLinkElement) this.topologyElement;
+        return interLinkElement;
+    }
+    
+    public ClusterElement getClusterElement() {
+        if (this.elementType != ElementType.CLUSTER) {
+            return null;
+        }
+        ClusterElement interLinkElement = (ClusterElement) this.topologyElement;
         return interLinkElement;
     }
 
