@@ -1,4 +1,4 @@
-package org.onosproject.cli.net;
+package org.onosproject.cli.icona;
 
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
@@ -8,7 +8,7 @@ import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 
 @Command(scope = "icona", name = "cluster", description = "Detailed information about a particular cluster")
-public class IconaClusterIdCommand extends IconaClustersCommand {
+public class ClusterIdCommand extends ClustersCommand {
 
     @Argument(index = 0, name = "clusterId", description = "Cluster ID", required = true, multiValued = false)
     String clusterId = null;

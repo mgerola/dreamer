@@ -240,9 +240,9 @@
         <bundle>mvn:org.onosproject/onos-app-election/@ONOS-VERSION</bundle>
     </feature>
     
-            <feature name="onos-app-icona" version="1.0.0"
+            <feature name="onos-app-icona" version="@FEATURE-VERSION"
              description="ICONA application">
-        <bundle>mvn:org.onlab.onos/onos-app-icona/1.0.0-SNAPSHOT</bundle>
+        <bundle>mvn:org.onosproject/onos-app-icona/@ONOS-VERSION</bundle>
     </feature>
     
 

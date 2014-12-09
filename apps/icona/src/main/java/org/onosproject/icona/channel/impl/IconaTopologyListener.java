@@ -16,7 +16,6 @@ import org.onosproject.icona.store.IconaStoreService;
 public class IconaTopologyListener
         implements EntryListener<byte[], IconaTopologyEvent> {
 
-    private final Logger log = getLogger(getClass());
     private static IconaStoreService storeService;
 
     public IconaTopologyListener(IconaStoreService stroreService) {
@@ -27,7 +26,6 @@ public class IconaTopologyListener
     public void entryAdded(EntryEvent<byte[], IconaTopologyEvent> arg0) {
 
         if (arg0.getValue().getEntryPointElement() != null) {
-            log.info("EntryPointElement Added");
             EndPointElement endPointEvent = arg0.getValue()
                     .getEntryPointElement();
 
@@ -39,7 +37,6 @@ public class IconaTopologyListener
             if (arg0.getValue().getInterLinkElement() != null) {
                 InterLinkElement interLinkEvent = arg0.getValue()
                         .getInterLinkElement();
-                log.info("InterLink Added");
 
                 storeService
                         .addInterLink(arg0.getValue().getClusterName(),
@@ -62,10 +59,8 @@ public class IconaTopologyListener
 
     @Override
     public void entryRemoved(EntryEvent<byte[], IconaTopologyEvent> arg0) {
-        log.info("Entry removed!");
 
         if (arg0.getOldValue().getEntryPointElement() != null) {
-            log.info("EntryPointElement removed");
             EndPointElement endPointEvent = arg0.getOldValue()
                     .getEntryPointElement();
 
@@ -76,7 +71,6 @@ public class IconaTopologyListener
         } else if (arg0.getOldValue().getInterLinkElement() != null) {
             InterLinkElement interLinkEvent = arg0.getOldValue()
                     .getInterLinkElement();
-            log.info("IL removed");
 
             storeService.remInterLink(arg0.getOldValue().getClusterName(),
                                       interLinkEvent.getRemoteClusterName(),
@@ -85,6 +79,8 @@ public class IconaTopologyListener
                                       interLinkEvent.getRemoteId(),
                                       interLinkEvent.getRemotePort());
 
+        } else if (arg0.getOldValue().getClusterElement() != null){
+            storeService.remCluster(arg0.getOldValue().getClusterElement().getClusterName());
         }
 
     }

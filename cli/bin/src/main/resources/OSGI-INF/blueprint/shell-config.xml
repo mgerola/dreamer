@@ -263,19 +263,19 @@
             <action class="org.onosproject.cli.net.WipeOutCommand"/>
         </command>
         		<command>
-			<action class="org.onlab.onos.cli.net.IconaTopologyCommand" />
+			<action class="org.onosproject.cli.net.IconaTopologyCommand" />
 		</command>
 		<command>
-			<action class="org.onlab.onos.cli.net.IconaClustersCommand" />
+			<action class="org.onosproject.cli.net.IconaClustersCommand" />
 		</command>
 		<command>
-			<action class="org.onlab.onos.cli.net.IconaInterLinksCommand" />
+			<action class="org.onosproject.cli.net.IconaInterLinksCommand" />
 		</command>
 		<command>
-			<action class="org.onlab.onos.cli.net.IconaEndPointsCommand" />
+			<action class="org.onosproject.cli.net.IconaEndPointsCommand" />
 		</command>
 		<command>
-			<action class="org.onlab.onos.cli.net.IconaClusterIdCommand" />
+			<action class="org.onosproject.cli.net.IconaClusterIdCommand" />
 			<completers>
 			<ref component-id="IconaClusterIdCompleter"/>
 			</completers>
@@ -293,6 +293,6 @@
     <bean id="nullCompleter" class="org.apache.karaf.shell.console.completer.NullCompleter"/>
     <bean id="ethTypeCompleter" class="org.onosproject.cli.net.EthTypeCompleter"/>
     <bean id="ipProtocolCompleter" class="org.onosproject.cli.net.IpProtocolCompleter"/>
-    <bean id="IconaClusterIdCompleter" class="org.onlab.onos.cli.net.IconaClusterIdCompleter" />
+    <bean id="IconaClusterIdCompleter" class="org.onosproject.cli.net.IconaClusterIdCompleter" />
 
 </blueprint>

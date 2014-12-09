@@ -1,4 +1,4 @@
-package org.onosproject.cli.net;
+package org.onosproject.cli.icona;
 
 import static com.google.common.collect.Lists.newArrayList;
 
@@ -18,12 +18,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Command(scope = "icona", name = "clusters", description = "Lists all clusters")
-public class IconaClustersCommand extends AbstractShellCommand {
+public class ClustersCommand extends AbstractShellCommand {
 
     private static final String FMT = "id=%s, lastSeen=%s";
     private static final DateFormat DF = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
     private static final String INTERLINK = "srcCluster=%s, dstCluster=%s, "
             + "srcSwId=%s, srcPort=%s, dstSwId=%s, dstPort=%s";
+    private static final String ENDPOINT = "Cluster=%s, SwId=%s, Port=%s";
 
     @Override
     protected void execute() {
@@ -224,7 +225,7 @@ public class IconaClustersCommand extends AbstractShellCommand {
      */
     protected void printEndPoint(EndPoint endpoint) {
         if (endpoint != null) {
-            print(FMT, endpoint.getClusterName(), endpoint.getId(),
+            print(ENDPOINT, endpoint.getClusterName(), endpoint.getId(),
                   endpoint.getPort());
         }
     }

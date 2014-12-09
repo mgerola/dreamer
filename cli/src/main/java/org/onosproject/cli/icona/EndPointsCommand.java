@@ -1,11 +1,11 @@
-package org.onosproject.cli.net;
+package org.onosproject.cli.icona;
 
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.EndPoint;
 
 @Command(scope = "icona", name = "endpoints", description = "Lists all endpoints")
-public class IconaEndPointsCommand extends IconaClustersCommand {
+public class EndPointsCommand extends ClustersCommand {
 
     @Override
     protected void execute() {
