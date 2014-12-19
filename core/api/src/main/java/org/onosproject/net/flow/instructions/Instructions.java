@@ -28,10 +28,10 @@ import org.onosproject.net.flow.instructions.L2ModificationInstruction.L2SubType
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModEtherInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.L3SubType;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
-
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 
 /**
@@ -118,7 +118,7 @@ public final class Instructions {
      * @param mplsLabel to set.
      * @return a L2 Modification
      */
-    public static L2ModificationInstruction modMplsLabel(Integer mplsLabel) {
+    public static L2ModificationInstruction modMplsLabel(MplsLabel mplsLabel) {
         checkNotNull(mplsLabel, "MPLS label cannot be null");
         return new ModMplsLabelInstruction(mplsLabel);
     }
@@ -160,6 +160,16 @@ public final class Instructions {
                                           new Ethernet().setEtherType(Ethernet.MPLS_UNICAST));
     }
 
+    /**
+     * Creates a mpls header instruction to pop the MPLS label.
+     *
+     * @param ethetType the ethertype to modify to.
+     * @return a L2 modification.
+     */
+    public static Instruction popMpls(Short ethetType) {
+        return new PushHeaderInstructions(L2SubType.MPLS_POP,
+                                          new Ethernet().setEtherType(ethetType));
+    }
     /*
      *  Output instructions
      */

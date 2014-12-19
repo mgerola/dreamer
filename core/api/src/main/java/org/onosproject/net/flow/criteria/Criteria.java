@@ -18,10 +18,12 @@ package org.onosproject.net.flow.criteria;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 import java.util.Objects;
+
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.criteria.Criterion.Type;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 
 /**
@@ -193,7 +195,7 @@ public final class Criteria {
      * @return match criterion
      */
 
-    public static Criterion matchMplsLabel(Integer mplsLabel) {
+    public static Criterion matchMplsLabel(MplsLabel mplsLabel) {
         return new MplsCriterion(mplsLabel);
     }
 
@@ -702,9 +704,9 @@ public final class Criteria {
      */
     public static final class MplsCriterion implements Criterion {
 
-        private final Integer mplsLabel;
+        private final MplsLabel mplsLabel;
 
-        public MplsCriterion(Integer mplsLabel) {
+        public MplsCriterion(MplsLabel mplsLabel) {
             this.mplsLabel = mplsLabel;
         }
 
@@ -714,13 +716,13 @@ public final class Criteria {
         }
 
         public Integer label() {
-            return mplsLabel;
+            return mplsLabel.toInt();
         }
 
         @Override
         public String toString() {
             return toStringHelper(type().toString())
-                    .add("mpls", mplsLabel & 0xffffffffL).toString();
+                    .add("mpls", mplsLabel).toString();
         }
 
         @Override

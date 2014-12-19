@@ -21,6 +21,7 @@ import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 
 /**
@@ -183,7 +184,7 @@ public interface TrafficSelector {
          * @param mplsLabel a MPLS label.
          * @return a selection builder
          */
-        public Builder matchMplsLabel(Integer mplsLabel);
+        public Builder matchMplsLabel(MplsLabel mplsLabel);
 
         /**
          * Matches an optical signal ID or lambda.

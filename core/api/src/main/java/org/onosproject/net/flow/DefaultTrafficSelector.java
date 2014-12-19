@@ -25,6 +25,7 @@ import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 
 import com.google.common.base.MoreObjects;
@@ -204,7 +205,7 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchMplsLabel(Integer mplsLabel) {
+        public Builder matchMplsLabel(MplsLabel mplsLabel) {
             return add(Criteria.matchMplsLabel(mplsLabel));
         }
 

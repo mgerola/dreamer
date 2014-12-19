@@ -20,6 +20,7 @@ import org.junit.Test;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.JsonCodec;
@@ -164,7 +165,7 @@ public class InstructionCodecTest {
     public void modMplsLabelInstructionTest() {
         final L2ModificationInstruction.ModMplsLabelInstruction instruction =
                 (L2ModificationInstruction.ModMplsLabelInstruction)
-                        Instructions.modMplsLabel(99);
+                        Instructions.modMplsLabel(MplsLabel.mplsLabel(99));
         final ObjectNode instructionJson =
                 instructionCodec.encode(instruction, context);
         assertThat(instructionJson, matchesInstruction(instruction));

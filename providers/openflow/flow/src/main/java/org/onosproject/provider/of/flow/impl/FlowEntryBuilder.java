@@ -16,10 +16,12 @@
 package org.onosproject.provider.of.flow.impl;
 
 import com.google.common.collect.Lists;
+
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
 import org.onlab.packet.Ip6Prefix;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
@@ -400,8 +402,8 @@ public class FlowEntryBuilder {
                 builder.matchTcpSrc((short) match.get(MatchField.TCP_SRC).getPort());
                 break;
             case MPLS_LABEL:
-                builder.matchMplsLabel((int) match.get(MatchField.MPLS_LABEL)
-                                            .getValue());
+                builder.matchMplsLabel(MplsLabel.mplsLabel((int) match.get(MatchField.MPLS_LABEL)
+                                            .getValue()));
                 break;
             case OCH_SIGID:
                 builder.matchLambda(match.get(MatchField.OCH_SIGID).getChannelNumber());

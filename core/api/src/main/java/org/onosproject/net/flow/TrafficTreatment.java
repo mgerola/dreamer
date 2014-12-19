@@ -21,6 +21,7 @@ import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
 
 /**
@@ -133,12 +134,20 @@ public interface TrafficTreatment {
         public Builder popMpls();
 
         /**
+         * Pops MPLS ether type and set the new ethertype.
+         *
+         * @param etherType an ether type
+         * @return a treatment builder.
+         */
+        Builder popMpls(short etherType);
+
+        /**
          * Sets the mpls label.
          *
          * @param mplsLabel MPLS label.
          * @return a treatment builder.
          */
-        public Builder setMpls(Integer mplsLabel);
+        public Builder setMpls(MplsLabel mplsLabel);
 
         /**
          * Sets the optical channel ID or lambda.
@@ -154,6 +163,7 @@ public interface TrafficTreatment {
          * @return traffic treatment
          */
         TrafficTreatment build();
+
     }
 
 }
