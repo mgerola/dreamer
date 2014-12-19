@@ -295,6 +295,12 @@
 			<ref component-id="EndPointCompleter"/>
 			</completers>
 		</command>
+        <command>
+			<action class="org.onosproject.cli.net.AddMplsIntent" />
+			<completers>
+			<ref component-id="connectPointCompleter" />
+		</completers>
+		</command>
     </command-bundle>
 
     <bean id="nodeIdCompleter" class="org.onosproject.cli.NodeIdCompleter"/>
