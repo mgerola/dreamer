@@ -1,8 +1,10 @@
 package org.onosproject.net.intent.impl.installer;
 
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -47,6 +49,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
 
+
 /**
  * Installer for {@link MplsPathIntent packet path connectivity intents}.
  */
@@ -84,7 +87,6 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
     public List<Collection<FlowRuleOperation>> install(MplsPathIntent intent) {
         LinkResourceAllocations allocations = assignMplsLabel(intent);
         return generateRules(intent, allocations, FlowRuleOperation.Type.ADD);
-
     }
 
     @Override
@@ -92,6 +94,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         LinkResourceAllocations allocations = resourceService
                 .getAllocations(intent.id());
         resourceService.releaseResources(allocations);
+
 
         return generateRules(intent, allocations, FlowRuleOperation.Type.REMOVE);
     }
@@ -101,6 +104,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
                                                  MplsPathIntent newIntent) {
         //FIXME this is brute force
         List<Collection<FlowRuleOperation>> batches = Lists.newArrayList();
+
         batches.addAll(uninstall(oldIntent));
         batches.addAll(install(newIntent));
         return batches;
@@ -140,6 +144,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         return null;
     }
 
+
     private List<Collection<FlowRuleOperation>> generateRules(MplsPathIntent intent,
                                                        LinkResourceAllocations allocations,
                                                        FlowRuleOperation.Type operation) {
@@ -150,6 +155,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
 
         Link link = links.next();
         // List of flow rules to be installed
+
         List<FlowRuleOperation> rules = Lists.newLinkedList();
 
         // Ingress traffic
@@ -190,9 +196,11 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
                                            MplsLabel label,
                                            FlowRuleOperation.Type operation) {
 
+
         TrafficSelector.Builder ingressSelector = DefaultTrafficSelector
                 .builder(intent.selector());
         TrafficTreatment.Builder treat = DefaultTrafficTreatment.builder();
+
         ingressSelector.matchInPort(inPort);
 
         if (intent.ingressLabel().isPresent()) {
@@ -222,6 +230,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         // Ignore the ingress Traffic Selector and use only the MPLS label
         // assigned in the previous link
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
+
         selector.matchInPort(inPort).matchEthType(Ethernet.MPLS_UNICAST)
                 .matchMplsLabel(prevLabel.label());
         TrafficTreatment.Builder treat = DefaultTrafficTreatment.builder();
@@ -233,6 +242,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         }
 
         treat.setOutput(link.src().port());
+
         return flowRuleOperation(intent, link.src().deviceId(),
                 selector.build(), treat.build(), operation);
     }
@@ -241,10 +251,12 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
                                           MplsPathIntent intent,
                                           MplsLabel prevLabel,
                                           FlowRuleOperation.Type operation) {
+      
         // egress point: either set the egress MPLS label or pop the
         // MPLS label based on the intent annotations
 
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
+
         selector.matchInPort(inPort).matchEthType(Ethernet.MPLS_UNICAST)
                 .matchMplsLabel(prevLabel.label());
 
