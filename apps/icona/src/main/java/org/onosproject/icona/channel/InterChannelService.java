@@ -2,24 +2,21 @@ package org.onosproject.icona.channel;
 
 import java.util.Date;
 
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
 public interface InterChannelService {
 
     void addInterLinkEvent(String srcClusterName, String dstClusterName,
-                                  DeviceId srcId, PortNumber srcPort,
-                                  DeviceId dstId, PortNumber dstPort);
+                                  ConnectPoint src, ConnectPoint dst);
 
     void remInterLinkEvent(String srcClusterName, String dstClusterName,
-                                  DeviceId srcId, PortNumber srcPort,
-                                  DeviceId dstId, PortNumber dstPort);
+                           ConnectPoint src, ConnectPoint dst);
 
-    void addEndPointEvent(String clusterName, DeviceId id,
-                                 PortNumber port);
+    void addEndPointEvent(String clusterName, ConnectPoint cp);
 
-    void remEndPointEvent(String clusterName, DeviceId id,
-                                 PortNumber port);
+    void remEndPointEvent(String clusterName, ConnectPoint cp);
 
     void helloManagement(Date date, String clusterName);
     

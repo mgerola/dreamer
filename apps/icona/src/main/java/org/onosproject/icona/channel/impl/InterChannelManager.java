@@ -22,6 +22,7 @@ import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.slf4j.Logger;
@@ -39,7 +40,7 @@ public class InterChannelManager implements InterChannelService {
     private final Logger log = getLogger(getClass());
     private Config interHazelcastConfig;
     private HazelcastInstance interHazelcastInstance;
-    public static final String ICONA_INTER_HAZELCAST_CONFIG = "conf/hazelcast-icona-inter.xml";
+    private final String ICONA_INTER_HAZELCAST_CONFIG = "conf/hazelcast-icona-inter.xml";
 
     // Topology channel
     private static IMap<byte[], IconaTopologyEvent> topologyChannel;
@@ -171,12 +172,11 @@ public class InterChannelManager implements InterChannelService {
 
     @Override
     public void addInterLinkEvent(String srcClusterName, String dstClusterName,
-                                  DeviceId srcId, PortNumber srcPort,
-                                  DeviceId dstId, PortNumber dstPort) {
+                                  ConnectPoint src, ConnectPoint dst) {
 
         InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName,
-                                                               srcId, srcPort,
-                                                               dstId, dstPort);
+                                                               src,
+                                                               dst);
         IconaTopologyEvent iLEvent = new IconaTopologyEvent(interLinkEvent,
                                                             srcClusterName);
         topologyChannel.put(iLEvent.getID(), iLEvent);
@@ -185,11 +185,8 @@ public class InterChannelManager implements InterChannelService {
 
     @Override
     public void remInterLinkEvent(String srcClusterName, String dstClusterName,
-                                  DeviceId srcId, PortNumber srcPort,
-                                  DeviceId dstId, PortNumber dstPort) {
-        InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName,
-                                                               srcId, srcPort,
-                                                               dstId, dstPort);
+                                  ConnectPoint src, ConnectPoint dst) {
+        InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName, src, dst);
         IconaTopologyEvent iLEvent = new IconaTopologyEvent(interLinkEvent,
                                                             srcClusterName);
         topologyChannel.remove(iLEvent.getID());
@@ -197,9 +194,8 @@ public class InterChannelManager implements InterChannelService {
     }
 
     @Override
-    public void addEndPointEvent(String clusterName, DeviceId id,
-                                 PortNumber port) {
-        EndPointElement endPointEvent = new EndPointElement(id, port);
+    public void addEndPointEvent(String clusterName, ConnectPoint cp) {
+        EndPointElement endPointEvent = new EndPointElement(cp);
         IconaTopologyEvent ePEvent = new IconaTopologyEvent(endPointEvent,
                                                             clusterName);
         log.info("Publishing EntryPoint added: {}", endPointEvent.toString());
@@ -208,9 +204,8 @@ public class InterChannelManager implements InterChannelService {
     }
 
     @Override
-    public void remEndPointEvent(String clusterName, DeviceId id,
-                                 PortNumber port) {
-        EndPointElement endPointEvent = new EndPointElement(id, port);
+    public void remEndPointEvent(String clusterName, ConnectPoint cp) {
+        EndPointElement endPointEvent = new EndPointElement(cp);
         IconaTopologyEvent ePEvent = new IconaTopologyEvent(endPointEvent,
                                                             clusterName);
         log.info("Publishing EntryPoint removal: {}", endPointEvent.toString());

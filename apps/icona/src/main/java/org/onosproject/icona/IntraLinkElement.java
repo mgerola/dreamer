@@ -2,6 +2,7 @@ package org.onosproject.icona;
 
 import java.nio.ByteBuffer;
 
+@Deprecated
 public class IntraLinkElement extends IconaIntraElement<IntraLinkElement> {
 
     private long srcDpid;
