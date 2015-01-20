@@ -18,10 +18,10 @@ public class IconaMgmtListener
 
     private final Logger log = getLogger(getClass());
 
-    private static IconaStoreService storeService;
+    private IconaStoreService storeService;
 
     public IconaMgmtListener(IconaStoreService stroreService) {
-        IconaMgmtListener.storeService = stroreService;
+        this.storeService = stroreService;
     }
 
     @Override

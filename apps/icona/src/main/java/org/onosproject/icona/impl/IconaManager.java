@@ -19,7 +19,7 @@ import org.onosproject.core.CoreService;
 import org.onosproject.icona.IconaService;
 import org.onosproject.icona.channel.InterChannelService;
 import org.onosproject.icona.channel.IntraChannelService;
-import org.onosproject.icona.channel.impl.IntraChannel;
+import org.onosproject.icona.channel.impl.IntraChannelManager;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
@@ -54,7 +54,7 @@ public class IconaManager implements IconaService {
     private static String clusterName = "DREAMER";
     private static IntraChannelService intraChannelService;
     private static MgmtHandler mgmtThread;
-    
+
     private String iconaLeaderPath = "ICONA";
     private ApplicationId appId;
 
@@ -92,10 +92,8 @@ public class IconaManager implements IconaService {
         mgmtThread = new MgmtHandler();
         mgmtThread.start();
 
-        intraChannelService = new IntraChannel(storeService);
-
         leadershipService.runForLeadership(iconaLeaderPath);
-
+        
         loadStartUp();
 
     }
@@ -111,26 +109,20 @@ public class IconaManager implements IconaService {
         interChannelService.addCluster(clusterName);
         for (Device device : deviceService.getDevices()) {
             for (Port devPort : deviceService.getPorts(device.id())) {
-                if (!devPort.number().equals(PortNumber.LOCAL)
-                        && devPort.number() != null
-                        && !isLink(device.id(), devPort.number())
-                        && storeService.getInterLinks(device.id()).isEmpty()) {
-                    interChannelService.addEndPointEvent(clusterName,
-                                                         device.id(),
-                                                         devPort.number());
+                if (!devPort.number().equals(PortNumber.LOCAL) && devPort.number() != null
+                        && !isLink(device.id(), devPort.number()) && storeService.getInterLinks(device.id()).isEmpty()) {
+                    interChannelService.addEndPointEvent(clusterName, new ConnectPoint(device.id(), devPort.number()));
                 }
             }
         }
     }
 
     @Override
-    public void handleELLDP(String remoteclusterName, DeviceId localId,
-                            PortNumber localPort, DeviceId remoteId,
+    public void handleELLDP(String remoteclusterName, DeviceId localId, PortNumber localPort, DeviceId remoteId,
                             PortNumber remotePort) {
 
         log.info("Received ELLDP from cluster {}: local switch DPID {} and port {} "
-                         + "and remote switch DPID {} and port {}",
-                 remoteclusterName, localId, localPort, remoteId, remotePort);
+                + "and remote switch DPID {} and port {}", remoteclusterName, localId, localPort, remoteId, remotePort);
         // Publish a new "IL add" and if an EPs exits, an "EP remove" is
         // published
         log.info("ClusterName {}", storeService.getCluster(remoteclusterName));
@@ -139,15 +131,13 @@ public class IconaManager implements IconaService {
             if (!remoteclusterName.isEmpty() && remoteclusterName != null
                     && storeService.getCluster(remoteclusterName) != null) {
                 if (storeService.getInterLink(localId, localPort) == null) {
-                    interChannelService.addInterLinkEvent(clusterName,
-                                                          remoteclusterName,
-                                                          localId, localPort,
-                                                          remoteId, remotePort);
+                    interChannelService.addInterLinkEvent(clusterName, remoteclusterName, new ConnectPoint(localId,
+                                                                                                           localPort),
+                                                          new ConnectPoint(remoteId, remotePort));
 
                     for (EndPoint endPoint : storeService.getEndPoints(localId)) {
-                        interChannelService.remEndPointEvent(endPoint
-                                .getClusterName(), endPoint.getId(), endPoint
-                                .getPort());
+                        interChannelService.remEndPointEvent(endPoint.getClusterName(),
+                                                             new ConnectPoint(endPoint.getId(), endPoint.getPort()));
                     }
                     // TODO: this is the inverse IL, but should be removed from
                     // the other cluster!
@@ -177,26 +167,22 @@ public class IconaManager implements IconaService {
 
         @Override
         public void event(LinkEvent event) {
-            if (MastershipRole.MASTER == mastershipService.getLocalRole(event
-                    .subject().src().deviceId())) {
+            if (MastershipRole.MASTER == mastershipService.getLocalRole(event.subject().src().deviceId())) {
                 DeviceId srcId = event.subject().src().deviceId();
                 PortNumber srcPort = event.subject().src().port();
 
                 if (storeService.getEndPoint(srcId, srcPort) != null) {
-                    interChannelService.remEndPointEvent(clusterName, srcId,
-                                                         srcPort);
+                    interChannelService.remEndPointEvent(clusterName, new ConnectPoint(srcId, srcPort));
 
                 }
             }
 
-            if (MastershipRole.MASTER == mastershipService.getLocalRole(event
-                    .subject().dst().deviceId())) {
+            if (MastershipRole.MASTER == mastershipService.getLocalRole(event.subject().dst().deviceId())) {
                 DeviceId dstId = event.subject().dst().deviceId();
                 PortNumber dstPort = event.subject().dst().port();
 
                 if (storeService.getEndPoint(dstId, dstPort) != null) {
-                    interChannelService.remEndPointEvent(clusterName, dstId,
-                                                         dstPort);
+                    interChannelService.remEndPointEvent(clusterName, new ConnectPoint(dstId, dstPort));
 
                 }
 
@@ -207,8 +193,7 @@ public class IconaManager implements IconaService {
     private class ManageDevices implements DeviceListener {
         @Override
         public void event(DeviceEvent event) {
-            if (MastershipRole.MASTER == mastershipService.getLocalRole(event
-                    .subject().id())) {
+            if (MastershipRole.MASTER == mastershipService.getLocalRole(event.subject().id())) {
                 DeviceId id = event.subject().id();
 
                 switch (event.type()) {
@@ -228,30 +213,23 @@ public class IconaManager implements IconaService {
 
                 case DEVICE_REMOVED:
                     for (InterLink interlink : storeService.getInterLinks(id)) {
-                        interChannelService
-                                .remInterLinkEvent(interlink
-                                                           .getSrcClusterName(),
-                                                   interlink
-                                                           .getSrcClusterName(),
-                                                   interlink.getSrcId(),
-                                                   interlink.getSrcPort(),
-                                                   interlink.getDstId(),
-                                                   interlink.getSrcPort());
+                        interChannelService.remInterLinkEvent(interlink.getSrcClusterName(),
+                                                              interlink.getSrcClusterName(),
+                                                              new ConnectPoint(interlink.getSrcId(), interlink
+                                                                      .getSrcPort()),
+                                                              new ConnectPoint(interlink.getDstId(), interlink
+                                                                      .getSrcPort()));
                     }
                     for (EndPoint endPoint : storeService.getEndPoints(id)) {
-                        interChannelService.remEndPointEvent(endPoint
-                                .getClusterName(), endPoint.getId(), endPoint
-                                .getPort());
+                        interChannelService.remEndPointEvent(endPoint.getClusterName(),
+                                                             new ConnectPoint(endPoint.getId(), endPoint.getPort()));
                     }
                     break;
 
                 case PORT_ADDED:
-                    if (!event.port().number().equals(PortNumber.LOCAL)
-                            && storeService.getInterLinks(id).isEmpty()
+                    if (!event.port().number().equals(PortNumber.LOCAL) && storeService.getInterLinks(id).isEmpty()
                             && !isLink(id, event.port().number())) {
-                        interChannelService.addEndPointEvent(clusterName, id,
-                                                             event.port()
-                                                                     .number());
+                        interChannelService.addEndPointEvent(clusterName, new ConnectPoint(id, event.port().number()));
                     }
                     break;
 
@@ -259,28 +237,19 @@ public class IconaManager implements IconaService {
                     // If it was a IL or an EP, an "IL or EP remove" is
                     // published.
                     if (storeService.getInterLink(id, event.port().number()) != null) {
-                        InterLink interLink = storeService
-                                .getInterLink(id, event.port().number());
-                        interChannelService
-                                .remInterLinkEvent(interLink
-                                                           .getSrcClusterName(),
-                                                   interLink
-                                                           .getDstClusterName(),
-                                                   interLink.getSrcId(),
-                                                   interLink.getSrcPort(),
-                                                   interLink.getDstId(),
-                                                   interLink.getDstPort());
+                        InterLink interLink = storeService.getInterLink(id, event.port().number());
+                        interChannelService.remInterLinkEvent(interLink.getSrcClusterName(),
+                                                              interLink.getDstClusterName(),
+                                                              new ConnectPoint(interLink.getSrcId(), interLink.getSrcPort()), 
+                                                              new ConnectPoint(interLink.getDstId(), interLink.getDstPort()));
 
                     }
 
                     if (storeService.getEndPoint(id, event.port().number()) != null) {
-                        EndPoint endPointEvent = storeService
-                                .getEndPoint(id, event.port().number());
+                        EndPoint endPointEvent = storeService.getEndPoint(id, event.port().number());
 
-                        interChannelService
-                                .remEndPointEvent(endPointEvent
-                                        .getClusterName(), endPointEvent
-                                        .getId(), endPointEvent.getPort());
+                        interChannelService.remEndPointEvent(endPointEvent.getClusterName(), 
+                                                             new ConnectPoint(endPointEvent.getId(), endPointEvent.getPort()));
                     }
                     break;
 
@@ -288,20 +257,13 @@ public class IconaManager implements IconaService {
                     // If the port is not up and an IL exists, an "IL remove" is
                     // published.
                     if (!event.port().isEnabled()) {
-                        if (storeService
-                                .getInterLink(id, event.port().number()) != null) {
+                        if (storeService.getInterLink(id, event.port().number()) != null) {
 
-                            InterLink interLink = storeService
-                                    .getInterLink(id, event.port().number());
-                            interChannelService
-                                    .remInterLinkEvent(interLink
-                                                               .getSrcClusterName(),
-                                                       interLink
-                                                               .getDstClusterName(),
-                                                       interLink.getSrcId(),
-                                                       interLink.getSrcPort(),
-                                                       interLink.getDstId(),
-                                                       interLink.getDstPort());
+                            InterLink interLink = storeService.getInterLink(id, event.port().number());
+                            interChannelService.remInterLinkEvent(interLink.getSrcClusterName(),
+                                                                  interLink.getDstClusterName(),
+                                                                  new ConnectPoint(interLink.getSrcId(), interLink.getSrcPort()),
+                                                                  new ConnectPoint(interLink.getDstId(), interLink.getDstPort()));
                         }
 
                     }
@@ -334,47 +296,31 @@ public class IconaManager implements IconaService {
             // TODO: manage mastership! We cannot use the swtiches master...
             while (!isInterrupted()) {
                 try {
-//                    log.info("IconaLeader {}",
-//                             leadershipService.getLeader(iconaLeaderPath));
-                    if (leadershipService.getLeader(iconaLeaderPath)!= null && clusterService.getLocalNode().id()
-                            .equals(leadershipService.getLeader(iconaLeaderPath))) {
+                    // log.info("IconaLeader {}",
+                    // leadershipService.getLeader(iconaLeaderPath));
+                    if (leadershipService.getLeader(iconaLeaderPath) != null
+                            && clusterService.getLocalNode().id().equals(leadershipService.getLeader(iconaLeaderPath))) {
 
                         log.info("Sono icona-leader");
-                        interChannelService.helloManagement(new Date(),
-                                                            getCusterName());
-                        Collection<Cluster> oldCluster = storeService
-                                .getOldCluster(helloInterval * deadOccurence);
+                        interChannelService.helloManagement(new Date(), getCusterName());
+                        Collection<Cluster> oldCluster = storeService.getOldCluster(helloInterval * deadOccurence);
                         if (!oldCluster.isEmpty()) {
                             for (Cluster cluster : oldCluster) {
                                 for (EndPoint endPoint : cluster.getEndPoints()) {
-                                    interChannelService
-                                            .remEndPointEvent(endPoint
-                                                    .getClusterName(), endPoint
-                                                    .getId(), endPoint
-                                                    .getPort());
+                                    interChannelService.remEndPointEvent(endPoint.getClusterName(),
+                                                                         new ConnectPoint(endPoint.getId(), endPoint.getPort()));
                                 }
-                                for (InterLink interLink : cluster
-                                        .getInterLinks()){
-                                    interChannelService
-                                            .remInterLinkEvent(interLink
-                                                                       .getSrcClusterName(),
-                                                               interLink
-                                                                       .getDstClusterName(),
-                                                               interLink
-                                                                       .getSrcId(),
-                                                               interLink
-                                                                       .getSrcPort(),
-                                                               interLink
-                                                                       .getDstId(),
-                                                               interLink
-                                                                       .getDstPort());
+                                for (InterLink interLink : cluster.getInterLinks()) {
+                                    interChannelService.remInterLinkEvent(interLink.getSrcClusterName(),
+                                                                          interLink.getDstClusterName(),
+                                                                          new ConnectPoint(interLink.getSrcId(), interLink.getSrcPort()),
+                                                                          new ConnectPoint(interLink.getDstId(), interLink.getDstPort()));
                                 }
-                                
+
                                 interChannelService.remCluster(cluster.getClusterName());
-                                
+
                                 log.warn("Cluster {} is down: no HELLO received in the last {} milliseconds",
-                                         cluster.getClusterName(),
-                                         helloInterval * deadOccurence);
+                                         cluster.getClusterName(), helloInterval * deadOccurence);
                             }
                         }
                     }

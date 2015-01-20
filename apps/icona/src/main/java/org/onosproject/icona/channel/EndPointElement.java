@@ -3,6 +3,7 @@ package org.onosproject.icona.channel;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
@@ -19,9 +20,9 @@ public class EndPointElement extends IconaTopologyElement<EndPointElement>
 
     // TODO: metrics ILs
 
-    public EndPointElement(DeviceId dpid, PortNumber portNumber) {
-        this.dpid = dpid.toString();
-        this.port = portNumber.toLong();
+    public EndPointElement(ConnectPoint cp) {
+        this.dpid = cp.deviceId().toString();
+        this.port = cp.port().toLong();
 
     }
 
