@@ -16,10 +16,10 @@ import org.onosproject.icona.store.IconaStoreService;
 public class IconaTopologyListener
         implements EntryListener<byte[], IconaTopologyEvent> {
 
-    private static IconaStoreService storeService;
+    private IconaStoreService storeService;
 
     public IconaTopologyListener(IconaStoreService stroreService) {
-        IconaTopologyListener.storeService = stroreService;
+        this.storeService = stroreService;
     }
 
     @Override

@@ -2,6 +2,7 @@ package org.onosproject.icona.channel;
 
 import java.nio.ByteBuffer;
 
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
@@ -17,14 +18,13 @@ public class InterLinkElement extends IconaTopologyElement<InterLinkElement> {
     private String remoteId;
     private long remotePort;
 
-    public InterLinkElement(String remoteClusterName, DeviceId srcDpid,
-                            PortNumber srcPort, DeviceId dstDpid,
-                            PortNumber dstPort) {
+    public InterLinkElement(String remoteClusterName, ConnectPoint src,
+                            ConnectPoint dst) {
         this.remoteClusterName = remoteClusterName;
-        this.localId = srcDpid.toString();
-        this.localPort = srcPort.toLong();
-        this.remoteId = dstDpid.toString();
-        this.remotePort = dstPort.toLong();
+        this.localId = src.deviceId().toString();
+        this.localPort = src.port().toLong();
+        this.remoteId = dst.deviceId().toString();
+        this.remotePort = dst.port().toLong();
     }
 
     public String getLocalId() {
