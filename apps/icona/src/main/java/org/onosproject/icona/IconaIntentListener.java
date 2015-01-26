@@ -4,6 +4,7 @@ import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.MapEvent;
 
+@Deprecated
 public class IconaIntentListener
         implements EntryListener<byte[], IconaIntentEvent> {
 

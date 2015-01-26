@@ -11,12 +11,11 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.LeadershipService;
-import org.onosproject.icona.channel.IconaIntraEvent;
-import org.onosproject.icona.channel.IntraChannelService;
-import org.onosproject.icona.channel.IntraPseudoWireElement;
-import org.onosproject.icona.channel.IntraPseudoWireElement.IntentUpdateType;
-import org.onosproject.icona.store.IconaStoreService;
+import org.onosproject.icona.IconaService;
+import org.onosproject.icona.channel.intra.IconaIntraEvent;
+import org.onosproject.icona.channel.intra.IntraChannelService;
+import org.onosproject.icona.channel.intra.IntraPseudoWireElement;
+import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.net.ConnectPoint;
 import org.slf4j.Logger;
 
@@ -43,11 +42,15 @@ public class IntraChannelManager implements IntraChannelService {
     protected ClusterService clusterService;
     
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected LeadershipService leadershipService;
-    
+    protected IconaService iconaService;
+
+
+
         @Activate
         public void activate() {
-        
+
+            log.info("Starting intra channel!");
+
         try {
             intraHazelcastConfig = new FileSystemXmlConfig(ICONA_INTRA_HAZELCAST_CONFIG);
         } catch (FileNotFoundException e) {
@@ -58,27 +61,33 @@ public class IntraChannelManager implements IntraChannelService {
         }
         intraHazelcastConfig.setInstanceName("ICONA-INTRA");
 
+        
         // TODO: check why it is needed...
         ClassLoader classLoader = this.getClass().getClassLoader();
         this.intraHazelcastConfig.setClassLoader(classLoader);
 
         this.intraHazelcastInstance = Hazelcast.getOrCreateHazelcastInstance(intraHazelcastConfig);
-        
+
         this.intraEventChannel = intraHazelcastInstance.getMap(ICONA_PW_CHANNEL_NAME);
-        this.intraEventChannel.addEntryListener(new IconaPwListener(leadershipService),
-                                          true);
-        
+        this.intraEventChannel.addEntryListener(new IconaPseudoWireListener(iconaService, this), true);
+
         //TODO: create a listener
-        
+
         }
 
     @Override
-    public void addIntraPW(ConnectPoint src, ConnectPoint dst, IntentUpdateType intentUpdateType, Integer ingressLabel,
-                           Integer egressLabel){
-        
+    public void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, IntentUpdateType intentUpdateType, Optional<Integer> ingressLabel,
+                                   Optional<Integer> egressLabel){
+
         IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, IntentUpdateType.INSTALL, ingressLabel, egressLabel);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());
         intraEventChannel.put(intraEvent.getID(), intraEvent);
+    }
+
+    @Override
+    public void remIntraPseudoWire(IconaIntraEvent event) {
+        intraEventChannel.remove(event.getID());
+
     }
 }
 

@@ -1,4 +1,4 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.inter;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -20,8 +20,8 @@ public class IconaTopologyEvent implements Serializable {
     public IconaTopologyEvent() {
 
     }
-    
-    public IconaTopologyEvent(EndPointElement entryPointElement,
+
+    public IconaTopologyEvent(InterEndPointElement entryPointElement,
                               String clusterName) {
         super();
         this.elementType = ElementType.ENDPOINT;
@@ -36,19 +36,19 @@ public class IconaTopologyEvent implements Serializable {
         this.topologyElement = interLinkElement;
         this.clusterName = clusterName;
     }
-    
+
     public IconaTopologyEvent(String clusterName) {
         super();
         this.elementType = ElementType.CLUSTER;
-        this.topologyElement = new ClusterElement(clusterName);
+        this.topologyElement = new InterClusterElement(clusterName);
         this.clusterName = clusterName;
     }
 
-    public EndPointElement getEntryPointElement() {
+    public InterEndPointElement getEntryPointElement() {
         if (this.elementType != ElementType.ENDPOINT) {
             return null;
         }
-        EndPointElement entryPointElement = (EndPointElement) this.topologyElement;
+        InterEndPointElement entryPointElement = (InterEndPointElement) this.topologyElement;
         return entryPointElement;
     }
 
@@ -59,12 +59,12 @@ public class IconaTopologyEvent implements Serializable {
         InterLinkElement interLinkElement = (InterLinkElement) this.topologyElement;
         return interLinkElement;
     }
-    
-    public ClusterElement getClusterElement() {
+
+    public InterClusterElement getClusterElement() {
         if (this.elementType != ElementType.CLUSTER) {
             return null;
         }
-        ClusterElement interLinkElement = (ClusterElement) this.topologyElement;
+        InterClusterElement interLinkElement = (InterClusterElement) this.topologyElement;
         return interLinkElement;
     }
 

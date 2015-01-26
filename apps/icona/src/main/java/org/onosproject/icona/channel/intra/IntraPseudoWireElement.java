@@ -1,4 +1,4 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.intra;
 
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -12,12 +12,12 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
 
     private String dstId;
     private long dstPort;
-    
+
     private IntentUpdateType intentUpdateType;
 
-    private Optional<Integer> mplsIngressLabel;
-    private Optional<Integer> mplsEgressLabel;
-    
+    private Integer mplsIngressLabel;
+    private Integer mplsEgressLabel;
+
     public enum IntentUpdateType {
         INSTALL,
         DELETE,
@@ -34,16 +34,17 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
         this.dstPort = dst.port().toLong();
         this.intentUpdateType = intentUpdateType;
         
-        this.mplsIngressLabel = Optional.empty();
-        this.mplsEgressLabel = Optional.empty();
+        //TODO: 0 is not ok!
+        this.mplsIngressLabel = 0;
+        this.mplsEgressLabel = 0;
     }
 
     public IntraPseudoWireElement(ConnectPoint src, ConnectPoint dst,
-            IntentUpdateType intentUpdateType, Integer mplsIngressLabel, Integer mplsEgressLabel) {
+            IntentUpdateType intentUpdateType, Optional<Integer> mplsIngressLabel,  Optional<Integer> mplsEgressLabel) {
         this(src, dst, intentUpdateType);
-        
-        this.mplsIngressLabel = Optional.ofNullable(mplsIngressLabel);
-        this.mplsEgressLabel = Optional.ofNullable(mplsIngressLabel);             
+
+        this.mplsIngressLabel = mplsIngressLabel.orElse(0);
+        this.mplsEgressLabel = mplsEgressLabel.orElse(0);
 
     }
 
@@ -67,14 +68,14 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
         return intentUpdateType;
     }
 
-    public Optional<Integer> egressLabel(){
+    public Integer egressLabel(){
         return mplsEgressLabel;
     }
 
-    public Optional<Integer> ingressLabel(){
+    public Integer ingressLabel(){
         return mplsIngressLabel;
     }
-    
+
     @Override
     ByteBuffer getIDasByteBuffer() {
 

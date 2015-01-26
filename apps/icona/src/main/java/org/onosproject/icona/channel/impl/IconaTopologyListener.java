@@ -1,16 +1,12 @@
 package org.onosproject.icona.channel.impl;
 
-import static org.slf4j.LoggerFactory.getLogger;
-
-import org.slf4j.Logger;
-
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.MapEvent;
 
-import org.onosproject.icona.channel.EndPointElement;
-import org.onosproject.icona.channel.IconaTopologyEvent;
-import org.onosproject.icona.channel.InterLinkElement;
+import org.onosproject.icona.channel.inter.IconaTopologyEvent;
+import org.onosproject.icona.channel.inter.InterEndPointElement;
+import org.onosproject.icona.channel.inter.InterLinkElement;
 import org.onosproject.icona.store.IconaStoreService;
 
 public class IconaTopologyListener
@@ -26,7 +22,7 @@ public class IconaTopologyListener
     public void entryAdded(EntryEvent<byte[], IconaTopologyEvent> arg0) {
 
         if (arg0.getValue().getEntryPointElement() != null) {
-            EndPointElement endPointEvent = arg0.getValue()
+            InterEndPointElement endPointEvent = arg0.getValue()
                     .getEntryPointElement();
 
             storeService.addEndpoint(arg0.getValue().getClusterName(),
@@ -61,7 +57,7 @@ public class IconaTopologyListener
     public void entryRemoved(EntryEvent<byte[], IconaTopologyEvent> arg0) {
 
         if (arg0.getOldValue().getEntryPointElement() != null) {
-            EndPointElement endPointEvent = arg0.getOldValue()
+            InterEndPointElement endPointEvent = arg0.getOldValue()
                     .getEntryPointElement();
 
             storeService.remEndpoint(arg0.getOldValue().getClusterName(),

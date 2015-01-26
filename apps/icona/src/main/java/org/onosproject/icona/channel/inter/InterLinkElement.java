@@ -1,10 +1,8 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.inter;
 
 import java.nio.ByteBuffer;
 
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 
 public class InterLinkElement extends IconaTopologyElement<InterLinkElement> {
 

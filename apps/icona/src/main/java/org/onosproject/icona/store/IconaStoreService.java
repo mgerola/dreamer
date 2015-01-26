@@ -12,11 +12,9 @@ public interface IconaStoreService {
     //
     //
     //
-    // public PseudoWire getPseudoWire(String pseudoWireId);
-    //
+
     EndPoint getEndPoint(DeviceId id, PortNumber port);
 
-    // public void addPseudoWire(PseudoWire pseudoWire);
 
     Collection<EndPoint> getEndPoints(DeviceId id);
 
@@ -47,5 +45,12 @@ public interface IconaStoreService {
     Collection<Cluster> getClusters();
 
     void remCluster(String clusterName);
+
+    boolean addPseudoWire(PseudoWire pw);
+
+    PseudoWire getPseudoWire(String pseudoWireId);
+
+
+//    boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent);
 
 }

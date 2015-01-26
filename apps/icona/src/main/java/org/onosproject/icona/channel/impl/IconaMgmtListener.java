@@ -4,7 +4,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Date;
 
-import org.onosproject.icona.channel.IconaManagementEvent;
+import org.onosproject.icona.channel.inter.IconaManagementEvent;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.IconaStoreService;
 import org.slf4j.Logger;

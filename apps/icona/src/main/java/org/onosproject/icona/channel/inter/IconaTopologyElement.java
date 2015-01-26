@@ -1,4 +1,4 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.inter;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;

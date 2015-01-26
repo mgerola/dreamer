@@ -4,15 +4,20 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.onosproject.net.ConnectPoint;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class PseudoWire {
     private EndPoint srcEndPoint;
     private EndPoint dstEndPoint;
     private String pseudoWireId;
     private PathInstallationStatus pwStatus;
     // private Map<String, PathInstallationStatus> clusterIntentStatusMap;
-    private Map<String, IconaIntent> clusterIntentMap;
+    private Map<String, PseudoWireIntent> clusterIntentMap;
 
     // private InterClusterPath interClusterPath;
+    // TODO: ingressLabel and egressLabel
 
     public enum PathInstallationStatus {
         RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
@@ -20,12 +25,18 @@ public class PseudoWire {
     }
 
     public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint) {
+        this(srcEndPoint, dstEndPoint, PathInstallationStatus.RECEIVED);
+    }
+
+    public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, PathInstallationStatus pwStatus) {
+        checkNotNull(srcEndPoint);
+        checkNotNull( dstEndPoint);
         this.dstEndPoint = dstEndPoint;
         this.srcEndPoint = srcEndPoint;
-        this.pseudoWireId = srcEndPoint.getId() + "/" + srcEndPoint.getPort()
-                + "-" + dstEndPoint.getId() + "/" + dstEndPoint.getPort();
-        this.pwStatus = PathInstallationStatus.RECEIVED;
-        this.clusterIntentMap = new HashMap<String, IconaIntent>();
+        this.pseudoWireId = srcEndPoint.deviceId() + "/" + srcEndPoint.port()
+                + "-" + dstEndPoint.deviceId() + "/" + dstEndPoint.port();
+        this.pwStatus = pwStatus;
+        this.clusterIntentMap = new HashMap<String, PseudoWireIntent>();
     }
 
     public PathInstallationStatus getPwStatus() {
@@ -40,15 +51,17 @@ public class PseudoWire {
                                 PathInstallationStatus installationStatus) {
         if (clusterIntentMap.get(clusterName) != null) {
             clusterIntentMap.get(clusterName)
-                    .setInstallationStatus(installationStatus);
+                    .installationStatus(installationStatus);
         }
     }
 
-    public void addIntent(IconaIntent intent) {
-        clusterIntentMap.put(intent.getDstClusterName(), intent);
+    public void addPseudoWireIntent(ConnectPoint src, ConnectPoint dst, String dstClusterName,
+                                    PathInstallationStatus installationStatus) {
+        PseudoWireIntent pwIntent = new PseudoWireIntent(src, dst, dstClusterName, installationStatus);
+        clusterIntentMap.put(pwIntent.dstClusterName(), pwIntent);
     }
 
-    public Collection<IconaIntent> getIntents() {
+    public Collection<PseudoWireIntent> getIntents() {
         return clusterIntentMap.values();
     }
 

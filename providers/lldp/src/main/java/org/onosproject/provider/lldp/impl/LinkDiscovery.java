@@ -50,6 +50,7 @@ import org.onosproject.net.packet.DefaultOutboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
 import org.onosproject.net.packet.PacketContext;
 import org.onosproject.net.packet.PacketService;
+import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaService;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.ONOSLLDP;
@@ -89,6 +90,7 @@ public class LinkDiscovery implements TimerTask {
     private volatile boolean isStopped;
 
     private IconaService iconaService;
+    private IconaConfigService iconaConfigService;
 
     /**
      * Instantiates discovery manager for the given physical switch. Creates a
@@ -104,19 +106,20 @@ public class LinkDiscovery implements TimerTask {
     public LinkDiscovery(Device device, PacketService pktService,
             MastershipService masterService,
             LinkProviderService providerService, IconaService iconaService,
-            String clusterName, Boolean... useBDDP) {
+            IconaConfigService iconaConfigService, Boolean... useBDDP) {
         this.device = device;
         this.probeRate = 3000;
         this.linkProvider = providerService;
         this.pktService = pktService;
         this.iconaService = iconaService;
-
+        this.iconaConfigService = iconaConfigService;
+        
         this.mastershipService = checkNotNull(masterService, "WTF!");
         this.slowPorts = Collections.synchronizedSet(new HashSet<Long>());
         this.fastPorts = Collections.synchronizedSet(new HashSet<Long>());
         this.portProbeCount = new HashMap<>();
         this.lldpPacket = new ONOSLLDP();
-        this.lldpPacket.setName(clusterName);
+        this.lldpPacket.setName(iconaConfigService.getClusterName());
         this.lldpPacket.setChassisId(device.chassisId());
         this.lldpPacket.setDevice(device.id().toString());
 
@@ -221,7 +224,7 @@ public class LinkDiscovery implements TimerTask {
 
         ONOSLLDP onoslldp = ONOSLLDP.parseONOSLLDP(eth);
         if (onoslldp != null) {
-            if (ONOSLLDP.isClusterLLDP(onoslldp, iconaService.getCusterName())) {
+            if (ONOSLLDP.isClusterLLDP(onoslldp, iconaConfigService.getClusterName())) {
 
                 final PortNumber dstPort = context.inPacket().receivedFrom()
                         .port();

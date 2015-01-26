@@ -1,35 +1,33 @@
 package org.onosproject.icona.store;
 
-import org.onosproject.net.DeviceId;
+
+import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.ElementId;
 import org.onosproject.net.PortNumber;
 
-public class EndPoint {
+public class EndPoint extends ConnectPoint {
 
     private String clusterName;
-    private DeviceId id;
-    private PortNumber port;
 
-    public EndPoint(String clusterName, String dpid, long port) {
+    public EndPoint(String clusterName, ElementId elementId, PortNumber port) {
+        super(elementId, port);
         this.clusterName = clusterName;
-        this.id = DeviceId.deviceId(dpid);
-        this.port = PortNumber.portNumber(port);
+
     }
 
-    public DeviceId getId() {
-        return id;
-    }
 
-    public PortNumber getPort() {
-        return port;
-    }
-
-    public String getClusterName() {
+    public String clusterName() {
         return clusterName;
     }
 
+
     @Override
     public String toString() {
-        return "EndPoint [clusterName=" + clusterName + ", dpid=" + id
-                + ", port=" + port + "]";
+        return "EndPoint [clusterName=" + clusterName + ", elementId="
+                + elementId() + ", deviceId=" + deviceId() + "]";
     }
+
+
+
+
 }
