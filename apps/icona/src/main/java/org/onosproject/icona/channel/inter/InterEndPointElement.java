@@ -1,13 +1,11 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.inter;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 
-public class EndPointElement extends IconaTopologyElement<EndPointElement>
+public class InterEndPointElement extends IconaTopologyElement<InterEndPointElement>
         implements Serializable {
 
     /**
@@ -20,7 +18,7 @@ public class EndPointElement extends IconaTopologyElement<EndPointElement>
 
     // TODO: metrics ILs
 
-    public EndPointElement(ConnectPoint cp) {
+    public InterEndPointElement(ConnectPoint cp) {
         this.dpid = cp.deviceId().toString();
         this.port = cp.port().toLong();
 

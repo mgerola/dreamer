@@ -131,12 +131,12 @@ public class ClustersCommand extends AbstractShellCommand {
                                     ObjectMapper mapper, InterLink interlink) {
         ObjectNode result = mapper.createObjectNode();
         if (interlink != null) {
-            result.put("srcClusterId", interlink.getSrcClusterName())
-                    .put("dstCusterId", interlink.getDstClusterName())
-                    .put("srcId", interlink.getSrcId().toString())
-                    .put("srcPort", interlink.getSrcPort().toLong())
-                    .put("srcId", interlink.getDstId().toString())
-                    .put("srcPort", interlink.getDstPort().toLong());
+            result.put("srcClusterId", interlink.srcClusterName())
+                    .put("dstCusterId", interlink.dstClusterName())
+                    .put("srcId", interlink.src().deviceId().toString())
+                    .put("srcPort", interlink.src().port().toLong())
+                    .put("srcId", interlink.dst().deviceId().toString())
+                    .put("srcPort", interlink.dst().port().toLong());
 
         }
         return result;
@@ -162,10 +162,10 @@ public class ClustersCommand extends AbstractShellCommand {
      */
     public void printInterLink(InterLink interlink) {
         if (interlink != null) {
-            print(INTERLINK, interlink.getSrcClusterName(),
-                  interlink.getDstClusterName(), interlink.getSrcId(),
-                  interlink.getSrcPort(), interlink.getDstId(),
-                  interlink.getDstPort());
+            print(INTERLINK, interlink.srcClusterName(),
+                  interlink.dstClusterName(), interlink.src().deviceId(),
+                  interlink.src().port(), interlink.dst().deviceId(),
+                  interlink.dst().port());
         }
     }
 
@@ -198,9 +198,9 @@ public class ClustersCommand extends AbstractShellCommand {
                                     ObjectMapper mapper, EndPoint endpoint) {
         ObjectNode result = mapper.createObjectNode();
         if (endpoint != null) {
-            result.put("cluster", endpoint.getClusterName())
-                    .put("srcSwId", endpoint.getId().toString())
-                    .put("srcPort", endpoint.getPort().toLong());
+            result.put("cluster", endpoint.clusterName())
+                    .put("srcSwId", endpoint.deviceId().toString())
+                    .put("srcPort", endpoint.port().toLong());
         }
         return result;
     }
@@ -225,8 +225,8 @@ public class ClustersCommand extends AbstractShellCommand {
      */
     protected void printEndPoint(EndPoint endpoint) {
         if (endpoint != null) {
-            print(ENDPOINT, endpoint.getClusterName(), endpoint.getId(),
-                  endpoint.getPort());
+            print(ENDPOINT, endpoint.clusterName(), endpoint.deviceId(),
+                  endpoint.port());
         }
     }
 }

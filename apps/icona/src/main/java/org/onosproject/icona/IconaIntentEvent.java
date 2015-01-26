@@ -3,6 +3,7 @@ package org.onosproject.icona;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+@Deprecated
 public class IconaIntentEvent implements Serializable {
 
     /**

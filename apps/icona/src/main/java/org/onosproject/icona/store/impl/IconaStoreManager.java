@@ -102,23 +102,25 @@ public class IconaStoreManager implements IconaStoreService {
 
     @Override
     public void addEndpoint(String clusterName, String dpid, long port) {
-        EndPoint endPoint = new EndPoint(clusterName, dpid, port);
-        if (swPortEndPoint.get(endPoint.getId()) == null) {
-            swPortEndPoint.put(endPoint.getId(),
+        EndPoint endPoint = new EndPoint(clusterName, DeviceId.deviceId(dpid),
+                                         PortNumber.portNumber(port));
+        if (swPortEndPoint.get(endPoint.deviceId()) == null) {
+            swPortEndPoint.put(endPoint.deviceId(),
                                new HashMap<PortNumber, EndPoint>());
         }
 
         HashMap<PortNumber, EndPoint> temp = swPortEndPoint.get(endPoint
-                .getId());
-        temp.put(endPoint.getPort(), endPoint);
+                .deviceId());
+        temp.put(endPoint.port(), endPoint);
 
     }
 
     @Override
     public void remEndpoint(String clusterName, String dpid, long port) {
-        EndPoint endPoint = new EndPoint(clusterName, dpid, port);
-        if (swPortEndPoint.get(endPoint.getId()) != null) {
-            swPortEndPoint.get(endPoint.getId()).remove(endPoint.getPort());
+        EndPoint endPoint = new EndPoint(clusterName, DeviceId.deviceId(dpid),
+                                         PortNumber.portNumber(port));
+        if (swPortEndPoint.get(endPoint.deviceId()) != null) {
+            swPortEndPoint.get(endPoint.deviceId()).remove(endPoint.port());
         }
     }
 
@@ -163,17 +165,17 @@ public class IconaStoreManager implements IconaStoreService {
                              long dstPort) {
         InterLink interLink = new InterLink(srcClusterName, dstClusterName,
                                             srcId, srcPort, dstId, dstPort);
-        if (swPortInterLink.get(interLink.getSrcId()) == null) {
-            swPortInterLink.put(interLink.getSrcId(),
+        if (swPortInterLink.get(interLink.src().deviceId()) == null) {
+            swPortInterLink.put(interLink.src().deviceId(),
                                 new HashMap<PortNumber, InterLink>());
         }
         HashMap<PortNumber, InterLink> temp = swPortInterLink.get(interLink
-                .getSrcId());
-        temp.put(interLink.getSrcPort(), interLink);
+                .src().deviceId());
+        temp.put(interLink.src().port(), interLink);
 
-        clusterNameToCluster.get(interLink.getSrcClusterName())
+        clusterNameToCluster.get(interLink.srcClusterName())
                 .addInterLink(interLink);
-        clusterNameToCluster.get(interLink.getDstClusterName())
+        clusterNameToCluster.get(interLink.dstClusterName())
                 .addInterLink(interLink);
         log.info("New interLink added {}", interLink);
     }
@@ -185,17 +187,17 @@ public class IconaStoreManager implements IconaStoreService {
 
         InterLink interLink = new InterLink(srcClusterName, dstClusterName,
                                             srcId, srcPort, dstId, dstPort);
-        if (swPortInterLink.get(interLink.getSrcId()) != null) {
+        if (swPortInterLink.get(interLink.src().deviceId()) != null) {
             InterLink localInterlink = swPortInterLink
-                    .get(interLink.getSrcId()).get(interLink.getSrcPort());
-            if (localInterlink.getDstId().equals(interLink.getDstId())
-                    && localInterlink.getDstPort()
-                            .equals(interLink.getDstPort())) {
-                swPortInterLink.get(interLink.getSrcId())
-                        .remove(interLink.getSrcPort());
+                    .get(interLink.src().deviceId()).get(interLink.src().deviceId());
+            if (localInterlink.dst().deviceId().equals(interLink.dst().deviceId())
+                    && localInterlink.dst().port()
+                            .equals(interLink.dst().port())) {
+                swPortInterLink.get(interLink.src().deviceId())
+                        .remove(interLink.src().port());
             }
         }
-        clusterNameToCluster.get(interLink.getSrcClusterName())
+        clusterNameToCluster.get(interLink.srcClusterName())
                 .remInterLink(interLink);
         log.info("New interLink removed {}", interLink);
 
@@ -240,9 +242,35 @@ public class IconaStoreManager implements IconaStoreService {
 
     @Override
     public void remCluster(String clusterName) {
-        log.info("New cluster removed {}", clusterNameToCluster.get(clusterName));
+        log.info("New cluster removed {}",
+                 clusterNameToCluster.get(clusterName));
         clusterNameToCluster.remove(clusterName);
 
     }
+
+    @Override
+    public boolean addPseudoWire(PseudoWire pw) {
+        // TODO: find a better way to save pseudowire
+        if (pseudoWireMap.containsKey(pw.getPseudoWireId())) {
+            log.warn("Pseudowire alreday exists {}", pw);
+            return false;
+        }
+        pseudoWireMap.put(pw.getPseudoWireId(), pw);
+        return true;
+
+    }
+
+    @Override
+    public PseudoWire getPseudoWire(String pseudoWireId) {
+         return pseudoWireMap.get(pseudoWireId);
+    }
+
+//    @Override
+//    public boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent) {
+//        if (pseudoWireMap.get(pw.getPseudoWireId()) != null){
+//            pw.addPseudoWireIntent(pwIntent);
+//        }
+//        return false;
+//    }
 
 }
