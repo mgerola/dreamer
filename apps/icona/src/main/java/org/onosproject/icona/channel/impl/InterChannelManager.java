@@ -10,25 +10,33 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onosproject.icona.IconaIntentListener;
-import org.onosproject.icona.IconaIntentEvent;
-import org.onosproject.icona.channel.EndPointElement;
-import org.onosproject.icona.channel.IconaManagementEvent;
-import org.onosproject.icona.channel.IconaTopologyEvent;
-import org.onosproject.icona.channel.InterChannelService;
-import org.onosproject.icona.channel.InterLinkElement;
-import org.onosproject.icona.channel.IconaManagementEvent.MessageType;
+import org.onosproject.cluster.ClusterService;
+import org.onosproject.cluster.LeadershipService;
+import org.onosproject.icona.IconaConfigService;
+import org.onosproject.icona.IconaPseudoWireService;
+import org.onosproject.icona.IconaService;
+import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
+import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
+import org.onosproject.icona.channel.inter.IconaManagementEvent;
+import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent;
+import org.onosproject.icona.channel.inter.IconaTopologyEvent;
+import org.onosproject.icona.channel.inter.InterChannelService;
+import org.onosproject.icona.channel.inter.InterEndPointElement;
+import org.onosproject.icona.channel.inter.InterLinkElement;
+import org.onosproject.icona.channel.inter.IconaManagementEvent.MessageType;
+import org.onosproject.icona.impl.IconaManager;
 import org.onosproject.icona.store.Cluster;
+import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
+import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 import org.slf4j.Logger;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.FileSystemXmlConfig;
+import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
@@ -47,7 +55,7 @@ public class InterChannelManager implements InterChannelService {
     public static final String ICONA_TOPOLOGY_CHANNEL_NAME = "icona.topology";
 
     // Intent channel
-    private static IMap<byte[], IconaIntentEvent> intentChannel;
+    private static IMap<byte[], IconaPseudoWireIntentEvent> pseudoWireChannel;
     public static final String ICONA_INTENT_CHANNEL_NAME = "icona.intent";
     // Management channel
     private IMap<String, IconaManagementEvent> mgmtChannel;
@@ -56,10 +64,23 @@ public class InterChannelManager implements InterChannelService {
     private IconaManagementEvent oldHello;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected IconaStoreService storeService;
+    protected IconaStoreService iconaStoreService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected LeadershipService leadershipService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ClusterService clusterService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected IconaConfigService iconaConfigService;
+    
+   @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected IconaPseudoWireService iconaPseudoWireService;
 
     @Activate
     public void activate() {
+        log.info("Starting inter channel!");
 
         try {
             this.interHazelcastConfig = new FileSystemXmlConfig(
@@ -83,17 +104,26 @@ public class InterChannelManager implements InterChannelService {
         InterChannelManager.topologyChannel = interHazelcastInstance
                 .getMap(ICONA_TOPOLOGY_CHANNEL_NAME);
         InterChannelManager.topologyChannel
-                .addEntryListener(new IconaTopologyListener(storeService), true);
+                .addEntryListener(new IconaTopologyListener(iconaStoreService),
+                                  true);
 
-        InterChannelManager.intentChannel = interHazelcastInstance
+        InterChannelManager.pseudoWireChannel = interHazelcastInstance
                 .getMap(ICONA_INTENT_CHANNEL_NAME);
-        InterChannelManager.intentChannel
-                .addEntryListener(new IconaIntentListener(), true);
+        InterChannelManager.pseudoWireChannel
+                .addEntryListener(new IconaPseudoWireIntentListener(
+                                                                    leadershipService,
+                                                                    clusterService,
+                                                                    iconaConfigService,
+                                                                    iconaStoreService,
+                                                                    this,
+                                                                    iconaPseudoWireService),
+                                  true);
 
         this.mgmtChannel = interHazelcastInstance
                 .getMap(ICONA_MGMT_CHANNEL_NAME);
-        this.mgmtChannel.addEntryListener(new IconaMgmtListener(storeService),
-                                          true);
+        this.mgmtChannel
+                .addEntryListener(new IconaMgmtListener(iconaStoreService),
+                                  true);
         InterChannelManager.mgmtEventCounter = new BitSetIndex(
                                                                IndexType.MGMT_CHANNEL);
 
@@ -115,20 +145,22 @@ public class InterChannelManager implements InterChannelService {
                 if (interLinkEvent != null) {
 
                     log.info("Load InterLink {}", interLinkEvent);
-                    storeService.addInterLink(event.getClusterName(),
-                                              interLinkEvent
-                                                      .getRemoteClusterName(),
-                                              interLinkEvent.getLocalId(),
-                                              interLinkEvent.getLocalPort(),
-                                              interLinkEvent.getRemoteId(),
-                                              interLinkEvent.getRemotePort());
+                    iconaStoreService
+                            .addInterLink(event.getClusterName(),
+                                          interLinkEvent.getRemoteClusterName(),
+                                          interLinkEvent.getLocalId(),
+                                          interLinkEvent.getLocalPort(),
+                                          interLinkEvent.getRemoteId(),
+                                          interLinkEvent.getRemotePort());
                 }
-                EndPointElement endPointEvent = event.getEntryPointElement();
+                InterEndPointElement endPointEvent = event
+                        .getEntryPointElement();
                 if (endPointEvent != null) {
                     log.info("Load InterLink {}", interLinkEvent);
-                    storeService.addEndpoint(event.getClusterName(),
-                                             endPointEvent.getDpid(),
-                                             endPointEvent.getPortNumber());
+                    iconaStoreService
+                            .addEndpoint(event.getClusterName(),
+                                         endPointEvent.getDpid(),
+                                         endPointEvent.getPortNumber());
                 }
             }
         }
@@ -138,13 +170,14 @@ public class InterChannelManager implements InterChannelService {
     private void loadMgmt() {
         if (mgmtChannel.values() != null) {
             for (IconaManagementEvent event : mgmtChannel.values()) {
-                if (storeService.getCluster(event.getClusterName()) != null) {
-                    storeService.getCluster(event.getClusterName())
+                if (iconaStoreService.getCluster(event.getClusterName()) != null) {
+                    iconaStoreService.getCluster(event.getClusterName())
                             .setLastSeen(event.getTimeStamp());
                     continue;
                 }
-                storeService.addCluster(new Cluster(event.getClusterName(),
-                                                    event.getTimeStamp()));
+                iconaStoreService
+                        .addCluster(new Cluster(event.getClusterName(), event
+                                .getTimeStamp()));
             }
         }
 
@@ -175,8 +208,7 @@ public class InterChannelManager implements InterChannelService {
                                   ConnectPoint src, ConnectPoint dst) {
 
         InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName,
-                                                               src,
-                                                               dst);
+                                                               src, dst);
         IconaTopologyEvent iLEvent = new IconaTopologyEvent(interLinkEvent,
                                                             srcClusterName);
         topologyChannel.put(iLEvent.getID(), iLEvent);
@@ -186,7 +218,8 @@ public class InterChannelManager implements InterChannelService {
     @Override
     public void remInterLinkEvent(String srcClusterName, String dstClusterName,
                                   ConnectPoint src, ConnectPoint dst) {
-        InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName, src, dst);
+        InterLinkElement interLinkEvent = new InterLinkElement(dstClusterName,
+                                                               src, dst);
         IconaTopologyEvent iLEvent = new IconaTopologyEvent(interLinkEvent,
                                                             srcClusterName);
         topologyChannel.remove(iLEvent.getID());
@@ -195,7 +228,7 @@ public class InterChannelManager implements InterChannelService {
 
     @Override
     public void addEndPointEvent(String clusterName, ConnectPoint cp) {
-        EndPointElement endPointEvent = new EndPointElement(cp);
+        InterEndPointElement endPointEvent = new InterEndPointElement(cp);
         IconaTopologyEvent ePEvent = new IconaTopologyEvent(endPointEvent,
                                                             clusterName);
         log.info("Publishing EntryPoint added: {}", endPointEvent.toString());
@@ -204,26 +237,55 @@ public class InterChannelManager implements InterChannelService {
     }
 
     @Override
-    public void remEndPointEvent(String clusterName, ConnectPoint cp) {
-        EndPointElement endPointEvent = new EndPointElement(cp);
-        IconaTopologyEvent ePEvent = new IconaTopologyEvent(endPointEvent,
-                                                            clusterName);
+    public void remEndPointEvent(EndPoint endPoint) {
+        InterEndPointElement endPointEvent = new InterEndPointElement(endPoint);
+        IconaTopologyEvent ePEvent = new IconaTopologyEvent(
+                                                            endPointEvent,
+                                                            endPoint.clusterName());
         log.info("Publishing EntryPoint removal: {}", endPointEvent.toString());
         topologyChannel.remove(ePEvent.getID());
 
     }
 
-    
     @Override
     public void addCluster(String ClusterName) {
-        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName); 
+        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName);
         topologyChannel.put(clusterEvent.getID(), clusterEvent);
     }
-    
+
     @Override
     public void remCluster(String ClusterName) {
-        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName); 
+        IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName);
         topologyChannel.remove(clusterEvent.getID());
     }
 
+    @Override
+    public IconaPseudoWireIntentEvent addPseudoWireEvent(String clustrLeader,
+                                                         String pseudoWireId,
+                                                         PseudoWireIntent pseudoWireIntent,
+                                                         IntentRequestType intentRequestType,
+                                                         IntentReplayType intentReplayType) {
+        IconaPseudoWireIntentEvent event = new IconaPseudoWireIntentEvent(
+                                                                          clustrLeader,
+                                                                          pseudoWireId,
+                                                                          pseudoWireIntent,
+                                                                          intentRequestType,
+                                                                          intentReplayType);
+        
+        pseudoWireChannel.put(event.getID(), event);
+        return event;
+
+    }
+
+    @Override
+    public void addPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent) {
+        pseudoWireChannel.put(intentEvent.getID(), intentEvent);
+
+    }
+
+    @Override
+    public void remIntentEvent(IconaPseudoWireIntentEvent intentEvent) {
+        pseudoWireChannel.remove(intentEvent.getID());
+
+    }
 }

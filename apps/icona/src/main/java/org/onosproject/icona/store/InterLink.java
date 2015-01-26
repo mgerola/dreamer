@@ -1,5 +1,6 @@
 package org.onosproject.icona.store;
 
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
@@ -8,52 +9,33 @@ public class InterLink {
     private String srcClusterName;
     private String dstClusterName;
 
-    private DeviceId srcDpid;
-    private PortNumber srcPort;
-    private DeviceId dstDpid;
-    private PortNumber dstPort;
+    private ConnectPoint src;
+    private ConnectPoint dst;
 
     public InterLink(String srcClusterName, String dstClusterName,
                      String srcDpid, Long srcPort, String dstDpid, Long dstPort) {
-        this.srcDpid = DeviceId.deviceId(srcDpid);
-        this.srcPort = PortNumber.portNumber(srcPort);
+        this.src = new ConnectPoint(DeviceId.deviceId(srcDpid), PortNumber.portNumber(srcPort));
         this.srcClusterName = srcClusterName;
 
-        this.dstDpid = DeviceId.deviceId(dstDpid);
-        this.dstPort = PortNumber.portNumber(dstPort);
+        this.dst = new ConnectPoint(DeviceId.deviceId(dstDpid), PortNumber.portNumber(dstPort));
         this.dstClusterName = dstClusterName;
     }
 
-    public DeviceId getSrcId() {
-        return srcDpid;
+    public ConnectPoint src(){
+        return this.src;
     }
 
-    public PortNumber getSrcPort() {
-        return srcPort;
+    public ConnectPoint dst(){
+        return this.dst;
     }
 
-    public DeviceId getDstId() {
-        return dstDpid;
-    }
-
-    public PortNumber getDstPort() {
-        return dstPort;
-    }
-
-    public String getSrcClusterName() {
+    public String srcClusterName() {
         return srcClusterName;
     }
 
-    public String getDstClusterName() {
+    public String dstClusterName() {
         return dstClusterName;
     }
 
-    @Override
-    public String toString() {
-        return "InterLink [localClusterName=" + srcClusterName
-                + ", remoteClusterName=" + dstClusterName + ", localDpid="
-                + srcDpid + ", localPort=" + srcPort + ", remoteDpid="
-                + dstDpid + ", remotePort=" + dstPort + "]";
-    }
 
 }

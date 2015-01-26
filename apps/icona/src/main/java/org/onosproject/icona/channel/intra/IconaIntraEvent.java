@@ -1,4 +1,4 @@
-package org.onosproject.icona.channel;
+package org.onosproject.icona.channel.intra;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -15,7 +15,7 @@ public class IconaIntraEvent implements Serializable {
 
     private IntraType intraType;
     private IconaIntraElement<?> intraElement;
-    private NodeId nodeId;
+    private String nodeId;
 
     public enum IntraType {
         PSEUDOWIRE
@@ -29,7 +29,7 @@ public class IconaIntraEvent implements Serializable {
                            NodeId nodeId) {
         this.intraType = IntraType.PSEUDOWIRE;
         this.intraElement = pwElement;
-        this.nodeId = nodeId;
+        this.nodeId = nodeId.toString();
     }
 
 //    public IconaIntraEvent(IntraInterLinkElement linkElement,
@@ -71,7 +71,7 @@ public class IconaIntraEvent implements Serializable {
 //        return interLinkElement;
 //    }
 
-    public IntraPseudoWireElement interPseudoWireElement() {
+    public IntraPseudoWireElement intraPseudoWireElement() {
         if (this.intraType != IntraType.PSEUDOWIRE) {
             return null;
         }
@@ -103,7 +103,7 @@ public class IconaIntraEvent implements Serializable {
 //        return switchElement;
 //    }
 
-    public NodeId getNodeId() {
+    public String getNodeId() {
         return nodeId;
     }
 

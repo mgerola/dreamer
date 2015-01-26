@@ -289,6 +289,12 @@
 			<ref component-id="ClusterIdCompleter"/>
 			</completers>
 		</command>
+		<command>
+			<action class="org.onosproject.cli.icona.AddPseudoWireCommand" />
+			<completers>
+			<ref component-id="EndPointCompleter"/>
+			</completers>
+		</command>
     </command-bundle>
 
     <bean id="nodeIdCompleter" class="org.onosproject.cli.NodeIdCompleter"/>
@@ -303,5 +309,6 @@
     <bean id="ethTypeCompleter" class="org.onosproject.cli.net.EthTypeCompleter"/>
     <bean id="ipProtocolCompleter" class="org.onosproject.cli.net.IpProtocolCompleter"/>
     <bean id="ClusterIdCompleter" class="org.onosproject.cli.icona.ClusterIdCompleter" />
+    <bean id="EndPointCompleter" class="org.onosproject.cli.icona.EndPointCompleter" />
 
 </blueprint>
