@@ -1,12 +1,12 @@
 package org.onosproject.icona.store;
 
 import java.util.Date;
+import java.util.Optional;
 
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
-
 
 public class PseudoWireIntent {
 
@@ -16,29 +16,40 @@ public class PseudoWireIntent {
 
     private ConnectPoint dst;
 
+    private Optional<Integer> ingressLabel;
+    private Optional<Integer> egressLabel;
+
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
 
+    public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
+                            String dstDpid, long dstPort, Integer ingressLabel,
+                            Integer egressLabel,
+                            PathInstallationStatus installationStatus) {
+        this(dstCluster, 
+             new ConnectPoint(DeviceId.deviceId(srcDpid),
+                                          PortNumber.portNumber(srcPort)),
+             new ConnectPoint(DeviceId.deviceId(dstDpid),
+                              PortNumber.portNumber(dstPort)), 
+             ingressLabel,
+             egressLabel, 
+             installationStatus);
 
-    public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort, String dstDpid, long dstPort,
-                       PathInstallationStatus installationStatus, String srcMacAddress, String dstMacAddress) {
-        this.dstClusterName = dstCluster;
-        this.src = new ConnectPoint(DeviceId.deviceId(srcDpid), PortNumber.portNumber(srcPort));
-        this.dst = new ConnectPoint(DeviceId.deviceId(dstDpid), PortNumber.portNumber(dstPort));
+    }
+
+    public PseudoWireIntent(String dstClusterName, ConnectPoint src,
+                            ConnectPoint dst, Integer ingressLabel,
+                            Integer egressLabel,
+                            PathInstallationStatus installationStatus) {
+        this.dstClusterName = dstClusterName;
+        this.src = src;
+        this.dst = dst;
+        this.ingressLabel = Optional.ofNullable(ingressLabel);
+        this.egressLabel = Optional.ofNullable(ingressLabel);
         this.installationStatus = installationStatus;
         this.lastStatusUpdate = new Date();
 
     }
-
-     public PseudoWireIntent(ConnectPoint src, ConnectPoint dst, String dstClusterName,
-     PathInstallationStatus installationStatus) {
-     this.dstClusterName = dstClusterName;
-     this.src = src;
-     this.dst = dst;
-     this.installationStatus = installationStatus;
-     this.lastStatusUpdate = new Date();
-
-     }
 
     public ConnectPoint src() {
         return src;
@@ -65,9 +76,26 @@ public class PseudoWireIntent {
         this.lastStatusUpdate = new Date();
     }
 
+    public Optional<Integer> ingressLabel() {
+        return ingressLabel;
+    }
+
+    public void ingressLabel(Optional<Integer> ingressLabel) {
+        this.ingressLabel = ingressLabel;
+    }
+
+    public Optional<Integer> egressLabel() {
+        return egressLabel;
+    }
+
+    public void egressLabel(Optional<Integer> egressLabel) {
+        this.egressLabel = egressLabel;
+    }
+
     @Override
     public String toString() {
-        return "IconaIntent [dstClusterName=" + dstClusterName + ", src=" + src + ", dst=" + dst
-                + ", installationStatus=" + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate + "]";
+        return "IconaIntent [dstClusterName=" + dstClusterName + ", src=" + src
+                + ", dst=" + dst + ", installationStatus=" + installationStatus
+                + ", lastStatusUpdate=" + lastStatusUpdate + "]";
     }
 }

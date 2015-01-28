@@ -12,9 +12,6 @@ import org.slf4j.LoggerFactory;
 
 
 public class BFSTree {
-    // TODO: remove
-    private static final Logger log = LoggerFactory
-            .getLogger(BFSTree.class);
 
     LinkedList<Cluster> clusterQueue = new LinkedList<>();
     HashSet<String> clusterSearched = new HashSet<>();
