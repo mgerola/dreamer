@@ -4,6 +4,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.BitSet;
 
+import org.onlab.packet.MplsLabel;
 import org.slf4j.Logger;
 
 public class BitSetIndex {
@@ -15,8 +16,8 @@ public class BitSetIndex {
 
     public enum IndexType {
 
-        MGMT_CHANNEL((int) Math.pow(2, 5)), INTENT_ID((int) Math.pow(2, 64));
-        // INTENT_CHANNEL((int) Math.pow(2, 64)),
+        MGMT_CHANNEL((int) Math.pow(2, 5)), INTENT_ID((int) Math.pow(2, 64)),
+        MPLS_LABEL((int) Math.pow(2, 20));
         // PSEUDOWIRE_CHANNEL((int) Math.pow(2, 64));
 
         protected Integer value;
@@ -33,11 +34,16 @@ public class BitSetIndex {
     public BitSetIndex(IndexType type) {
         this.set = new BitSet();
         this.type = type;
-        // Set the first bit to true, in order to start each index from 1
-        this.set.flip(0);
+
+        if (type != IndexType.MPLS_LABEL) {
+            // Set the first bit to true, in order to start each index from 1
+            this.set.flip(0);
+        } else {
+            this.set.flip(0, 15);
+        }
     }
 
-    public synchronized Integer getNewIndex() {
+    public synchronized int getNewIndex() {
         Integer index = this.set.nextClearBit(0);
         try {
             this.getNewIndex(index);
@@ -49,7 +55,7 @@ public class BitSetIndex {
         return index;
     }
 
-    public synchronized Integer getNewIndex(Integer index) {
+    public synchronized int getNewIndex(int index) {
         if (index < type.getValue()) {
             if (!this.set.get(index)) {
                 this.set.flip(index);

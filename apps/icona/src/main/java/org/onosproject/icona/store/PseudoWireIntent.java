@@ -3,6 +3,7 @@ package org.onosproject.icona.store;
 import java.util.Date;
 import java.util.Optional;
 
+import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
@@ -16,8 +17,11 @@ public class PseudoWireIntent {
 
     private ConnectPoint dst;
 
-    private Optional<Integer> ingressLabel;
-    private Optional<Integer> egressLabel;
+    private Optional<MplsLabel> ingressLabel;
+    private Optional<MplsLabel> egressLabel;
+    
+    private boolean isEgress;
+    private boolean isIngress;
 
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
@@ -25,7 +29,7 @@ public class PseudoWireIntent {
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
                             String dstDpid, long dstPort, Integer ingressLabel,
                             Integer egressLabel,
-                            PathInstallationStatus installationStatus) {
+                            PathInstallationStatus installationStatus, boolean isIngress, boolean isEgress) {
         this(dstCluster, 
              new ConnectPoint(DeviceId.deviceId(srcDpid),
                                           PortNumber.portNumber(srcPort)),
@@ -33,21 +37,34 @@ public class PseudoWireIntent {
                               PortNumber.portNumber(dstPort)), 
              ingressLabel,
              egressLabel, 
-             installationStatus);
+             installationStatus, isEgress, isIngress);
 
     }
 
     public PseudoWireIntent(String dstClusterName, ConnectPoint src,
                             ConnectPoint dst, Integer ingressLabel,
                             Integer egressLabel,
-                            PathInstallationStatus installationStatus) {
+                            PathInstallationStatus installationStatus,
+                            boolean isIngress,
+                            boolean isEgress) {
         this.dstClusterName = dstClusterName;
         this.src = src;
         this.dst = dst;
-        this.ingressLabel = Optional.ofNullable(ingressLabel);
-        this.egressLabel = Optional.ofNullable(ingressLabel);
+        if(ingressLabel !=null){
+        this.ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(ingressLabel));
+        }else{
+            this.ingressLabel = Optional.empty();
+        }
+        if(egressLabel !=null){
+        this.egressLabel = Optional.ofNullable(MplsLabel.mplsLabel(egressLabel));
+        }else{
+            this.egressLabel = Optional.empty();
+        }
         this.installationStatus = installationStatus;
         this.lastStatusUpdate = new Date();
+        this.isEgress = isEgress;
+        this.isIngress = isIngress;
+
 
     }
 
@@ -76,26 +93,39 @@ public class PseudoWireIntent {
         this.lastStatusUpdate = new Date();
     }
 
-    public Optional<Integer> ingressLabel() {
+    public Optional<MplsLabel> ingressLabel() {
         return ingressLabel;
     }
 
-    public void ingressLabel(Optional<Integer> ingressLabel) {
-        this.ingressLabel = ingressLabel;
+    public void ingressLabel(MplsLabel ingressLabel) {
+        this.ingressLabel = Optional.ofNullable(ingressLabel);
     }
 
-    public Optional<Integer> egressLabel() {
+    public Optional<MplsLabel> egressLabel() {
         return egressLabel;
     }
 
-    public void egressLabel(Optional<Integer> egressLabel) {
-        this.egressLabel = egressLabel;
+    public void egressLabel(MplsLabel egressLabel) {
+        this.egressLabel = Optional.ofNullable(egressLabel);
     }
+    
+    public boolean isEgress() {
+        return isEgress;
+    }
+    
+    public Boolean isIngress() {
+        return isIngress;
+    }
+
 
     @Override
     public String toString() {
-        return "IconaIntent [dstClusterName=" + dstClusterName + ", src=" + src
-                + ", dst=" + dst + ", installationStatus=" + installationStatus
-                + ", lastStatusUpdate=" + lastStatusUpdate + "]";
+        return "PseudoWireIntent [dstClusterName=" + dstClusterName + ", src="
+                + src + ", dst=" + dst + ", ingressLabel=" + ingressLabel
+                + ", egressLabel=" + egressLabel + ", installationStatus="
+                + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate
+                + "]";
     }
+
+
 }

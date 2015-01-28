@@ -4,7 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-
+import org.onosproject.icona.InterClusterPath;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
@@ -17,6 +17,7 @@ public class PseudoWire {
     private String pseudoWireId;
     private PathInstallationStatus pwStatus;
     private Map<String, PseudoWireIntent> clusterIntentMap;
+    private InterClusterPath path;
 
     private TrafficSelector selector;
     private TrafficTreatment treatment;
@@ -31,12 +32,14 @@ public class PseudoWire {
 
     public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
                     TrafficSelector trafficSelector, TrafficTreatment treatment) {
-        this(srcEndPoint, dstEndPoint, trafficSelector, treatment,
+        
+        this(srcEndPoint, dstEndPoint, trafficSelector, treatment, null,
              PathInstallationStatus.RECEIVED);
+
     }
 
     public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
-                      TrafficSelector selector, TrafficTreatment treatment,
+                      TrafficSelector selector, TrafficTreatment treatment, InterClusterPath path,
                       PathInstallationStatus pwStatus) {
         checkNotNull(srcEndPoint);
         checkNotNull(dstEndPoint);
@@ -49,6 +52,7 @@ public class PseudoWire {
         this.selector = selector;
         this.treatment = treatment;
         this.pwStatus = pwStatus;
+        this.path = path;
         this.clusterIntentMap = new HashMap<String, PseudoWireIntent>();
     }
 
@@ -72,16 +76,24 @@ public class PseudoWire {
                                     String dstClusterName,
                                     Integer ingressLabel,
                                     Integer egressLabel,
-                                    PathInstallationStatus installationStatus) {
+                                    PathInstallationStatus installationStatus,
+                                    boolean isIngress,
+                                    boolean isEgress) {
         PseudoWireIntent pwIntent = new PseudoWireIntent(dstClusterName, src, dst,
                                                          ingressLabel,
                                                          egressLabel,
-                                                         installationStatus);
+                                                         installationStatus,
+                                                         isIngress,
+                                                         isEgress);
         clusterIntentMap.put(pwIntent.dstClusterName(), pwIntent);
     }
 
     public Collection<PseudoWireIntent> getIntents() {
         return clusterIntentMap.values();
+    }
+    
+    public PseudoWireIntent getIntent(String clusterName){
+        return clusterIntentMap.get(clusterName);
     }
 
     public EndPoint getSrcEndPoint() {
@@ -104,7 +116,15 @@ public class PseudoWire {
         return treatment;
     }
 
+    public InterClusterPath getInterClusterPath() {
+        return path;
+    }
+    
+    public void setInterClusterPath(InterClusterPath path){
+        this.path = path;
+    }
     @Override
+    
     public String toString() {
         return "PseudoWire [srcEndPoint=" + srcEndPoint + ", dstEndPoint="
                 + dstEndPoint + ", pseudoWireId=" + pseudoWireId

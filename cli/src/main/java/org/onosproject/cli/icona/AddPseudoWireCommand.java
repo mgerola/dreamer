@@ -3,16 +3,21 @@ package org.onosproject.cli.icona;
 import static org.onosproject.net.DeviceId.deviceId;
 import static org.onosproject.net.PortNumber.portNumber;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
+import org.apache.karaf.shell.commands.Option;
 import org.onosproject.cli.net.ConnectivityIntentCommand;
 import org.onosproject.icona.channel.intra.IntraChannelService;
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.intent.Constraint;
 
 /**
  * Installs point-to-point connectivity intents.
@@ -47,10 +52,15 @@ public class AddPseudoWireCommand extends ConnectivityIntentCommand {
         PortNumber egressPortNumber = portNumber(getPortNumber(egressString));
         ConnectPoint dst = new ConnectPoint(egressDeviceId, egressPortNumber);
         
-        intraChannelService.addIntraPseudoWire(src, dst,
-                                               IntentUpdateType.INSTALL,
-                                               Optional.empty(),
-                                               Optional.empty());
+        
+        TrafficSelector selector = buildTrafficSelector();
+        TrafficTreatment treatment = buildTrafficTreatment();
+
+        //TODO: to be managed....
+        List<Constraint> constraints = buildConstraints();
+        
+        intraChannelService.addIntraPseudoWire(src, dst, selector, treatment,
+                                               IntentUpdateType.INSTALL);
         
     }
     

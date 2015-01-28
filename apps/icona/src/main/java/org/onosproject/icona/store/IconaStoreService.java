@@ -3,6 +3,8 @@ package org.onosproject.icona.store;
 import java.util.Collection;
 import java.util.Optional;
 
+import org.onlab.packet.MplsLabel;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
@@ -50,6 +52,10 @@ public interface IconaStoreService {
     boolean addPseudoWire(PseudoWire pw);
 
     PseudoWire getPseudoWire(String pseudoWireId);
+
+    MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
+
+    void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
 
 
 //    boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent);

@@ -3,6 +3,7 @@ package org.onosproject.icona.channel.inter;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWireIntent;
 
 public class IconaPseudoWireIntentEvent implements Serializable {
@@ -21,12 +22,15 @@ public class IconaPseudoWireIntentEvent implements Serializable {
 
     private String dstId;
     private long dstPort;
-    
-    private Integer ingressLabel;
-    private Integer egressLabel;
+
+    private int ingressLabel;
+    private int egressLabel;
 
     private IntentRequestType intentRequestType;
     private IntentReplayType intentReplayType;
+    
+    private Boolean isEgress;
+    private Boolean isIngress;
 
     public enum IntentRequestType {
         RESERVE, INSTALL, DELETE,
@@ -40,22 +44,32 @@ public class IconaPseudoWireIntentEvent implements Serializable {
     }
 
     public IconaPseudoWireIntentEvent(String clusterLeader, String pwId,
-                                PseudoWireIntent intent,
-                                IntentRequestType intentRequestType,
-                                IntentReplayType intentReplayType) {
+                                      PseudoWireIntent intent,
+                                      IntentRequestType intentRequestType,
+                                      IntentReplayType intentReplayType) {
 
         this.dstCluster = intent.dstClusterName();
         this.srcId = intent.src().deviceId().toString();
         this.srcPort = intent.src().port().toLong();
         this.dstId = intent.dst().deviceId().toString();
         this.dstPort = intent.dst().port().toLong();
-        this.ingressLabel = intent.ingressLabel().orElse(null);
-        this.egressLabel = intent.egressLabel().orElse(null);
+        if (intent.ingressLabel().isPresent()) {
+            this.ingressLabel = intent.ingressLabel().get().toInt();
+        } else {
+            this.ingressLabel = 0;
+        }
+        if (intent.egressLabel().isPresent()) {
+            this.egressLabel = intent.egressLabel().get().toInt();
+        } else {
+            this.egressLabel = 0;
+        }
 
         this.clusterLeader = clusterLeader;
         this.pseudoWireId = pwId;
         this.intentRequestType = intentRequestType;
         this.intentReplayType = intentReplayType;
+        this.isEgress = intent.isEgress();
+        this.isIngress = intent.isIngress();
     }
 
     public String dstCluster() {
@@ -126,7 +140,7 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         return ingressLabel;
     }
 
-    public void ingressLabel(Integer ingressLabel) {
+    public void ingressLabel(int ingressLabel) {
         this.ingressLabel = ingressLabel;
     }
 
@@ -134,8 +148,16 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         return egressLabel;
     }
 
-    public void egressLabel(Integer egressLabel) {
+    public void egressLabel(int egressLabel) {
         this.egressLabel = egressLabel;
+    }
+    
+    public boolean isEgress(){
+        return isEgress;
+    }
+    
+    public boolean isIngress(){
+        return isIngress;
     }
 
     public byte[] getID() {
@@ -169,9 +191,10 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         }
 
         ByteBuffer id = ByteBuffer
-                .allocate(3 * Character.SIZE + 4 * Long.SIZE +
-                                  + Character.SIZE * pseudoWireId.length())
-                .putChar('I').putChar(requestType)
+                .allocate(3 * Character.SIZE + 4 * Long.SIZE + +Character.SIZE
+                                  * pseudoWireId.length())
+                .putChar('I')
+                .putChar(requestType)
                 // .putChar(replayType)
                 .putLong(Long.parseLong(srcId.split(":")[1], 16))
                 .putLong(srcPort)

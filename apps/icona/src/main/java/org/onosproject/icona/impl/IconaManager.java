@@ -67,7 +67,7 @@ public class IconaManager implements IconaService {
     private final Logger log = getLogger(getClass());
 
     // ICONA interval to send HELLO
-    private static int helloInterval = 1000;
+    private static int helloInterval = 3000;
     // If ICONA does not receive HELLO packets from another cluster for a period
     // of time
     // longer than the HELLO interval multiplied by
@@ -109,8 +109,9 @@ public class IconaManager implements IconaService {
             // need to remove previousHello and maybe I can use a simpler index
     
             // TODO: manage mastership! We cannot use the swtiches master...
-            while (!isInterrupted()) {
+            
                 try {
+                    while (!isInterrupted()) {
                     // log.info("IconaLeader {}",
                     // leadershipService.getLeader(iconaLeaderPath));
                     if (leadershipService.getLeader(iconaConfigService
@@ -154,11 +155,10 @@ public class IconaManager implements IconaService {
                             }
                         }
                     }
+                    }
                     Thread.sleep(helloInterval);
                 } catch (InterruptedException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
+                    throw new RuntimeException("Interrupted", e);
     
             }
         }
@@ -166,6 +166,7 @@ public class IconaManager implements IconaService {
 
     @Activate
     public void activate() {
+        loadStartUp();
         log.info("Starting icona manager");
         deviceService.addListener(new ManageDevices());
         linkService.addListener(new ManageLinks());
@@ -174,7 +175,6 @@ public class IconaManager implements IconaService {
 
         leadershipService.runForLeadership(iconaConfigService
                 .getIconaLeaderPath());
-        loadStartUp();
 
     }
 
@@ -185,8 +185,6 @@ public class IconaManager implements IconaService {
     }
 
     private void loadStartUp() {
-        iconaStoreService.addCluster(new Cluster(iconaConfigService
-                .getClusterName(), new Date()));
         interChannelService.addCluster(iconaConfigService.getClusterName());
         for (Device device : deviceService.getDevices()) {
             for (Port devPort : deviceService.getPorts(device.id())) {
@@ -423,16 +421,20 @@ public class IconaManager implements IconaService {
                                           iconaStoreService.getCluster(srcEndPoint
                                                   .clusterName()),
                                           iconaStoreService);
+      
             Cluster dstCluster = iconaStoreService.getCluster(dstEndPoint
                     .clusterName());
             InterClusterPath interClusterPath = geoTree.getPath(dstCluster);
-
+            checkNotNull(interClusterPath.getInterlinks());
+            pw.setInterClusterPath(interClusterPath);
+            
+            
             // EPs are in the same cluster
             if (interClusterPath.getInterlinks().isEmpty()) {
                 pw.addPseudoWireIntent(srcEndPoint, dstEndPoint,
                                        srcEndPoint.clusterName(),
                                        null, null,
-                                       PathInstallationStatus.RECEIVED);
+                                       PathInstallationStatus.RECEIVED, true, true);
 
                 // Installation procedure...
             } else {
@@ -447,13 +449,13 @@ public class IconaManager implements IconaService {
                                                .src(), srcEndPoint
                                                .clusterName(),
                                                null, null,
-                                       PathInstallationStatus.RECEIVED);
+                                       PathInstallationStatus.RECEIVED, true, false);
 
                 // DstEndPoint to first interlink
                 pw.addPseudoWireIntent(interLinks.get(0).dst(), dstEndPoint,
                                        dstEndPoint.clusterName(),
                                        null, null,
-                                       PathInstallationStatus.RECEIVED);
+                                       PathInstallationStatus.RECEIVED, false, true);
 
                 // Interlinks in the middle
                 for (int i = interLinks.size() - 1; i > 0; i--) {
@@ -461,7 +463,7 @@ public class IconaManager implements IconaService {
                             .get(i - 1).src(), interLinks.get(i)
                             .dstClusterName(), 
                             null, null, 
-                            PathInstallationStatus.RECEIVED);
+                            PathInstallationStatus.RECEIVED, false, false);
 
                 }
             }

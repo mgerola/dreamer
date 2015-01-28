@@ -45,7 +45,8 @@ public class IconaMgmtListener
     }
 
     @Override
-    public void entryRemoved(EntryEvent<String, IconaManagementEvent> event) {
+    public void entryRemoved(EntryEvent<String, IconaManagementEvent> update) {
+
     }
 
     @Override
