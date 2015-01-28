@@ -221,26 +221,7 @@ public class IconaPseudoWireIntentListener
             }
         }
     }
-
-    @Override
-    public void entryEvicted(EntryEvent<byte[], IconaPseudoWireIntentEvent> event) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void mapEvicted(MapEvent event) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void mapCleared(MapEvent event) {
-        // TODO Auto-generated method stub
-
-    }
     
-   
     // if all Intent are reserved, publish INSTALL!
     private void checkIntentInstalled(IconaPseudoWireIntentEvent pseudoWireEvent) {
         for (PseudoWireIntent intent : iconaStoreService
@@ -305,4 +286,15 @@ public class IconaPseudoWireIntentListener
         // TODO: send PW to the interChannel
     }
 
+    @Override
+    public void entryEvicted(EntryEvent<byte[], IconaPseudoWireIntentEvent> event) {
+    }
+
+    @Override
+    public void mapEvicted(MapEvent event) {
+    }
+
+    @Override
+    public void mapCleared(MapEvent event) {
+    }
 }

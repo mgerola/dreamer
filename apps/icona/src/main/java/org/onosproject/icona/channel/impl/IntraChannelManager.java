@@ -77,9 +77,9 @@ public class IntraChannelManager implements IntraChannelService {
 
     @Override
     public void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, IntentUpdateType intentUpdateType, Optional<Integer> ingressLabel,
-                                   Optional<Integer> egressLabel){
+                                   Optional<Integer> egressLabel) {
 
-        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, IntentUpdateType.INSTALL, ingressLabel, egressLabel);
+        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, ingressLabel, egressLabel, IntentUpdateType.INSTALL);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());
         intraEventChannel.put(intraEvent.getID(), intraEvent);
     }

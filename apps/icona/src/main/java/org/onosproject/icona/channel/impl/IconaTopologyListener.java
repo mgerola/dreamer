@@ -48,12 +48,6 @@ public class IconaTopologyListener
     }
 
     @Override
-    public void entryEvicted(EntryEvent<byte[], IconaTopologyEvent> arg0) {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
     public void entryRemoved(EntryEvent<byte[], IconaTopologyEvent> arg0) {
 
         if (arg0.getOldValue().getEntryPointElement() != null) {
@@ -83,19 +77,17 @@ public class IconaTopologyListener
 
     @Override
     public void entryUpdated(EntryEvent<byte[], IconaTopologyEvent> arg0) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void mapCleared(MapEvent arg0) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void mapEvicted(MapEvent arg0) {
-        // TODO Auto-generated method stub
+    }
+    @Override
+    public void entryEvicted(EntryEvent<byte[], IconaTopologyEvent> arg0) {
 
     }
 

@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.felix.scr.annotations.Activate;
@@ -69,12 +70,12 @@ public class IconaStoreManager implements IconaStoreService {
 
     // EndPoints
     @Override
-    public EndPoint getEndPoint(DeviceId sw, PortNumber port) {
+    public Optional<EndPoint> getEndPoint(DeviceId sw, PortNumber port) {
         if (swPortEndPoint.get(sw) != null) {
 
-            return (swPortEndPoint.get(sw)).get(port);
+            return Optional.ofNullable((swPortEndPoint.get(sw)).get(port));
         }
-        return null;
+        return Optional.empty();
     }
 
     @Override
@@ -127,12 +128,12 @@ public class IconaStoreManager implements IconaStoreService {
     // InterLinks
 
     @Override
-    public InterLink getInterLink(DeviceId id, PortNumber port) {
+    public Optional<InterLink> getInterLink(DeviceId id, PortNumber port) {
         if (swPortInterLink.get(id) != null) {
 
-            return swPortInterLink.get(id).get(port);
+            return Optional.ofNullable(swPortInterLink.get(id).get(port));
         }
-        return null;
+        return Optional.empty();
     }
 
     @Override

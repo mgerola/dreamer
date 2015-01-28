@@ -1,6 +1,7 @@
 package org.onosproject.icona.store;
 
 import java.util.Collection;
+import java.util.Optional;
 
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
@@ -13,7 +14,7 @@ public interface IconaStoreService {
     //
     //
 
-    EndPoint getEndPoint(DeviceId id, PortNumber port);
+    Optional<EndPoint> getEndPoint(DeviceId id, PortNumber port);
 
 
     Collection<EndPoint> getEndPoints(DeviceId id);
@@ -24,7 +25,7 @@ public interface IconaStoreService {
 
     void remEndpoint(String clusterName, String dpid, long portNumber);
 
-    InterLink getInterLink(DeviceId id, PortNumber port);
+    Optional<InterLink> getInterLink(DeviceId id, PortNumber port);
 
     Collection<InterLink> getInterLinks(DeviceId id);
 

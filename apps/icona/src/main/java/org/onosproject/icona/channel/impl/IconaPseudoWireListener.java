@@ -31,32 +31,22 @@ public class IconaPseudoWireListener implements EntryListener<byte[], IconaIntra
 
     @Override
     public void entryRemoved(EntryEvent<byte[], IconaIntraEvent> event) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void entryUpdated(EntryEvent<byte[], IconaIntraEvent> event) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void entryEvicted(EntryEvent<byte[], IconaIntraEvent> event) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void mapEvicted(MapEvent event) {
-        // TODO Auto-generated method stub
-
     }
 
     @Override
     public void mapCleared(MapEvent event) {
-        // TODO Auto-generated method stub
-
     }
 
 }
