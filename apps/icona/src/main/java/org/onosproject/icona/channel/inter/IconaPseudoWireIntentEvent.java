@@ -21,11 +21,12 @@ public class IconaPseudoWireIntentEvent implements Serializable {
 
     private String dstId;
     private long dstPort;
+    
+    private Integer ingressLabel;
+    private Integer egressLabel;
 
     private IntentRequestType intentRequestType;
     private IntentReplayType intentReplayType;
-
-    // TODO: ingressLabel and egressLabel
 
     public enum IntentRequestType {
         RESERVE, INSTALL, DELETE,
@@ -48,6 +49,8 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         this.srcPort = intent.src().port().toLong();
         this.dstId = intent.dst().deviceId().toString();
         this.dstPort = intent.dst().port().toLong();
+        this.ingressLabel = intent.ingressLabel().orElse(null);
+        this.egressLabel = intent.egressLabel().orElse(null);
 
         this.clusterLeader = clusterLeader;
         this.pseudoWireId = pwId;
@@ -117,6 +120,22 @@ public class IconaPseudoWireIntentEvent implements Serializable {
 
     public void intentRequestType(IntentRequestType intentRequestType) {
         this.intentRequestType = intentRequestType;
+    }
+
+    public Integer ingressLabel() {
+        return ingressLabel;
+    }
+
+    public void ingressLabel(Integer ingressLabel) {
+        this.ingressLabel = ingressLabel;
+    }
+
+    public Integer egressLabel() {
+        return egressLabel;
+    }
+
+    public void egressLabel(Integer egressLabel) {
+        this.egressLabel = egressLabel;
     }
 
     public byte[] getID() {

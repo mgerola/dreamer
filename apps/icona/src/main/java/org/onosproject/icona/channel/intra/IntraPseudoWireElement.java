@@ -27,6 +27,7 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
     }
 
     public IntraPseudoWireElement(ConnectPoint src, ConnectPoint dst,
+                                  Optional<Integer> mplsIngressLabel,  Optional<Integer> mplsEgressLabel,
             IntentUpdateType intentUpdateType) {
         this.srcId = src.deviceId().toString();
         this.srcPort = src.port().toLong();
@@ -35,18 +36,10 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
         this.intentUpdateType = intentUpdateType;
         
         //TODO: 0 is not ok!
-        this.mplsIngressLabel = 0;
-        this.mplsEgressLabel = 0;
-    }
-
-    public IntraPseudoWireElement(ConnectPoint src, ConnectPoint dst,
-            IntentUpdateType intentUpdateType, Optional<Integer> mplsIngressLabel,  Optional<Integer> mplsEgressLabel) {
-        this(src, dst, intentUpdateType);
-
         this.mplsIngressLabel = mplsIngressLabel.orElse(0);
         this.mplsEgressLabel = mplsEgressLabel.orElse(0);
-
     }
+
 
     public String srcId() {
         return srcId;
