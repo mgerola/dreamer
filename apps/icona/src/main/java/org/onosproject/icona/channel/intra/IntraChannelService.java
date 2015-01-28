@@ -4,14 +4,16 @@ import java.util.Optional;
 
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
 
 public interface IntraChannelService {
 
-    // TODO: create a generic list of PW parameters
-    public void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst,
-                                   IntentUpdateType intentUpdateType,
-                                   Optional<Integer> ingressLabel,
-                                   Optional<Integer> egressLabel);
-
+    void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
+                            TrafficTreatment treatment,
+                            IntentUpdateType intentUpdateType);
+    
     public void remIntraPseudoWire(IconaIntraEvent event);
+
+
 }

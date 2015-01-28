@@ -32,6 +32,7 @@ import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.topology.PathService;
 import org.slf4j.Logger;
 
 import com.hazelcast.config.Config;
@@ -74,9 +75,12 @@ public class InterChannelManager implements InterChannelService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaConfigService iconaConfigService;
-    
-   @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaPseudoWireService iconaPseudoWireService;
+    
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected PathService pathService;
 
     @Activate
     public void activate() {
@@ -116,7 +120,8 @@ public class InterChannelManager implements InterChannelService {
                                                                     iconaConfigService,
                                                                     iconaStoreService,
                                                                     this,
-                                                                    iconaPseudoWireService),
+                                                                    iconaPseudoWireService, 
+                                                                    pathService),
                                   true);
 
         this.mgmtChannel = interHazelcastInstance
@@ -168,6 +173,10 @@ public class InterChannelManager implements InterChannelService {
     }
 
     private void loadMgmt() {
+        //Add my cluster
+        iconaStoreService.addCluster(new Cluster(iconaConfigService
+                                                 .getClusterName(), new Date()));
+        
         if (mgmtChannel.values() != null) {
             for (IconaManagementEvent event : mgmtChannel.values()) {
                 if (iconaStoreService.getCluster(event.getClusterName()) != null) {
@@ -271,7 +280,7 @@ public class InterChannelManager implements InterChannelService {
                                                                           pseudoWireIntent,
                                                                           intentRequestType,
                                                                           intentReplayType);
-        
+
         pseudoWireChannel.put(event.getID(), event);
         return event;
 

@@ -13,11 +13,15 @@ import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.PseudoWire;
+import org.onosproject.icona.utils.BitSetIndex;
+import org.onosproject.icona.utils.BitSetIndex.IndexType;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.slf4j.Logger;
@@ -34,6 +38,7 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<DeviceId, HashMap<PortNumber, InterLink>> swPortInterLink;
     private Map<DeviceId, HashMap<PortNumber, EndPoint>> swPortEndPoint;
     private Map<String, PseudoWire> pseudoWireMap;
+    private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -43,6 +48,7 @@ public class IconaStoreManager implements IconaStoreService {
         swPortInterLink = new HashMap<DeviceId, HashMap<PortNumber, InterLink>>();
         swPortEndPoint = new HashMap<DeviceId, HashMap<PortNumber, EndPoint>>();
         pseudoWireMap = new HashMap<String, PseudoWire>();
+        mplsLabelMap = new HashMap<ConnectPoint, BitSetIndex>();
     }
 
     @Deactivate
@@ -176,6 +182,7 @@ public class IconaStoreManager implements IconaStoreService {
 
         clusterNameToCluster.get(interLink.srcClusterName())
                 .addInterLink(interLink);
+
         clusterNameToCluster.get(interLink.dstClusterName())
                 .addInterLink(interLink);
         log.info("New interLink added {}", interLink);
@@ -189,17 +196,22 @@ public class IconaStoreManager implements IconaStoreService {
         InterLink interLink = new InterLink(srcClusterName, dstClusterName,
                                             srcId, srcPort, dstId, dstPort);
         if (swPortInterLink.get(interLink.src().deviceId()) != null) {
-            InterLink localInterlink = swPortInterLink
-                    .get(interLink.src().deviceId()).get(interLink.src().deviceId());
-            if (localInterlink.dst().deviceId().equals(interLink.dst().deviceId())
-                    && localInterlink.dst().port()
-                            .equals(interLink.dst().port())) {
+            InterLink localInterlink = swPortInterLink.get(interLink.src()
+                                                                   .deviceId())
+                    .get(interLink.src().port());
+            if (localInterlink.equals(interLink)) {
+
                 swPortInterLink.get(interLink.src().deviceId())
                         .remove(interLink.src().port());
             }
         }
-        clusterNameToCluster.get(interLink.srcClusterName())
-                .remInterLink(interLink);
+
+        if (clusterNameToCluster.get(interLink.srcClusterName())
+                .equals(interLink)) {
+            clusterNameToCluster.get(interLink.srcClusterName())
+                    .remInterLink(interLink);
+        }
+
         log.info("New interLink removed {}", interLink);
 
     }
@@ -263,15 +275,34 @@ public class IconaStoreManager implements IconaStoreService {
 
     @Override
     public PseudoWire getPseudoWire(String pseudoWireId) {
-         return pseudoWireMap.get(pseudoWireId);
+        return pseudoWireMap.get(pseudoWireId);
     }
 
-//    @Override
-//    public boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent) {
-//        if (pseudoWireMap.get(pw.getPseudoWireId()) != null){
-//            pw.addPseudoWireIntent(pwIntent);
-//        }
-//        return false;
-//    }
+    @Override
+    public MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint) {
+        if (mplsLabelMap.get(connectPoint) == null) {
+            mplsLabelMap.put(connectPoint,
+                             new BitSetIndex(IndexType.MPLS_LABEL));
+        }
+        return MplsLabel
+                .mplsLabel(mplsLabelMap.get(connectPoint).getNewIndex());
+    }
+
+    @Override
+    public void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel) {
+        if (mplsLabelMap.get(connectPoint) == null) {
+
+        }
+        mplsLabelMap.get(connectPoint).releaseIndex(mplsLabel.toInt());
+    }
+
+    // @Override
+    // public boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent
+    // pwIntent) {
+    // if (pseudoWireMap.get(pw.getPseudoWireId()) != null){
+    // pw.addPseudoWireIntent(pwIntent);
+    // }
+    // return false;
+    // }
 
 }

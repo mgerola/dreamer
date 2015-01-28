@@ -263,15 +263,6 @@
             <action class="org.onosproject.cli.net.WipeOutCommand"/>
         </command>
         <command>
-			<action class="org.onosproject.cli.net.AddMplsIntent" />
-			<completers>
-			<ref component-id="connectPointCompleter" />
-		</completers>
-		</command>
-        <command>
-			<action class="org.onlab.onos.cli.net.IconaTopologyCommand" />
-		</command>
-        <command>
 			<action class="org.onosproject.cli.icona.TopologyCommand" />
 		</command>
 		<command>

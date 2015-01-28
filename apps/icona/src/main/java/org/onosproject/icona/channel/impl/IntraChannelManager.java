@@ -17,6 +17,8 @@ import org.onosproject.icona.channel.intra.IntraChannelService;
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement;
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
 import org.slf4j.Logger;
 
 import com.hazelcast.config.Config;
@@ -76,10 +78,11 @@ public class IntraChannelManager implements IntraChannelService {
         }
 
     @Override
-    public void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, IntentUpdateType intentUpdateType, Optional<Integer> ingressLabel,
-                                   Optional<Integer> egressLabel) {
-
-        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, ingressLabel, egressLabel, IntentUpdateType.INSTALL);
+    public void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
+                                   TrafficTreatment treatment, IntentUpdateType intentUpdateType) {
+        
+        //TODO manage trat and selec
+        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, IntentUpdateType.INSTALL);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());
         intraEventChannel.put(intraEvent.getID(), intraEvent);
     }
