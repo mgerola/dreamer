@@ -66,7 +66,8 @@ public class AddMplsIntent extends ConnectivityIntentCommand {
         ConnectPoint egress = new ConnectPoint(egressDeviceId, egressPortNumber);
 
         Optional<MplsLabel> egressLabel = Optional.empty();
-        if (!ingressLabelString.isEmpty()) {
+        if (!egressLabelString.isEmpty()) {
+            
             egressLabel = Optional
                     .ofNullable(MplsLabel.mplsLabel(parseInt(egressLabelString)));
         }
@@ -110,6 +111,15 @@ public class AddMplsIntent extends ConnectivityIntentCommand {
         return deviceString.substring(0, slash);
     }
 
+    public static boolean isInteger(String s) {
+        try { 
+            Integer.parseInt(s); 
+        } catch(NumberFormatException e) { 
+            return false; 
+        }
+        return true;
+    }
+    
     protected Integer parseInt(String value) {
         try {
             return Integer.parseInt(value);

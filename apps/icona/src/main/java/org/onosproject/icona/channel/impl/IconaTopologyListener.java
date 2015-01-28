@@ -68,7 +68,7 @@ public class IconaTopologyListener
                                       interLinkEvent.getLocalPort(),
                                       interLinkEvent.getRemoteId(),
                                       interLinkEvent.getRemotePort());
-
+        
         } else if (arg0.getOldValue().getClusterElement() != null){
             storeService.remCluster(arg0.getOldValue().getClusterElement().getClusterName());
         }

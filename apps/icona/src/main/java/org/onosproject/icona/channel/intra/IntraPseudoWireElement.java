@@ -14,9 +14,7 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
     private long dstPort;
 
     private IntentUpdateType intentUpdateType;
-
-    private Integer mplsIngressLabel;
-    private Integer mplsEgressLabel;
+    //TODO: manage TrafficSelector, TrafficBuilder
 
     public enum IntentUpdateType {
         INSTALL,
@@ -27,17 +25,13 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
     }
 
     public IntraPseudoWireElement(ConnectPoint src, ConnectPoint dst,
-                                  Optional<Integer> mplsIngressLabel,  Optional<Integer> mplsEgressLabel,
             IntentUpdateType intentUpdateType) {
         this.srcId = src.deviceId().toString();
         this.srcPort = src.port().toLong();
         this.dstId = dst.deviceId().toString();
         this.dstPort = dst.port().toLong();
         this.intentUpdateType = intentUpdateType;
-        
-        //TODO: 0 is not ok!
-        this.mplsIngressLabel = mplsIngressLabel.orElse(0);
-        this.mplsEgressLabel = mplsEgressLabel.orElse(0);
+
     }
 
 
@@ -59,14 +53,6 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
 
     public IntentUpdateType intentUpdateType() {
         return intentUpdateType;
-    }
-
-    public Integer egressLabel(){
-        return mplsEgressLabel;
-    }
-
-    public Integer ingressLabel(){
-        return mplsIngressLabel;
     }
 
     @Override
@@ -100,10 +86,12 @@ public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireEle
 
     @Override
     public String toString() {
-        return "IntraPseudoWireElement [srcId=" + srcId + ", srcPort=" + srcPort + ", dstId=" + dstId + ", dstPort="
-                + dstPort + ", intentUpdateType=" + intentUpdateType + ", mplsIngressLabel=" + mplsIngressLabel
-                + ", mplsEgressLabel=" + mplsEgressLabel + "]";
+        return "IntraPseudoWireElement [srcId=" + srcId + ", srcPort="
+                + srcPort + ", dstId=" + dstId + ", dstPort=" + dstPort
+                + ", intentUpdateType=" + intentUpdateType + "]";
     }
+
+
 
 }
 
