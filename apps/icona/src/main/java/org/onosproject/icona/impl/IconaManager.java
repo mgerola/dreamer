@@ -35,8 +35,8 @@ import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
-import org.onosproject.icona.store.PseudoWire;
-import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.MasterPseudoWire;
+import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.ConnectPoint;
@@ -213,8 +213,6 @@ public class IconaManager implements IconaService {
                  remoteclusterName, localId, localPort, remoteId, remotePort);
         // Publish a new "IL add" and if an EPs exits, an "EP remove" is
         // published
-        log.info("ClusterName {}",
-                 iconaStoreService.getCluster(remoteclusterName));
 
         if (mastershipService.getLocalRole(localId) == MastershipRole.MASTER) {
             if (!remoteclusterName.isEmpty() && remoteclusterName != null
@@ -406,8 +404,8 @@ public class IconaManager implements IconaService {
                                                             "Destination EndPoint does not exists"));
         // TODO: publish the PW on the topology channel
         //TODO: Fix trafficSelector and TrafficTratement 
-        PseudoWire pw = new PseudoWire(srcEndPoint, dstEndPoint, DefaultTrafficSelector.builder().build(), DefaultTrafficTreatment.builder().build());
-        checkArgument(iconaStoreService.addPseudoWire(pw));
+        MasterPseudoWire pw = new MasterPseudoWire(srcEndPoint, dstEndPoint, DefaultTrafficSelector.builder().build(), DefaultTrafficTreatment.builder().build());
+        checkArgument(iconaStoreService.addMasterPseudoWire(pw));
 
         if (leadershipService
                 .getLeader(iconaConfigService.getIconaLeaderPath()) != null
@@ -471,7 +469,7 @@ public class IconaManager implements IconaService {
             // Send the intents to the channel
             for (PseudoWireIntent pseudoWireIntent : pw.getIntents()) {
                 interChannelService
-                        .addPseudoWireEvent(iconaConfigService.getClusterName(),
+                        .addMasterPseudoWireEvent(iconaConfigService.getClusterName(),
                                             pw.getPseudoWireId(),
                                             pseudoWireIntent,
                                             IntentRequestType.RESERVE,

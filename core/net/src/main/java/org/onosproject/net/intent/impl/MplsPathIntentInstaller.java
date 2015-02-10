@@ -115,7 +115,10 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
     private LinkResourceAllocations assignMplsLabel(MplsPathIntent intent) {
 
         // TODO: do it better... Suggestions?
-        Set<Link> linkRequest = Sets.newHashSetWithExpectedSize(intent.path()
+        Set<Link> linkRequest;
+        log.info("Path size {}", intent.path().links().size());
+        if(intent.path().links().size() > 2) {
+        linkRequest = Sets.newHashSetWithExpectedSize(intent.path()
                 .links().size() - 2);
         for (int i = 1; i <= intent.path().links().size() - 2; i++) {
             Link link = intent.path().links().get(i);
@@ -123,6 +126,10 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
             // add the inverse link. I want that the label is reserved both for
             // the direct and inverse link
             linkRequest.add(linkStore.getLink(link.dst(), link.src()));
+        }
+        } else{
+            linkRequest = Sets.newHashSetWithExpectedSize(1);
+            linkRequest.add(intent.path().links().get(0));
         }
 
         LinkResourceRequest.Builder request = DefaultLinkResourceRequest
@@ -163,6 +170,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         MplsLabel mpls = getMplsLabel(allocations, link);
         checkNotNull(mpls);
         MplsLabel prevLabel = mpls;
+
         rules.add(ingressFlow(prev.port(), link, intent, mpls, operation));
 
         prev = link.dst();
@@ -269,6 +277,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
                 treat.popMpls(ethertype.ethType());
             } else {
                 treat.popMpls(Ethernet.TYPE_IPV4);
+                
             }
         }
         treat.setOutput(link.src().port());

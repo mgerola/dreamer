@@ -18,6 +18,7 @@ import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
+import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
@@ -37,8 +38,9 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<String, Cluster> clusterNameToCluster;
     private Map<DeviceId, HashMap<PortNumber, InterLink>> swPortInterLink;
     private Map<DeviceId, HashMap<PortNumber, EndPoint>> swPortEndPoint;
-    private Map<String, PseudoWire> pseudoWireMap;
+    private Map<String, MasterPseudoWire> masterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
+    private Set<PseudoWire> pseudoWire;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -47,8 +49,9 @@ public class IconaStoreManager implements IconaStoreService {
         clusterNameToCluster = new HashMap<String, Cluster>();
         swPortInterLink = new HashMap<DeviceId, HashMap<PortNumber, InterLink>>();
         swPortEndPoint = new HashMap<DeviceId, HashMap<PortNumber, EndPoint>>();
-        pseudoWireMap = new HashMap<String, PseudoWire>();
+        masterPseudoWireMap = new HashMap<String, MasterPseudoWire>();
         mplsLabelMap = new HashMap<ConnectPoint, BitSetIndex>();
+        pseudoWire = new HashSet<PseudoWire>();
     }
 
     @Deactivate
@@ -228,6 +231,10 @@ public class IconaStoreManager implements IconaStoreService {
         return clusterNameToCluster.put(cluster.getClusterName(), cluster);
     }
 
+//    public PseudoWire addPseudoWire() {
+//        
+//    }
+    
     @Override
     public Collection<Cluster> getClusters() {
         Collection<Cluster> temp = new HashSet<Cluster>();
@@ -262,20 +269,20 @@ public class IconaStoreManager implements IconaStoreService {
     }
 
     @Override
-    public boolean addPseudoWire(PseudoWire pw) {
+    public boolean addMasterPseudoWire(MasterPseudoWire pw) {
         // TODO: find a better way to save pseudowire
-        if (pseudoWireMap.containsKey(pw.getPseudoWireId())) {
+        if (masterPseudoWireMap.containsKey(pw.getPseudoWireId())) {
             log.warn("Pseudowire alreday exists {}", pw);
             return false;
         }
-        pseudoWireMap.put(pw.getPseudoWireId(), pw);
+        masterPseudoWireMap.put(pw.getPseudoWireId(), pw);
         return true;
 
     }
 
     @Override
-    public PseudoWire getPseudoWire(String pseudoWireId) {
-        return pseudoWireMap.get(pseudoWireId);
+    public MasterPseudoWire getMasterPseudoWire(String pseudoWireId) {
+        return masterPseudoWireMap.get(pseudoWireId);
     }
 
     @Override
