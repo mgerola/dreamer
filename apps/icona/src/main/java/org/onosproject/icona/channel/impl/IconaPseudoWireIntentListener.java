@@ -14,9 +14,9 @@ import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRepl
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
-import org.onosproject.icona.store.PseudoWire;
+import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
-import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
@@ -107,24 +107,25 @@ public class IconaPseudoWireIntentListener
                                                                            .dstPort()));
                     Optional<MplsLabel> egressLabel = Optional.empty();
                     Optional<MplsLabel> ingressLabel = Optional.empty();
-                    if (intentEvent.ingressLabel() != 0) {
+                    if (!intentEvent.ingressLabel().equals(0)) {
                         ingressLabel = Optional.ofNullable(MplsLabel
                                 .mplsLabel(intentEvent.ingressLabel()));
                     }
-                    if (intentEvent.egressLabel() != 0) {
+                    if (!intentEvent.egressLabel().equals(0)) {
                         egressLabel = Optional.ofNullable(MplsLabel
                                 .mplsLabel(intentEvent.egressLabel()));
                     }
                     log.info("Cluster {}, egress {} label {} ingress {} label {}",
                              iconaConfigService.getClusterName(), egress,
-                             intentEvent.egressLabel(), ingress,
-                             intentEvent.ingressLabel());
+                             egressLabel, ingress,
+                             ingressLabel);
+                    
                     iconaPseudoWireService
                             .installPseudoWireIntent(ingress, ingressLabel,
                                                      egress, egressLabel);
                     // TODO: check the correct installation...
-//                    intentEvent.intentReplayType(IntentReplayType.ACK);
-//                    interChannelService.addPseudoWireEvent(intentEvent);
+                    intentEvent.intentReplayType(IntentReplayType.ACK);
+                    interChannelService.addMasterPseudoWireEvent(intentEvent);
 
                 }
                 break;
@@ -172,7 +173,7 @@ public class IconaPseudoWireIntentListener
                              intentEvent.intentReplayType(),
                              intentEvent.srcId(), intentEvent.dstId());
 
-                    interChannelService.addPseudoWireEvent(intentEvent);
+                    interChannelService.addMasterPseudoWireEvent(intentEvent);
 
                 }
                 break;
@@ -204,7 +205,7 @@ public class IconaPseudoWireIntentListener
                          intentEvent.dstId());
                 if (intentEvent.intentReplayType() == IntentReplayType.ACK) {
 
-                    iconaStoreService.getPseudoWire(intentEvent.pseudoWireId())
+                    iconaStoreService.getMasterPseudoWire(intentEvent.pseudoWireId())
                             .setIntentStatus(intentEvent.dstCluster(),
                                              PathInstallationStatus.INSTALLED);
 
@@ -222,7 +223,15 @@ public class IconaPseudoWireIntentListener
                                                     .getLeader(iconaConfigService
                                                             .getIconaLeaderPath()))) {
 
-                        checkIntentInstalled(intentEvent);
+                        if (clusterService
+                                .getLocalNode()
+                                .id()
+                                .equals(leadershipService
+                                                .getLeader(iconaConfigService
+                                                        .getIconaLeaderPath()))) {
+                            interChannelService.remIntentEvent(intentEvent);
+                            checkIntentInstalled(intentEvent);
+                        }
                     }
 
                 } else if (intentEvent.intentReplayType() == IntentReplayType.NACK) {
@@ -238,8 +247,8 @@ public class IconaPseudoWireIntentListener
                 if (intentEvent.intentReplayType() == IntentReplayType.ACK
                         && intentEvent.egressLabel() != null) {
 
-                    PseudoWire pseudoWire = iconaStoreService
-                            .getPseudoWire(intentEvent.pseudoWireId());
+                    MasterPseudoWire pseudoWire = iconaStoreService
+                            .getMasterPseudoWire(intentEvent.pseudoWireId());
                     pseudoWire.setIntentStatus(intentEvent.dstCluster(),
                                                PathInstallationStatus.RESERVED);
                     pseudoWire.getIntent(intentEvent.dstCluster())
@@ -254,9 +263,9 @@ public class IconaPseudoWireIntentListener
                                     .equals(leadershipService
                                                     .getLeader(iconaConfigService
                                                             .getIconaLeaderPath()))) {
+                        interChannelService.remIntentEvent(intentEvent);
                         checkIntentReserved(intentEvent);
                     }
-                    
 
                 } else if (intentEvent.intentReplayType() == IntentReplayType.NACK) {
                     log.info("NACK");
@@ -271,94 +280,86 @@ public class IconaPseudoWireIntentListener
 
     // if all Intent are reserved, publish INSTALL!
     private void checkIntentInstalled(IconaPseudoWireIntentEvent pseudoWireEvent) {
-        for (PseudoWireIntent intent : iconaStoreService
-                .getPseudoWire(pseudoWireEvent.pseudoWireId()).getIntents()) {
-            if (intent.installationStatus() != PathInstallationStatus.INSTALLED) {
-                return;
+        MasterPseudoWire pw = iconaStoreService.getMasterPseudoWire(pseudoWireEvent
+                .pseudoWireId());
+        log.info("INSTALL: Dentro!!!!!");
+        if (pw.getPwStatus() != PathInstallationStatus.INSTALLED) {
+            for (PseudoWireIntent intent : pw.getIntents()) {
+                log.info("INSTALL: loop dentro!!!!!");
+                if (intent.installationStatus() != PathInstallationStatus.INSTALLED) {
+                    return;
+                }
             }
+            log.info("INSTALLED");
+            pw.setPwStatus(PathInstallationStatus.INSTALLED);
+
+            for (PseudoWireIntent intent : pw.getIntents()) {
+
+                // TODO: check the removal of both request
+                interChannelService
+                        .addMasterPseudoWireEvent(iconaConfigService.getClusterName(),
+                                            pseudoWireEvent.pseudoWireId(),
+                                            intent, IntentRequestType.INSTALL,
+                                            IntentReplayType.EMPTY);
+            }
+            iconaStoreService.getMasterPseudoWire(pseudoWireEvent.pseudoWireId())
+                    .setPwStatus(PathInstallationStatus.INSTALLED);
+            // TODO: send PW to the interChannel
         }
-        log.info("INSTALLED");
-        iconaStoreService.getPseudoWire(pseudoWireEvent.pseudoWireId())
-                .setPwStatus(PathInstallationStatus.INSTALLED);
-
-        for (PseudoWireIntent intent : iconaStoreService
-                .getPseudoWire(pseudoWireEvent.pseudoWireId()).getIntents()) {
-
-            // TODO: check the removal of both request
-            interChannelService.addPseudoWireEvent(iconaConfigService
-                                                           .getClusterName(),
-                                                   pseudoWireEvent
-                                                           .pseudoWireId(),
-                                                   intent,
-                                                   IntentRequestType.INSTALL,
-                                                   IntentReplayType.EMPTY);
-            // Remove old request
-            pseudoWireEvent.intentReplayType(IntentReplayType.ACK);
-            interChannelService.remIntentEvent(pseudoWireEvent);
-
-        }
-        iconaStoreService.getPseudoWire(pseudoWireEvent.pseudoWireId())
-                .setPwStatus(PathInstallationStatus.INSTALLED);
-        // TODO: send PW to the interChannel
     }
 
     // if all Intent are reserved, publish install!
     private void checkIntentReserved(IconaPseudoWireIntentEvent pseudoWireEvent) {
-        for (PseudoWireIntent intent : iconaStoreService
-                .getPseudoWire(pseudoWireEvent.pseudoWireId()).getIntents()) {
-            if (intent.installationStatus() != PathInstallationStatus.RESERVED) {
-                return;
+        log.info("Reserve: Dentro!!!!!");
+        MasterPseudoWire pw = iconaStoreService.getMasterPseudoWire(pseudoWireEvent
+                .pseudoWireId());
+        if (pw.getPwStatus() != PathInstallationStatus.RESERVED
+                || pw.getPwStatus() != PathInstallationStatus.INSTALLED) {
+            for (PseudoWireIntent intent : pw.getIntents()) {
+                log.info("Reserve: loop dentro!!!!!");
+                if (intent.installationStatus() != PathInstallationStatus.RESERVED) {
+                    log.info("NOT RESERVED!!!!!!!!!");
+                    return;
+                }
             }
-        }
 
-        iconaStoreService.getPseudoWire(pseudoWireEvent.pseudoWireId())
-                .setPwStatus(PathInstallationStatus.RESERVED);
+            Iterator<InterLink> iter = pw.getInterClusterPath().getInterlinks().iterator();
+            while (iter.hasNext()) {
+                // For each IL we use the same label for ingress and egress. We
+                // have
+                // the egress label in one cluster, we need to store and send
+                // the
+                // ingress one.
 
-        Iterator<InterLink> iter = iconaStoreService
-                .getPseudoWire(pseudoWireEvent.pseudoWireId())
-                .getInterClusterPath().getInterlinks().iterator();
-        while (iter.hasNext()) {
-            // For each IL we use the same label for ingress and egress. We have
-            // the egress label in one cluster, we need to store and send the
-            // ingress one.
+                if (iter.hasNext()) {
+                    InterLink interLink = iter.next();
+                    pw.getIntent(interLink.srcClusterName())
+                            .egressLabel()
+                            .ifPresent(egressLabel -> pw
+                                               .getIntent(interLink
+                                                                  .dstClusterName())
+                                               .ingressLabel(egressLabel));
 
-            PseudoWire pw = iconaStoreService.getPseudoWire(pseudoWireEvent
-                    .pseudoWireId());
-
-            if (iter.hasNext()) {
-                InterLink interLink = iter.next();
-                pw.getIntent(interLink.srcClusterName())
-                        .egressLabel()
-                        .ifPresent(egressLabel -> pw
-                                           .getIntent(interLink
-                                                              .dstClusterName())
-                                           .ingressLabel(egressLabel));
+                }
 
             }
             log.info("intents {}", pw.getIntents());
+            pw.setPwStatus(PathInstallationStatus.RESERVED);
 
+            // TODO: send PW to the interChannel
+            for (PseudoWireIntent intent : pw.getIntents()) {
+
+                interChannelService
+                        .addMasterPseudoWireEvent(iconaConfigService.getClusterName(),
+                                            pseudoWireEvent.pseudoWireId(),
+                                            intent, IntentRequestType.INSTALL,
+                                            IntentReplayType.EMPTY);
+
+            }
+            pw.setPwStatus(PathInstallationStatus.INSTALLED);
+
+            // TODO: send PW to the interChannel
         }
-        // TODO: send PW to the interChannel
-        for (PseudoWireIntent intent : iconaStoreService
-                .getPseudoWire(pseudoWireEvent.pseudoWireId()).getIntents()) {
-
-            interChannelService.addPseudoWireEvent(iconaConfigService
-                                                           .getClusterName(),
-                                                   pseudoWireEvent
-                                                           .pseudoWireId(),
-                                                   intent,
-                                                   IntentRequestType.INSTALL,
-                                                   IntentReplayType.EMPTY);
-
-            // TODO: check the removal of both request
-            // Remove old request
-            pseudoWireEvent.intentReplayType(IntentReplayType.ACK);
-            interChannelService.remIntentEvent(pseudoWireEvent);
-
-        }
-        iconaStoreService.getPseudoWire(pseudoWireEvent.pseudoWireId())
-                .setPwStatus(PathInstallationStatus.INSTALLED);
-        // TODO: send PW to the interChannel
     }
 
     @Override

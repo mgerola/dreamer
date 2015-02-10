@@ -4,7 +4,7 @@ import java.util.Date;
 import java.util.Optional;
 
 import org.onlab.packet.MplsLabel;
-import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;

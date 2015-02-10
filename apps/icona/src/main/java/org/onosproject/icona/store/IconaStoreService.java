@@ -49,9 +49,9 @@ public interface IconaStoreService {
 
     void remCluster(String clusterName);
 
-    boolean addPseudoWire(PseudoWire pw);
+    boolean addMasterPseudoWire(MasterPseudoWire pw);
 
-    PseudoWire getPseudoWire(String pseudoWireId);
+    MasterPseudoWire getMasterPseudoWire(String pseudoWireId);
 
     MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
 

@@ -2,6 +2,7 @@ package org.onosproject.icona.channel.inter;
 
 import java.util.Date;
 
+import org.onosproject.icona.InterClusterPath;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.store.EndPoint;
@@ -25,15 +26,21 @@ public interface InterChannelService {
     void remCluster(String ClusterName);
 
     void addCluster(String ClusterName);
+    
+    void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst, InterClusterPath path, String clusterName);
+        
+    void remPseudoWireEvent(); 
+    
 
-     IconaPseudoWireIntentEvent addPseudoWireEvent(String clustrLeader, String pseudoWireId,
+     IconaPseudoWireIntentEvent addMasterPseudoWireEvent(String clustrLeader, String pseudoWireId,
                             PseudoWireIntent pseudoWireIntent,
                             IntentRequestType intentRequestType,
                             IntentReplayType intentReplayType);
 
-    void addPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent);
+    void addMasterPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent);
 
     void remIntentEvent(IconaPseudoWireIntentEvent intentEvent);
+   
 
     // public void addIntentEvent(IconaIntentEvent intentEvent);
     //
