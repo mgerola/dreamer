@@ -15,6 +15,7 @@ import org.onosproject.cluster.LeadershipService;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaPseudoWireService;
 import org.onosproject.icona.IconaService;
+import org.onosproject.icona.InterClusterPath;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.channel.inter.IconaManagementEvent;
@@ -24,6 +25,7 @@ import org.onosproject.icona.channel.inter.InterChannelService;
 import org.onosproject.icona.channel.inter.InterEndPointElement;
 import org.onosproject.icona.channel.inter.InterLinkElement;
 import org.onosproject.icona.channel.inter.IconaManagementEvent.MessageType;
+import org.onosproject.icona.channel.inter.InterPseudoWireElement;
 import org.onosproject.icona.impl.IconaManager;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
@@ -267,9 +269,24 @@ public class InterChannelManager implements InterChannelService {
         IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName);
         topologyChannel.remove(clusterEvent.getID());
     }
+    
+    @Override
+    public void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst,
+                                   InterClusterPath path, String clusterName) {
+        IconaTopologyEvent event = new IconaTopologyEvent(new InterPseudoWireElement(src,dst), clusterName);
+        topologyChannel.put(event.getID(), event);
+        
+    }
+
+    //TODO: implement!
+    @Override
+    public void remPseudoWireEvent() {
+        // TODO Auto-generated method stub
+        
+    }
 
     @Override
-    public IconaPseudoWireIntentEvent addPseudoWireEvent(String clustrLeader,
+    public IconaPseudoWireIntentEvent addMasterPseudoWireEvent(String clustrLeader,
                                                          String pseudoWireId,
                                                          PseudoWireIntent pseudoWireIntent,
                                                          IntentRequestType intentRequestType,
@@ -287,7 +304,7 @@ public class InterChannelManager implements InterChannelService {
     }
 
     @Override
-    public void addPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent) {
+    public void addMasterPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent) {
         pseudoWireChannel.put(intentEvent.getID(), intentEvent);
 
     }
@@ -295,6 +312,5 @@ public class InterChannelManager implements InterChannelService {
     @Override
     public void remIntentEvent(IconaPseudoWireIntentEvent intentEvent) {
         pseudoWireChannel.remove(intentEvent.getID());
-
     }
 }

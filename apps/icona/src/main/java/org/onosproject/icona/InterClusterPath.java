@@ -1,15 +1,16 @@
 package org.onosproject.icona;
 
+import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.onosproject.icona.store.InterLink;
 
 
-public class InterClusterPath {
+public class InterClusterPath implements Serializable {
 
     private List<InterLink> interlinks;
-
+    
     public InterClusterPath() {
         interlinks = new LinkedList<InterLink>();
     }
