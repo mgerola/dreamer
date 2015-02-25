@@ -65,7 +65,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class IconaManager implements IconaService {
 
     private final Logger log = getLogger(getClass());
-
+    //TODO: manage the dealy: hazelcast migrate distributed register 
+    //and with low delay we have troubles...
     // ICONA interval to send HELLO
     private static int helloInterval = 3000;
     // If ICONA does not receive HELLO packets from another cluster for a period
@@ -213,10 +214,12 @@ public class IconaManager implements IconaService {
                  remoteclusterName, localId, localPort, remoteId, remotePort);
         // Publish a new "IL add" and if an EPs exits, an "EP remove" is
         // published
-
+        
+        //TODO: some of these check sould be handle in the linkdiscorvery...
         if (mastershipService.getLocalRole(localId) == MastershipRole.MASTER) {
             if (!remoteclusterName.isEmpty() && remoteclusterName != null
-                    && iconaStoreService.getCluster(remoteclusterName) != null) {
+                    && iconaStoreService.getCluster(remoteclusterName) != null
+                    && localId != null) {
                 if (!iconaStoreService.getInterLink(localId, localPort).isPresent()) {
                     interChannelService
                             .addInterLinkEvent(iconaConfigService
@@ -226,7 +229,7 @@ public class IconaManager implements IconaService {
                                                                 localPort),
                                                new ConnectPoint(remoteId,
                                                                 remotePort));
-
+                    
                     for (EndPoint endPoint : iconaStoreService
                             .getEndPoints(localId)) {
                         interChannelService.remEndPointEvent(endPoint);

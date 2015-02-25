@@ -28,6 +28,8 @@ import org.onosproject.net.PortNumber;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
+
 @Component(immediate = true)
 @Service
 public class IconaStoreManager implements IconaStoreService {
@@ -98,14 +100,14 @@ public class IconaStoreManager implements IconaStoreService {
             }
 
         }
-        return temp;
+        return ImmutableList.copyOf(temp);
     }
 
     @Override
     public Collection<EndPoint> getEndPoints(DeviceId swId) {
 
         if (swPortEndPoint.get(swId) != null) {
-            return swPortEndPoint.get(swId).values();
+            return ImmutableList.copyOf(swPortEndPoint.get(swId).values());
         }
         return Collections.emptyList();
     }
@@ -155,7 +157,7 @@ public class IconaStoreManager implements IconaStoreService {
                     .values()) {
                 temp.addAll(portInterlink.values());
             }
-            return temp;
+            return ImmutableList.copyOf(temp);
         }
         return Collections.emptyList();
     }
@@ -164,7 +166,7 @@ public class IconaStoreManager implements IconaStoreService {
     public Collection<InterLink> getInterLinks(DeviceId id) {
         if (swPortInterLink.get(id) != null) {
 
-            return swPortInterLink.get(id).values();
+            return ImmutableList.copyOf(swPortInterLink.get(id).values());
         }
         return Collections.emptyList();
     }
@@ -239,7 +241,7 @@ public class IconaStoreManager implements IconaStoreService {
     public Collection<Cluster> getClusters() {
         Collection<Cluster> temp = new HashSet<Cluster>();
         temp.addAll(clusterNameToCluster.values());
-        return temp;
+        return ImmutableList.copyOf(temp);
     }
 
     @Override
@@ -255,7 +257,7 @@ public class IconaStoreManager implements IconaStoreService {
 
                 }
             }
-            return removedClusters;
+            return ImmutableList.copyOf(removedClusters);
         }
         return Collections.emptyList();
     }
