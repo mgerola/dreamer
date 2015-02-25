@@ -260,6 +260,7 @@ public class LinkDiscovery implements TimerTask {
                                          localPort,
                                          remoteDeviceId,
                                          remotePort);
+                
             }
         }
         return false;

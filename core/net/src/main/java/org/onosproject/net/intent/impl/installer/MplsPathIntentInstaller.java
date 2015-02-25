@@ -42,6 +42,7 @@ import org.onosproject.net.resource.ResourceType;
 import org.slf4j.Logger;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -114,7 +115,7 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
 
         // TODO: do it better... Suggestions?
         Set<Link> linkRequest;
-        log.info("Path size {}", intent.path().links().size());
+        log.info("Path: {} - ingress label: {} - egress label: {}", intent.path().links(), intent.ingressLabel(), intent.egressLabel());
         if(intent.path().links().size() > 2) {
         linkRequest = Sets.newHashSetWithExpectedSize(intent.path()
                 .links().size() - 2);
@@ -125,11 +126,10 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
             // the direct and inverse link
             linkRequest.add(linkStore.getLink(link.dst(), link.src()));
         }
-        } else{
-            linkRequest = Sets.newHashSetWithExpectedSize(1);
-            linkRequest.add(intent.path().links().get(0));
+        } else {
+        linkRequest = Collections.emptySet();
         }
-
+        
         LinkResourceRequest.Builder request = DefaultLinkResourceRequest
                 .builder(intent.id(), linkRequest).addMplsRequest();
         LinkResourceAllocations reqMpls = resourceService
@@ -164,41 +164,82 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         // List of flow rules to be installed
 
         List<FlowRuleOperation> rules = Lists.newLinkedList();
-
-        // Ingress traffic
-        // Get the new MPLS label
-        MplsLabel mpls = getMplsLabel(allocations, link);
-        checkNotNull(mpls);
-        MplsLabel prevLabel = mpls;
-
-        rules.add(ingressFlow(prev.port(), link, intent, mpls, operation));
-
-        prev = link.dst();
-
-        while (links.hasNext()) {
-
-            link = links.next();
-
-            if (links.hasNext()) {
-                // Transit traffic
-                // Get the new MPLS label
-                mpls = getMplsLabel(allocations, link);
-                checkNotNull(mpls);
-                rules.add(transitFlow(prev.port(), link, intent,
-                                      prevLabel, mpls, operation));
-                prevLabel = mpls;
-
-            } else {
-                // Egress traffic
-                rules.add(egressFlow(prev.port(), link, intent,
-                                     prevLabel, operation));
-            }
+        
+        //Path in the same switch
+        if (intent.path().links().size() == 2) {
+            rules.add(singleFlow(prev.port(), link, intent, operation));
+            
+        } else {
+            MplsLabel mpls;
+            // Ingress traffic
+            // Get the new MPLS label
+            mpls = getMplsLabel(allocations, link);
+            checkNotNull(mpls);
+            MplsLabel prevLabel = mpls;
+            
+            rules.add(ingressFlow(prev.port(), link, intent, mpls, operation));
 
             prev = link.dst();
+
+            while (links.hasNext()) {
+
+                link = links.next();
+
+                if (links.hasNext()) {
+                    // Transit traffic
+                    // Get the new MPLS label
+                    mpls = getMplsLabel(allocations, link);
+                    checkNotNull(mpls);
+                    rules.add(transitFlow(prev.port(), link, intent, prevLabel,
+                                          mpls, operation));
+                    prevLabel = mpls;
+
+                } else {
+                    // Egress traffic
+                    rules.add(egressFlow(prev.port(), link, intent, prevLabel,
+                                         operation));
+                }
+
+                prev = link.dst();
+            }
         }
         return Lists.newArrayList(ImmutableSet.of(rules));
     }
 
+
+    private FlowRuleOperation singleFlow(PortNumber inPort, Link link,
+                                          MplsPathIntent intent, FlowRuleOperation.Type operation){
+        TrafficSelector.Builder ingressSelector = DefaultTrafficSelector
+                .builder(intent.selector());
+        TrafficTreatment.Builder treat = DefaultTrafficTreatment.builder(intent.treatment());
+        
+        
+        if (intent.ingressLabel().isPresent()) {
+            ingressSelector.matchEthType(Ethernet.MPLS_UNICAST)
+                    .matchMplsLabel(intent.ingressLabel().get());
+            
+            // Swap the MPLS label
+            if(intent.egressLabel().isPresent()){
+                treat.setMpls(intent.egressLabel().get());
+            } else{
+                // if the ingress ethertype is defined, the egress traffic
+                // will be use that value, otherwise the IPv4 ethertype is used.
+                treat.popMpls(outputEtherType(intent.selector()));
+            }
+
+        } else {
+            // Push and set the MPLS label
+            if(intent.egressLabel().isPresent()){
+                treat.setMpls(intent.egressLabel().get());
+            } 
+            // if the flow has not MPLS label and we do not need to add a label (egress is null), we simply forward the traffic
+        }
+        treat.setOutput(link.src().port());
+        return flowRuleOperation(intent, link.src().deviceId(),
+                                 ingressSelector.build(), treat.build(),
+                                 operation);
+
+    }
     private FlowRuleOperation ingressFlow(PortNumber inPort, Link link,
                                            MplsPathIntent intent,
                                            MplsLabel label,
@@ -224,9 +265,16 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         // Add the output action
         treat.setOutput(link.src().port());
 
+        if (intent.ingressLabel().isPresent()) {
+        log.info("Installing ingress flow to switch {} with MPLS label source {} and destination {}"
+                 , link.src().deviceId(), intent.ingressLabel().get(), label.toString());
+        }else{
+            log.info("Installing ingress flow to switch {} with MPLS label source {} and destination {}"
+                     , link.src().deviceId(), "no MPLS label" , label.toString());
+        }
         return flowRuleOperation(intent, link.src().deviceId(),
-                ingressSelector.build(), treat.build(),
-                operation);
+                         ingressSelector.build(), treat.build(),
+                         operation);
     }
 
     private FlowRuleOperation transitFlow(PortNumber inPort, Link link,
@@ -251,8 +299,10 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
 
         treat.setOutput(link.src().port());
 
+        log.info("Installing transient flow to switch {} with MPLS label source {} and destination {}"
+                 , link.src().deviceId(), prevLabel.toString(), outLabel.toString());
         return flowRuleOperation(intent, link.src().deviceId(),
-                selector.build(), treat.build(), operation);
+                                  selector.build(), treat.build(), operation);
     }
 
     private FlowRuleOperation egressFlow(PortNumber inPort, Link link,
@@ -277,20 +327,29 @@ public class MplsPathIntentInstaller implements IntentInstaller<MplsPathIntent> 
         } else {
             // if the ingress ethertype is defined, the egress traffic
             // will be use that value, otherwise the IPv4 ethertype is used.
-            Criterion c = intent.selector().getCriterion(Type.ETH_TYPE);
-            if (c != null && c instanceof EthTypeCriterion) {
-                EthTypeCriterion ethertype = (EthTypeCriterion) c;
-                treat.popMpls((short) ethertype.ethType());
-            } else {
-                treat.popMpls(Ethernet.TYPE_IPV4);
-                
-            }
-
+            treat.popMpls(outputEtherType(intent.selector()));
         }
         treat.setOutput(link.src().port());
+        if(intent.egressLabel().isPresent()){
+        log.info("Installing egress flow to switch {} with MPLS label source {} and destination {}"
+                 , link.src().deviceId(), prevLabel.toString(), intent.egressLabel().get());
+        }else{
+            log.info("Installing egress flow to switch {} with MPLS label source {} and destination {}"
+                     , link.src().deviceId(), prevLabel.toString(), "pop MPLS label");
+        }
         return flowRuleOperation(intent, link.src().deviceId(),
-                selector.build(), treat.build(), operation);
+                                 selector.build(), treat.build(), operation);
     }
+    
+    private short outputEtherType(TrafficSelector selector){
+        Criterion c = selector.getCriterion(Type.ETH_TYPE);
+        if (c != null && c instanceof EthTypeCriterion) {
+            EthTypeCriterion ethertype = (EthTypeCriterion) c;
+            return (short) ethertype.ethType();
+        } else {
+        return Ethernet.TYPE_IPV4;
+        }
+    } 
 
     protected FlowRuleOperation flowRuleOperation(MplsPathIntent intent,
                                                     DeviceId deviceId,
