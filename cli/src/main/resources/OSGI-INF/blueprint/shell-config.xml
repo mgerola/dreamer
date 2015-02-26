@@ -282,9 +282,6 @@
             </completers>
         </command>
         <command>
-			<action class="org.onlab.onos.cli.net.IconaTopologyCommand" />
-		</command>
-        <command>
 			<action class="org.onosproject.cli.icona.TopologyCommand" />
 		</command>
 		<command>

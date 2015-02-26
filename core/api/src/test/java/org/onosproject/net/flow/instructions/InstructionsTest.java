@@ -480,7 +480,6 @@ public class InstructionsTest {
                    is(not(equalTo(modIPInstruction2.hashCode()))));
     }
 
-<<<<<<< HEAD
     private final int flowLabel1 = 0x11111;
     private final int flowLabel2 = 0x22222;
     private final Instruction modIPv6FlowLabelInstruction1 =
@@ -529,8 +528,6 @@ public class InstructionsTest {
                    is(not(equalTo(modIPv6FlowLabelInstruction2.hashCode()))));
     }
 
-=======
->>>>>>> ONOS-631 #Initial MPLS intent implementation
     private Instruction modMplsLabelInstruction1 = Instructions.modMplsLabel(MplsLabel.mplsLabel(1));
     private Instruction sameAsModMplsLabelInstruction1 = Instructions.modMplsLabel(MplsLabel.mplsLabel(1));
     private Instruction modMplsLabelInstruction2 = Instructions.modMplsLabel(MplsLabel.mplsLabel(2));
