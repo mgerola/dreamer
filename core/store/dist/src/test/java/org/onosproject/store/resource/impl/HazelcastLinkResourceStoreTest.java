@@ -46,9 +46,6 @@ import org.onosproject.store.hz.TestStoreManager;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.hazelcast.config.Config;
-import com.hazelcast.core.Hazelcast;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -80,7 +77,7 @@ public class HazelcastLinkResourceStoreTest {
     private Link newLink(String dev1, int port1, String dev2, int port2) {
         Annotations annotations = DefaultAnnotations.builder()
                 .set(AnnotationKeys.OPTICAL_WAVES, "80")
-                .set(AnnotationKeys.BANDWIDTH, "1000000")
+                .set(AnnotationKeys.BANDWIDTH, "1000")
                 .build();
         return new DefaultLink(
                 new ProviderId("of", "foo"),
@@ -92,9 +89,9 @@ public class HazelcastLinkResourceStoreTest {
     @Before
     public void setUp() throws Exception {
 
-        Config config = TestStoreManager.getTestConfig();
-
-        storeMgr = new TestStoreManager(Hazelcast.newHazelcastInstance(config));
+        TestStoreManager testStoreMgr = new TestStoreManager();
+        testStoreMgr.setHazelcastInstance(testStoreMgr.initSingleInstance());
+        storeMgr = testStoreMgr;
         storeMgr.activate();
 
 
@@ -175,7 +172,7 @@ public class HazelcastLinkResourceStoreTest {
         final BandwidthResourceAllocation alloc = getBandwidthObj(freeRes);
         assertNotNull(alloc);
 
-        assertEquals(Bandwidth.valueOf(1000000.0), alloc.bandwidth());
+        assertEquals(Bandwidth.mbps(1000.0), alloc.bandwidth());
     }
 
     /**
@@ -212,7 +209,7 @@ public class HazelcastLinkResourceStoreTest {
                         ImmutableSet.of(link))
                 .build();
         final ResourceAllocation allocation =
-                new BandwidthResourceAllocation(Bandwidth.valueOf(900000.0));
+                new BandwidthResourceAllocation(Bandwidth.mbps(900.0));
         final Set<ResourceAllocation> allocationSet = ImmutableSet.of(allocation);
 
         final LinkResourceAllocations allocations =
@@ -233,7 +230,7 @@ public class HazelcastLinkResourceStoreTest {
                         ImmutableSet.of(link))
                         .build();
         final ResourceAllocation allocation =
-                new BandwidthResourceAllocation(Bandwidth.valueOf(9000000.0));
+                new BandwidthResourceAllocation(Bandwidth.mbps(9000.0));
         final Set<ResourceAllocation> allocationSet = ImmutableSet.of(allocation);
 
         final LinkResourceAllocations allocations =
@@ -261,7 +258,7 @@ public class HazelcastLinkResourceStoreTest {
                         ImmutableSet.of(link))
                         .build();
         final ResourceAllocation allocation =
-                new BandwidthResourceAllocation(Bandwidth.valueOf(900000.0));
+                new BandwidthResourceAllocation(Bandwidth.mbps(900.0));
         final Set<ResourceAllocation> allocationSet = ImmutableSet.of(allocation);
 
         final LinkResourceAllocations allocations =

@@ -15,62 +15,49 @@
  */
 package org.onosproject.net.intent.impl;
 
-import java.util.Collections;
 import java.util.Set;
-import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.DeviceId;
-import org.onosproject.net.flow.CompletedBatchOperation;
+import org.onosproject.net.flow.DefaultFlowEntry;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchEntry;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
-import org.onosproject.net.flow.FlowRuleListener;
-import org.onosproject.net.flow.FlowRuleService;
+import org.onosproject.net.flow.FlowRuleOperations;
+import org.onosproject.net.flow.FlowRuleServiceAdapter;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.Futures;
 
 
-public class MockFlowRuleService implements FlowRuleService {
+public class MockFlowRuleService extends FlowRuleServiceAdapter {
 
-    private Future<CompletedBatchOperation> future;
     final Set<FlowRule> flows = Sets.newHashSet();
+    boolean success;
 
     public void setFuture(boolean success) {
-        setFuture(success, 0);
-    }
-
-    public void setFuture(boolean success, long intentId) {
-        if (success) {
-            future = Futures.immediateFuture(new CompletedBatchOperation(true, Collections.emptySet()));
-        } else {
-            final Set<Long> failedIds = ImmutableSet.of(intentId);
-            future = Futures.immediateFuture(
-                    new CompletedBatchOperation(false, flows, failedIds));
-        }
+        this.success = success;
     }
 
     @Override
-    public Future<CompletedBatchOperation> applyBatch(FlowRuleBatchOperation batch) {
-        for (FlowRuleBatchEntry fbe : batch.getOperations()) {
-            FlowRule fr = fbe.getTarget();
-            switch (fbe.getOperator()) {
+    public void apply(FlowRuleOperations ops) {
+        ops.stages().forEach(stage -> stage.forEach(flow -> {
+            switch (flow.type()) {
                 case ADD:
-                    flows.add(fr);
+                case MODIFY: //TODO is this the right behavior for modify?
+                    flows.add(flow.rule());
                     break;
                 case REMOVE:
-                    flows.remove(fr);
-                    break;
-                case MODIFY:
+                    flows.remove(flow.rule());
                     break;
                 default:
                     break;
             }
+        }));
+        if (success) {
+            ops.callback().onSuccess(ops);
+        } else {
+            ops.callback().onError(ops);
         }
-        return future;
     }
 
     @Override
@@ -80,39 +67,38 @@ public class MockFlowRuleService implements FlowRuleService {
 
     @Override
     public Iterable<FlowEntry> getFlowEntries(DeviceId deviceId) {
-        return null;
+        return flows.stream()
+                    .filter(flow -> flow.deviceId().equals(deviceId))
+                    .map(DefaultFlowEntry::new)
+                    .collect(Collectors.toList());
     }
 
     @Override
     public void applyFlowRules(FlowRule... flowRules) {
+        for (FlowRule flow : flowRules) {
+            flows.add(flow);
+        }
     }
 
     @Override
     public void removeFlowRules(FlowRule... flowRules) {
-    }
-
-    @Override
-    public void removeFlowRulesById(ApplicationId appId) {
+        for (FlowRule flow : flowRules) {
+            flows.remove(flow);
+        }
     }
 
     @Override
     public Iterable<FlowRule> getFlowRulesById(ApplicationId id) {
-        return null;
+        return flows.stream()
+                    .filter(flow -> flow.appId() == id.id())
+                    .collect(Collectors.toList());
     }
 
     @Override
     public Iterable<FlowRule> getFlowRulesByGroupId(ApplicationId appId, short groupId) {
-        return null;
-    }
-
-    @Override
-    public void addListener(FlowRuleListener listener) {
-
-    }
-
-    @Override
-    public void removeListener(FlowRuleListener listener) {
-
+        return flows.stream()
+                .filter(flow -> flow.appId() == appId.id() && flow.groupId().id() == groupId)
+                .collect(Collectors.toList());
     }
 }
 

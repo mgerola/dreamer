@@ -42,7 +42,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class CoreManager implements CoreService {
 
     private static final File VERSION_FILE = new File("../VERSION");
-    private static Version version = Version.version("1.0.0-SNAPSHOT");
+    private static Version version = Version.version("1.1.0-SNAPSHOT");
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ApplicationIdStore applicationIdStore;
@@ -72,6 +72,12 @@ public class CoreManager implements CoreService {
     public ApplicationId getAppId(Short id) {
         return applicationIdStore.getAppId(id);
     }
+
+    @Override
+    public ApplicationId getAppId(String name) {
+        return applicationIdStore.getAppId(name);
+    }
+
 
     @Override
     public ApplicationId registerApplication(String name) {

@@ -16,10 +16,13 @@
 package org.onosproject.provider.of.flow.impl;
 
 import org.onlab.packet.Ip4Address;
+import org.onlab.packet.Ip6Address;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.flow.instructions.Instructions;
+import org.onosproject.net.flow.instructions.Instructions.GroupInstruction;
 import org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModLambdaInstruction;
@@ -31,22 +34,30 @@ import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModVlanPc
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.PushHeaderInstructions;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
+import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPv6FlowLabelInstruction;
+import org.onosproject.openflow.controller.OpenFlowSwitch;
 import org.projectfloodlight.openflow.protocol.OFFactory;
 import org.projectfloodlight.openflow.protocol.OFFlowAdd;
 import org.projectfloodlight.openflow.protocol.OFFlowDelete;
 import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFFlowModFlags;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
+import org.projectfloodlight.openflow.protocol.action.OFActionGroup;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
+import org.projectfloodlight.openflow.protocol.instruction.OFInstruction;
 import org.projectfloodlight.openflow.protocol.match.Match;
 import org.projectfloodlight.openflow.protocol.oxm.OFOxm;
 import org.projectfloodlight.openflow.types.CircuitSignalID;
 import org.projectfloodlight.openflow.types.EthType;
 import org.projectfloodlight.openflow.types.IPv4Address;
+import org.projectfloodlight.openflow.types.IPv6Address;
+import org.projectfloodlight.openflow.types.IPv6FlowLabel;
 import org.projectfloodlight.openflow.types.MacAddress;
 import org.projectfloodlight.openflow.types.OFBufferId;
+import org.projectfloodlight.openflow.types.OFGroup;
 import org.projectfloodlight.openflow.types.OFPort;
 import org.projectfloodlight.openflow.types.OFVlanVidMatch;
+import org.projectfloodlight.openflow.types.TableId;
 import org.projectfloodlight.openflow.types.U32;
 import org.projectfloodlight.openflow.types.U64;
 import org.projectfloodlight.openflow.types.VlanPcp;
@@ -63,7 +74,7 @@ import java.util.Optional;
  */
 public class FlowModBuilderVer13 extends FlowModBuilder {
 
-    private static final Logger log = LoggerFactory.getLogger(FlowModBuilderVer10.class);
+    private final Logger log = LoggerFactory.getLogger(getClass());
     private static final int OFPCML_NO_BUFFER = 0xffff;
 
     private final TrafficTreatment treatment;
@@ -85,14 +96,16 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     public OFFlowAdd buildFlowAdd() {
         Match match = buildMatch();
         List<OFAction> actions = buildActions();
-
+        List<OFInstruction> instructions = buildInstructions();
         // FIXME had to revert back to using apply-actions instead of
         // write-actions because LINC-OE apparently doesn't support
         // write-actions. I would prefer to change this back in the future
         // because apply-actions is an optional instruction in OF 1.3.
 
-        //OFInstruction writeActions =
-                //factory().instructions().writeActions(actions);
+        OFInstruction applyActions =
+                factory().instructions().applyActions(actions);
+
+        instructions.add(applyActions);
 
         long cookie = flowRule().id().value();
 
@@ -101,11 +114,11 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 .setXid(xid)
                 .setCookie(U64.of(cookie))
                 .setBufferId(OFBufferId.NO_BUFFER)
-                .setActions(actions)
-                //.setInstructions(Collections.singletonList(writeActions))
+                .setInstructions(instructions)
                 .setMatch(match)
                 .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
                 .setPriority(flowRule().priority())
+                .setTableId(TableId.of(flowRule().type().ordinal()))
                 .build();
 
         return fm;
@@ -115,8 +128,11 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     public OFFlowMod buildFlowMod() {
         Match match = buildMatch();
         List<OFAction> actions = buildActions();
-        //OFInstruction writeActions =
-                //factory().instructions().writeActions(actions);
+        List<OFInstruction> instructions = buildInstructions();
+        OFInstruction applyActions =
+                factory().instructions().applyActions(actions);
+
+        instructions.add(applyActions);
 
         long cookie = flowRule().id().value();
 
@@ -125,11 +141,11 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 .setXid(xid)
                 .setCookie(U64.of(cookie))
                 .setBufferId(OFBufferId.NO_BUFFER)
-                .setActions(actions)
-                //.setInstructions(Collections.singletonList(writeActions))
+                .setInstructions(instructions)
                 .setMatch(match)
                 .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
                 .setPriority(flowRule().priority())
+                .setTableId(TableId.of(flowRule().type().ordinal()))
                 .build();
 
         return fm;
@@ -138,7 +154,6 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     @Override
     public OFFlowDelete buildFlowDel() {
         Match match = buildMatch();
-        List<OFAction> actions = buildActions();
 
         long cookie = flowRule().id().value();
 
@@ -154,6 +169,24 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         return fm;
     }
 
+
+    private List<OFInstruction> buildInstructions() {
+        List<OFInstruction> instructions = new LinkedList<>();
+        if (treatment == null) {
+            return instructions;
+        }
+        for (Instruction i : treatment.instructions()) {
+            switch (i.type()) {
+                case TABLE:
+                    instructions.add(buildTableGoto(((Instructions.TableTypeTransition) i)));
+                    break;
+                default:
+                    break;
+            }
+        }
+        return instructions;
+    }
+
     private List<OFAction> buildActions() {
         List<OFAction> actions = new LinkedList<>();
         if (treatment == null) {
@@ -161,35 +194,75 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         }
         for (Instruction i : treatment.instructions()) {
             switch (i.type()) {
-            case DROP:
-                log.warn("Saw drop action; assigning drop action");
-                return new LinkedList<>();
-            case L0MODIFICATION:
-                actions.add(buildL0Modification(i));
-                break;
-            case L2MODIFICATION:
-                actions.add(buildL2Modification(i));
-                break;
-            case L3MODIFICATION:
-                actions.add(buildL3Modification(i));
-                break;
-            case OUTPUT:
-                OutputInstruction out = (OutputInstruction) i;
-                OFActionOutput.Builder action = factory().actions().buildOutput()
-                        .setPort(OFPort.of((int) out.port().toLong()));
-                if (out.port().equals(PortNumber.CONTROLLER)) {
-                    action.setMaxLen(OFPCML_NO_BUFFER);
-                }
-                actions.add(action.build());
-                break;
-            case GROUP:
-            default:
-                log.warn("Instruction type {} not yet implemented.", i.type());
+                case DROP:
+                    log.warn("Saw drop action; assigning drop action");
+                    return new LinkedList<>();
+                case L0MODIFICATION:
+                    actions.add(buildL0Modification(i));
+                    break;
+                case L2MODIFICATION:
+                    actions.add(buildL2Modification(i));
+                    break;
+                case L3MODIFICATION:
+                    actions.add(buildL3Modification(i));
+                    break;
+                case OUTPUT:
+                    OutputInstruction out = (OutputInstruction) i;
+                    OFActionOutput.Builder action = factory().actions().buildOutput()
+                            .setPort(OFPort.of((int) out.port().toLong()));
+                    if (out.port().equals(PortNumber.CONTROLLER)) {
+                        action.setMaxLen(OFPCML_NO_BUFFER);
+                    }
+                    actions.add(action.build());
+                    break;
+                case GROUP:
+                    GroupInstruction group = (GroupInstruction) i;
+                    OFActionGroup.Builder groupBuilder = factory().actions().buildGroup()
+                            .setGroup(OFGroup.of(group.groupId().id()));
+                    actions.add(groupBuilder.build());
+                    break;
+                case TABLE:
+                    //FIXME: should not occur here.
+                    break;
+                default:
+                    log.warn("Instruction type {} not yet implemented.", i.type());
             }
         }
 
         return actions;
     }
+
+    private OFInstruction buildTableGoto(Instructions.TableTypeTransition i) {
+        OFInstruction instruction = factory().instructions().gotoTable(
+                TableId.of(getTableType(i.tableType()).ordinal()));
+        return instruction;
+    }
+
+    // FIXME: this has to go as well perhaps when we implement the SelectorService.
+    private OpenFlowSwitch.TableType getTableType(FlowRule.Type type) {
+        switch (type) {
+
+            case DEFAULT:
+                return OpenFlowSwitch.TableType.NONE;
+            case IP:
+                return OpenFlowSwitch.TableType.IP;
+            case MPLS:
+                return OpenFlowSwitch.TableType.MPLS;
+            case ACL:
+                return OpenFlowSwitch.TableType.ACL;
+            case VLAN_MPLS:
+                return OpenFlowSwitch.TableType.VLAN_MPLS;
+            case VLAN:
+                return OpenFlowSwitch.TableType.VLAN;
+            case ETHER:
+                return OpenFlowSwitch.TableType.ETHER;
+            case COS:
+                return OpenFlowSwitch.TableType.COS;
+            default:
+                return OpenFlowSwitch.TableType.NONE;
+        }
+    }
+
 
     private OFAction buildL0Modification(Instruction i) {
         L0ModificationInstruction l0m = (L0ModificationInstruction) i;
@@ -230,19 +303,20 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 PushHeaderInstructions pushHeaderInstructions =
                         (PushHeaderInstructions) l2m;
                 return factory().actions().pushMpls(EthType.of(pushHeaderInstructions
-                                                               .ethernetType().getEtherType()));
+                                                               .ethernetType()));
             case MPLS_POP:
                 PushHeaderInstructions  popHeaderInstructions =
                         (PushHeaderInstructions) l2m;
                 return factory().actions().popMpls(EthType.of(popHeaderInstructions
-                                                          .ethernetType().getEtherType()));
+                                                              .ethernetType()));
             case MPLS_LABEL:
                 ModMplsLabelInstruction mplsLabel =
                         (ModMplsLabelInstruction) l2m;
                 oxm = factory().oxms().mplsLabel(U32.of(mplsLabel.label()
                                                                   .longValue()));
-
                 break;
+            case DEC_MPLS_TTL:
+                return factory().actions().decMplsTtl();
             default:
                 log.warn("Unimplemented action type {}.", l2m.subtype());
                 break;
@@ -258,18 +332,41 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         L3ModificationInstruction l3m = (L3ModificationInstruction) i;
         ModIPInstruction ip;
         Ip4Address ip4;
+        Ip6Address ip6;
         OFOxm<?> oxm = null;
         switch (l3m.subtype()) {
-        case IP_DST:
-            ip = (ModIPInstruction) i;
-            ip4 = ip.ip().getIp4Address();
-            oxm = factory().oxms().ipv4Dst(IPv4Address.of(ip4.toInt()));
-            break;
-        case IP_SRC:
+        case IPV4_SRC:
             ip = (ModIPInstruction) i;
             ip4 = ip.ip().getIp4Address();
             oxm = factory().oxms().ipv4Src(IPv4Address.of(ip4.toInt()));
             break;
+        case IPV4_DST:
+            ip = (ModIPInstruction) i;
+            ip4 = ip.ip().getIp4Address();
+            oxm = factory().oxms().ipv4Dst(IPv4Address.of(ip4.toInt()));
+            break;
+        case IPV6_SRC:
+            ip = (ModIPInstruction) i;
+            ip6 = ip.ip().getIp6Address();
+            oxm = factory().oxms().ipv6Src(IPv6Address.of(ip6.toOctets()));
+            break;
+        case IPV6_DST:
+            ip = (ModIPInstruction) i;
+            ip6 = ip.ip().getIp6Address();
+            oxm = factory().oxms().ipv6Dst(IPv6Address.of(ip6.toOctets()));
+            break;
+        case IPV6_FLABEL:
+            ModIPv6FlowLabelInstruction flowLabelInstruction =
+                (ModIPv6FlowLabelInstruction) i;
+            int flowLabel = flowLabelInstruction.flowLabel();
+            oxm = factory().oxms().ipv6Flabel(IPv6FlowLabel.of(flowLabel));
+            break;
+        case DEC_TTL:
+            return factory().actions().decNwTtl();
+        case TTL_IN:
+            return factory().actions().copyTtlIn();
+        case TTL_OUT:
+            return factory().actions().copyTtlOut();
         default:
             log.warn("Unimplemented action type {}.", l3m.subtype());
             break;

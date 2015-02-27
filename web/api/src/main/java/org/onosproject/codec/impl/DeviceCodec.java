@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Device JSON codec.
  */
-public class DeviceCodec extends AnnotatedCodec<Device> {
+public final class DeviceCodec extends AnnotatedCodec<Device> {
 
     @Override
     public ObjectNode encode(Device device, CodecContext context) {
@@ -33,12 +33,14 @@ public class DeviceCodec extends AnnotatedCodec<Device> {
         DeviceService service = context.get(DeviceService.class);
         ObjectNode result = context.mapper().createObjectNode()
                 .put("id", device.id().toString())
+                .put("type", device.type().name())
                 .put("available", service.isAvailable(device.id()))
                 .put("role", service.getRole(device.id()).toString())
                 .put("mfr", device.manufacturer())
                 .put("hw", device.hwVersion())
                 .put("sw", device.swVersion())
-                .put("serial", device.serialNumber());
+                .put("serial", device.serialNumber())
+                .put("chassisId", device.chassisId().toString());
         return annotate(result, device, context);
     }
 

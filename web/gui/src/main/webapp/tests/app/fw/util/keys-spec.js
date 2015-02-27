@@ -18,19 +18,21 @@
  ONOS GUI -- Key Handler Service - Unit Tests
  */
 describe('factory: fw/util/keys.js', function() {
-    var $log, ks, fs,
+    var $log, ks, fs, qhs,
         d3Elem, elem, last;
   
 
-    beforeEach(module('onosUtil'));
+    beforeEach(module('onosUtil', 'onosSvg', 'onosLayer'));
 
-    beforeEach(inject(function (_$log_, KeyService, FnService) {
+    beforeEach(inject(function (_$log_, KeyService, FnService, QuickHelpService) {
         $log = _$log_;
         ks = KeyService;
         fs = FnService;
+        qhs = QuickHelpService;
         d3Elem = d3.select('body').append('p').attr('id', 'ptest');
         elem = d3Elem.node();
         ks.installOn(d3Elem);
+        ks.bindQhs(qhs);
         last = {
             view: null,
             key: null,
@@ -41,6 +43,16 @@ describe('factory: fw/util/keys.js', function() {
 
     afterEach(function () {
         d3.select('#ptest').remove();
+    });
+
+    it('should define the key service', function () {
+        expect(ks).toBeDefined();
+    });
+
+    it('should define api functions', function () {
+        expect(fs.areFunctions(ks, [
+            'bindQhs', 'installOn', 'keyBindings', 'gestureNotes', 'enableKeys'
+        ])).toBeTruthy();
     });
 
     // Code to emulate key presses....
@@ -205,6 +217,29 @@ describe('factory: fw/util/keys.js', function() {
         // but the 'space' key SHOULD invoke our callback
         jsKeyDown(elem, 32); // 'space'
         expect(count).toEqual(1);
+    });
+
+    it('should block keys when disabled', function () {
+        var cbCount = 0;
+
+        function cb() { cbCount++; }
+
+        function pressA() { jsKeyDown(elem, 65); }  // 65 == 'A' keycode
+
+        ks.keyBindings({ A: cb });
+
+        expect(cbCount).toBe(0);
+
+        pressA();
+        expect(cbCount).toBe(1);
+
+        ks.enableKeys(false);
+        pressA();
+        expect(cbCount).toBe(1);
+
+        ks.enableKeys(true);
+        pressA();
+        expect(cbCount).toBe(2);
     });
 
     // === Gesture notes related tests

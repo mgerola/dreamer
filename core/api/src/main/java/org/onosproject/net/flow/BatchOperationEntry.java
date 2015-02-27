@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * This is the interface to classes which are maintained by BatchOperation as
  * its entries.
  */
-public class BatchOperationEntry<T extends Enum<?>, U extends BatchOperationTarget> {
+public class BatchOperationEntry<T extends Enum<?>, U> {
 
     private final T operator;
     private final U target;
@@ -48,7 +48,7 @@ public class BatchOperationEntry<T extends Enum<?>, U extends BatchOperationTarg
      *
      * @return the target object of this operation
      */
-    public U getTarget() {
+    public U target() {
         return target;
     }
 
@@ -57,7 +57,7 @@ public class BatchOperationEntry<T extends Enum<?>, U extends BatchOperationTarg
      *
      * @return the operator of this operation
      */
-    public T getOperator() {
+    public T operator() {
         return operator;
     }
 

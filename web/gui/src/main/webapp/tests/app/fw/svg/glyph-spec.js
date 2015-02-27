@@ -18,9 +18,9 @@
  ONOS GUI -- SVG -- Glyph Service - Unit Tests
  */
 describe('factory: fw/svg/glyph.js', function() {
-    var $log, fs, gs, d3Elem;
+    var $log, fs, gs, d3Elem, svg;
 
-    var numBaseGlyphs = 13,
+    var numBaseGlyphs = 15,
         vbBird = '352 224 113 112',
         vbGlyph = '0 0 110 110',
         vbBadge = '0 0 10 10',
@@ -38,6 +38,8 @@ describe('factory: fw/svg/glyph.js', function() {
             uiAttached: 'M2,2.5a.5,.5',
             checkMark: 'M2.6,4.5c0',
             xMark: 'M9.0,7.2C8.2',
+            triangleUp: 'M0.5,6.2c0',
+            triangleDown: 'M9.5,4.2c0',
 
             // our test ones..
             triangle: 'M.5,.2',
@@ -47,13 +49,16 @@ describe('factory: fw/svg/glyph.js', function() {
     beforeEach(module('onosUtil', 'onosSvg'));
 
     beforeEach(inject(function (_$log_, FnService, GlyphService) {
+        var body = d3.select('body');
         $log = _$log_;
         fs = FnService;
         gs = GlyphService;
-        d3Elem = d3.select('body').append('defs').attr('id', 'myDefs');
+        d3Elem = body.append('defs').attr('id', 'myDefs');
+        svg = body.append('svg').attr('id', 'mySvg');
     }));
 
     afterEach(function () {
+        d3.select('#mySvg').remove();
         d3.select('#myDefs').remove();
         gs.clear();
     });
@@ -64,7 +69,7 @@ describe('factory: fw/svg/glyph.js', function() {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(gs, [
-            'clear', 'init', 'register', 'ids', 'glyph', 'loadDefs'
+            'clear', 'init', 'register', 'ids', 'glyph', 'loadDefs', 'addGlyph'
         ])).toBeTruthy();
     });
 
@@ -245,5 +250,45 @@ describe('factory: fw/svg/glyph.js', function() {
         verifyLoadedInDom('crown', vbGlyph);
         verifyLoadedInDom('chain', vbGlyph);
         verifyLoadedInDom('node', vbGlyph);
+    });
+
+    it('should add a glyph with default size', function () {
+        gs.init();
+        var retval = gs.addGlyph(svg, 'crown');
+        var what = svg.selectAll('use');
+        expect(what.size()).toEqual(1);
+        expect(what.attr('width')).toEqual('40');
+        expect(what.attr('height')).toEqual('40');
+        expect(what.attr('xlink:href')).toEqual('#crown');
+        expect(what.classed('glyph')).toBeTruthy();
+        expect(what.classed('overlay')).toBeFalsy();
+
+        // check a couple on retval, which should be the same thing..
+        expect(retval.attr('xlink:href')).toEqual('#crown');
+        expect(retval.classed('glyph')).toBeTruthy();
+    });
+
+    it('should add a glyph with given size', function () {
+        gs.init();
+        gs.addGlyph(svg, 'crown', 37);
+        var what = svg.selectAll('use');
+        expect(what.size()).toEqual(1);
+        expect(what.attr('width')).toEqual('37');
+        expect(what.attr('height')).toEqual('37');
+        expect(what.attr('xlink:href')).toEqual('#crown');
+        expect(what.classed('glyph')).toBeTruthy();
+        expect(what.classed('overlay')).toBeFalsy();
+    });
+
+    it('should add a glyph marked as overlay', function () {
+        gs.init();
+        gs.addGlyph(svg, 'crown', 20, true);
+        var what = svg.selectAll('use');
+        expect(what.size()).toEqual(1);
+        expect(what.attr('width')).toEqual('20');
+        expect(what.attr('height')).toEqual('20');
+        expect(what.attr('xlink:href')).toEqual('#crown');
+        expect(what.classed('glyph')).toBeTruthy();
+        expect(what.classed('overlay')).toBeTruthy();
     });
 });

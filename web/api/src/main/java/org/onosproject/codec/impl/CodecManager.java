@@ -26,12 +26,14 @@ import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.Ethernet;
 import org.onosproject.codec.CodecService;
 import org.onosproject.codec.JsonCodec;
+import org.onosproject.core.Application;
 import org.onosproject.net.Annotations;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Device;
 import org.onosproject.net.Host;
 import org.onosproject.net.HostLocation;
 import org.onosproject.net.Link;
+import org.onosproject.net.Path;
 import org.onosproject.net.Port;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.TrafficSelector;
@@ -64,6 +66,7 @@ public class CodecManager implements CodecService {
     @Activate
     public void activate() {
         codecs.clear();
+        registerCodec(Application.class, new ApplicationCodec());
         registerCodec(Annotations.class, new AnnotationsCodec());
         registerCodec(Device.class, new DeviceCodec());
         registerCodec(Port.class, new PortCodec());
@@ -84,6 +87,7 @@ public class CodecManager implements CodecService {
         registerCodec(Constraint.class, new ConstraintCodec());
         registerCodec(Topology.class, new TopologyCodec());
         registerCodec(TopologyCluster.class, new TopologyClusterCodec());
+        registerCodec(Path.class, new PathCodec());
         log.info("Started");
     }
 

@@ -27,28 +27,24 @@ import org.onosproject.codec.impl.CodecManager;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.Link;
-import org.onosproject.net.Path;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.ClusterId;
 import org.onosproject.net.topology.DefaultTopologyCluster;
 import org.onosproject.net.topology.DefaultTopologyVertex;
-import org.onosproject.net.topology.LinkWeight;
 import org.onosproject.net.topology.Topology;
 import org.onosproject.net.topology.TopologyCluster;
-import org.onosproject.net.topology.TopologyGraph;
-import org.onosproject.net.topology.TopologyListener;
 import org.onosproject.net.topology.TopologyService;
+import org.onosproject.net.topology.TopologyServiceAdapter;
 
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.google.common.collect.ImmutableSet;
 import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.test.framework.JerseyTest;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertThat;
 import static org.onosproject.net.NetTestTools.did;
 import static org.onosproject.net.NetTestTools.link;
@@ -56,7 +52,7 @@ import static org.onosproject.net.NetTestTools.link;
 /**
  * Unit tests for Topology REST APIs.
  */
-public class TopologyResourceTest extends JerseyTest {
+public class TopologyResourceTest extends ResourceTest {
 
     private static class MockTopology implements Topology {
         @Override
@@ -90,7 +86,7 @@ public class TopologyResourceTest extends JerseyTest {
         }
     }
 
-    private static class MockTopologyService implements TopologyService {
+    private static class MockTopologyService extends TopologyServiceAdapter {
         final DefaultTopologyVertex root = new DefaultTopologyVertex(did("rootnode"));
         final Topology topology = new MockTopology();
         final TopologyCluster cluster1 =
@@ -103,16 +99,6 @@ public class TopologyResourceTest extends JerseyTest {
         @Override
         public Topology currentTopology() {
             return topology;
-        }
-
-        @Override
-        public boolean isLatest(Topology topology) {
-            return true;
-        }
-
-        @Override
-        public TopologyGraph getGraph(Topology topology) {
-            return null;
         }
 
         @Override
@@ -142,16 +128,6 @@ public class TopologyResourceTest extends JerseyTest {
         }
 
         @Override
-        public Set<Path> getPaths(Topology topology, DeviceId src, DeviceId dst) {
-            return null;
-        }
-
-        @Override
-        public Set<Path> getPaths(Topology topology, DeviceId src, DeviceId dst, LinkWeight weight) {
-            return null;
-        }
-
-        @Override
         public boolean isInfrastructure(Topology topology, ConnectPoint connectPoint) {
             return connectPoint.elementId().toString().equals("dev2");
         }
@@ -161,27 +137,13 @@ public class TopologyResourceTest extends JerseyTest {
             return connectPoint.elementId().toString().equals("dev1");
         }
 
-        @Override
-        public void addListener(TopologyListener listener) {
-
-        }
-
-        @Override
-        public void removeListener(TopologyListener listener) {
-
-        }
     }
-
-    public TopologyResourceTest() {
-        super("org.onosproject.rest");
-    }
-
 
     /**
      * Initializes the test harness.
      */
     @Before
-    public void setUp() {
+    public void setUpTest() {
         TopologyService topologyService =  new MockTopologyService();
         CodecManager codecService =  new CodecManager();
         codecService.activate();

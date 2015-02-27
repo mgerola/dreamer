@@ -16,7 +16,6 @@
 package org.onosproject.net.topology.impl;
 
 import com.google.common.collect.ImmutableList;
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -25,9 +24,9 @@ import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onosproject.event.AbstractEventAccumulator;
+import org.onlab.util.AbstractAccumulator;
+import org.onlab.util.Accumulator;
 import org.onosproject.event.Event;
-import org.onosproject.event.EventAccumulator;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
@@ -51,9 +50,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.core.CoreService.CORE_PROVIDER_ID;
 import static org.onosproject.net.device.DeviceEvent.Type.*;
-import static org.onlab.util.Tools.namedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -66,14 +65,14 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class DefaultTopologyProvider extends AbstractProvider
         implements TopologyProvider {
 
-    private static final int MAX_THREADS = 32;
+    private static final int MAX_THREADS = 8;
     private static final int DEFAULT_MAX_EVENTS = 1000;
     private static final int DEFAULT_MAX_IDLE_MS = 10;
     private static final int DEFAULT_MAX_BATCH_MS = 50;
 
     // FIXME: Replace with a system-wide timer instance;
     // TODO: Convert to use HashedWheelTimer or produce a variant of that; then decide which we want to adopt
-    private static final Timer TIMER = new Timer("topo-event-batching");
+    private static final Timer TIMER = new Timer("onos-topo-event-batching");
 
     @Property(name = "maxEvents", intValue = DEFAULT_MAX_EVENTS,
             label = "Maximum number of events to accumulate")
@@ -104,7 +103,7 @@ public class DefaultTopologyProvider extends AbstractProvider
     private DeviceListener deviceListener = new InternalDeviceListener();
     private LinkListener linkListener = new InternalLinkListener();
 
-    private EventAccumulator accumulator;
+    private Accumulator<Event> accumulator;
     private ExecutorService executor;
 
     /**
@@ -116,7 +115,7 @@ public class DefaultTopologyProvider extends AbstractProvider
 
     @Activate
     public synchronized void activate(ComponentContext context) {
-        executor = newFixedThreadPool(MAX_THREADS, namedThreads("onos-topo-build-%d"));
+        executor = newFixedThreadPool(MAX_THREADS, groupedThreads("onos/topo", "build-%d"));
         accumulator = new TopologyChangeAccumulator();
         logConfig("Configured");
 
@@ -166,7 +165,7 @@ public class DefaultTopologyProvider extends AbstractProvider
             s = (String) properties.get("maxIdleMs");
             newMaxIdleMs = isNullOrEmpty(s) ? maxIdleMs : Integer.parseInt(s.trim());
 
-        } catch (Exception e) {
+        } catch (NumberFormatException | ClassCastException e) {
             newMaxEvents = DEFAULT_MAX_EVENTS;
             newMaxBatchMs = DEFAULT_MAX_BATCH_MS;
             newMaxIdleMs = DEFAULT_MAX_IDLE_MS;
@@ -245,18 +244,15 @@ public class DefaultTopologyProvider extends AbstractProvider
     }
 
     // Event accumulator for paced triggering of topology assembly.
-    private class TopologyChangeAccumulator
-            extends AbstractEventAccumulator implements EventAccumulator {
-
+    private class TopologyChangeAccumulator extends AbstractAccumulator<Event> {
         TopologyChangeAccumulator() {
             super(TIMER, maxEvents, maxBatchMs, maxIdleMs);
         }
 
         @Override
-        public void processEvents(List<Event> events) {
-            triggerTopologyBuild(events);
+        public void processItems(List<Event> items) {
+            triggerTopologyBuild(items);
         }
-
     }
 
     // Task for building topology data in a separate thread.

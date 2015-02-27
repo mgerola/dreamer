@@ -18,15 +18,27 @@
  ONOS GUI -- Util -- Theme Service - Unit Tests
  */
 describe('factory: fw/util/theme.js', function() {
-    var ts, $log;
+    var ts, $log, fs;
 
     beforeEach(module('onosUtil'));
 
-    beforeEach(inject(function (ThemeService, _$log_) {
+    beforeEach(inject(function (ThemeService, _$log_, FnService) {
         ts = ThemeService;
         $log = _$log_;
+        fs = FnService;
         ts.init();
     }));
+
+    it('should define ThemeService', function () {
+        expect(ts).toBeDefined();
+    });
+
+    it('should define api functions', function () {
+        expect(fs.areFunctions(ts, [
+            'init', 'theme', 'toggleTheme', 'addListener', 'removeListener'
+        ])).toBeTruthy();
+    });
+
 
     function verifyBodyClass(yes, no) {
         function bodyHasClass(c) {
@@ -78,4 +90,73 @@ describe('factory: fw/util/theme.js', function() {
         expect($log.debug).not.toHaveBeenCalled();
         verifyBodyClass('light', 'dark');
     });
+
+
+    // === Unit Tests for listeners
+
+    it('should report lack of callback', function () {
+        spyOn($log, 'error');
+        var list = ts.addListener();
+        expect($log.error).toHaveBeenCalledWith(
+            'ThemeService.addListener(): callback not a function'
+        );
+        expect(list.error).toEqual('No callback defined');
+    });
+
+    it('should report non-functional callback', function () {
+        spyOn($log, 'error');
+        var list = ts.addListener(['some array']);
+        expect($log.error).toHaveBeenCalledWith(
+            'ThemeService.addListener(): callback not a function'
+        );
+        expect(list.error).toEqual('No callback defined');
+    });
+
+    it('should invoke our callback with an event', function () {
+        var event;
+
+        function cb(ev) {
+            event = ev;
+        }
+
+        expect(event).toBeUndefined();
+        ts.addListener(cb);
+        ts.theme('dark');
+        expect(event).toEqual({
+            event: 'themeChange',
+            value: 'dark'
+        });
+    });
+
+    it('should invoke our callback at appropriate times', function () {
+        var calls = [],
+            phase,
+            listener;
+
+        function cb() {
+            calls.push(phase);
+        }
+
+        expect(calls).toEqual([]);
+
+        phase = 'pre';
+        ts.toggleTheme(); // -> dark
+
+        phase = 'added';
+        listener = ts.addListener(cb);
+        ts.toggleTheme(); // -> light
+
+        phase = 'same';
+        ts.theme('light');  // (still light - no event)
+
+        phase = 'diff';
+        ts.theme('dark');   // -> dark
+
+        phase = 'post';
+        ts.removeListener(listener);
+        ts.toggleTheme();   // -> light
+
+        expect(calls).toEqual(['added', 'diff']);
+    });
+
 });

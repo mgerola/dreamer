@@ -16,60 +16,80 @@
 
 /*
  ONOS GUI -- Topology Event Module.
- Defines event handling for events received from the server.
+
+ Defines the conduit between the client and the server:
+    - provides a clean API for sending events to the server
+    - dispatches incoming events from the server to the appropriate sub-module
+
  */
 
 (function () {
     'use strict';
 
     // injected refs
-    var $log, wss, wes;
+    var $log, wss, wes, vs, tps, tis, tfs, tss, tts;
 
     // internal state
-    var wsock;
-
-    var evHandler = {
-        showSummary: showSummary,
-        addInstance: addInstance
-        // TODO: implement remaining handlers..
-
-    };
-
-    function unknownEvent(ev) {
-        $log.warn('Unknown event (ignored):', ev);
-    }
-
-    // === Event Handlers ===
-
-    function showSummary(ev) {
-        $log.log('  **** Show Summary ****  ', ev.payload);
-    }
-
-    function addInstance(ev) {
-        $log.log(' *** We got an ADD INSTANCE event: ', ev);
-    }
+    var wsock, evApis;
 
     // ==========================
 
-    var dispatcher = {
-        handleEvent: function (ev) {
-            (evHandler[ev.event] || unknownEvent)(ev);
-        },
-        sendEvent: function (evType, payload) {
-            if (wsock) {
-                wes.sendEvent(wsock, evType, payload);
-            } else {
-                $log.warn('sendEvent: no websocket open:', evType, payload);
+    function bindApis() {
+        evApis = {
+            showSummary: tps,
+
+            showDetails: tss,
+
+            showTraffic: tts,
+
+            addInstance: tis,
+            updateInstance: tis,
+            removeInstance: tis,
+
+            addDevice: tfs,
+            updateDevice: tfs,
+            removeDevice: tfs,
+            addHost: tfs,
+            updateHost: tfs,
+            removeHost: tfs,
+            addLink: tfs,
+            updateLink: tfs,
+            removeLink: tfs
+        };
+    }
+
+    var nilApi = {},
+        dispatcher = {
+            handleEvent: function (ev) {
+                var eid = ev.event,
+                    api = evApis[eid] || nilApi,
+                    eh = api[eid];
+
+                if (eh) {
+                    $log.debug(' << *Rx* ', eid, ev.payload);
+                    eh(ev.payload);
+                } else {
+                    $log.warn('Unknown event (ignored):', ev);
+                }
+            },
+
+            sendEvent: function (evType, payload) {
+                if (wsock) {
+                    $log.debug(' *Tx* >> ', evType, payload);
+                    wes.sendEvent(wsock, evType, payload);
+                } else {
+                    $log.warn('sendEvent: no websocket open:', evType, payload);
+                }
             }
-        }
-    };
+        };
 
     // ===  Web Socket functions ===
 
     function onWsOpen() {
         $log.debug('web socket opened...');
-        // kick off request for periodic summary data...
+        // start by requesting periodic summary data...
         dispatcher.sendEvent('requestSummary');
+        vs.hide();
     }
 
     function onWsMessage(ev) {
@@ -79,27 +99,38 @@
     function onWsClose(reason) {
         $log.log('web socket closed; reason=', reason);
         wsock = null;
+        vs.show([
+            'Oops!',
+            'Web-socket connection to server closed...',
+            'Try refreshing the page.'
+        ]);
     }
 
     // ==========================
 
     angular.module('ovTopo')
     .factory('TopoEventService',
-        ['$log', '$location', 'WebSocketService', 'WsEventService',
+        ['$log', '$location', 'WebSocketService', 'WsEventService', 'VeilService',
+            'TopoPanelService', 'TopoInstService', 'TopoForceService',
+            'TopoSelectService', 'TopoTrafficService',
 
-        function (_$log_, $loc, _wss_, _wes_) {
+        function (_$log_, $loc, _wss_, _wes_, _vs_,
+                  _tps_, _tis_, _tfs_, _tss_, _tts_) {
             $log = _$log_;
             wss = _wss_;
             wes = _wes_;
+            vs = _vs_;
+            tps = _tps_;
+            tis = _tis_;
+            tfs = _tfs_;
+            tss = _tss_;
+            tts = _tts_;
 
-            function bindDispatcher(TopoDomElementsPassedHere) {
-                // TODO: store refs to topo DOM elements...
-
-                return dispatcher;
-            }
+            bindApis();
 
             // TODO: handle "guiSuccessor" functionality (replace host)
             // TODO: implement retry on close functionality
+
             function openSock() {
                 wsock = wss.createWebSocket('topology', {
                     onOpen: onWsOpen,
@@ -121,9 +152,9 @@
             }
 
             return {
-                bindDispatcher: bindDispatcher,
                 openSock: openSock,
-                closeSock: closeSock
-            }
+                closeSock: closeSock,
+                sendEvent: dispatcher.sendEvent
+            };
         }]);
 }());

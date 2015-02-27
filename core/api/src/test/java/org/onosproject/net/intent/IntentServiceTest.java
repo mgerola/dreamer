@@ -15,28 +15,23 @@
  */
 package org.onosproject.net.intent;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-import static org.onosproject.net.intent.IntentEvent.Type.FAILED;
-import static org.onosproject.net.intent.IntentEvent.Type.INSTALLED;
-import static org.onosproject.net.intent.IntentEvent.Type.INSTALL_REQ;
-import static org.onosproject.net.intent.IntentEvent.Type.WITHDRAWN;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.onosproject.core.IdGenerator;
+import org.onosproject.net.flow.FlowRuleOperation;
+import org.onosproject.net.resource.LinkResourceAllocations;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.onosproject.core.IdGenerator;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
-import org.onosproject.net.resource.LinkResourceAllocations;
+import static org.junit.Assert.*;
+import static org.onosproject.net.intent.IntentEvent.Type.*;
 
 /**
  * Suite of tests for the intent service contract.
@@ -91,7 +86,7 @@ public class IntentServiceTest {
             @Override
             public void run() {
                 assertEquals("incorrect intent state", IntentState.INSTALLED,
-                             service.getIntentState(intent.id()));
+                             service.getIntentState(intent.key()));
             }
         });
 
@@ -112,7 +107,7 @@ public class IntentServiceTest {
             @Override
             public void run() {
                 assertEquals("incorrect intent state", IntentState.WITHDRAWN,
-                             service.getIntentState(intent.id()));
+                             service.getIntentState(intent.key()));
             }
         });
 
@@ -140,7 +135,7 @@ public class IntentServiceTest {
             @Override
             public void run() {
                 assertEquals("incorrect intent state", IntentState.FAILED,
-                             service.getIntentState(intent.id()));
+                             service.getIntentState(intent.key()));
             }
         });
 
@@ -163,7 +158,7 @@ public class IntentServiceTest {
             @Override
             public void run() {
                 assertEquals("incorrect intent state", IntentState.FAILED,
-                             service.getIntentState(intent.id()));
+                             service.getIntentState(intent.key()));
             }
         });
 
@@ -255,7 +250,7 @@ public class IntentServiceTest {
             @Override
             public void run() {
                 assertEquals("incorrect intent state", IntentState.INSTALLED,
-                             service.getIntentState(intent.id()));
+                             service.getIntentState(intent.key()));
             }
         });
 
@@ -319,7 +314,7 @@ public class IntentServiceTest {
         }
 
         @Override
-        public List<FlowRuleBatchOperation> install(TestInstallableIntent intent) {
+        public List<Collection<FlowRuleOperation>> install(TestInstallableIntent intent) {
             if (fail) {
                 throw new IntentException("install failed by design");
             }
@@ -327,7 +322,7 @@ public class IntentServiceTest {
         }
 
         @Override
-        public List<FlowRuleBatchOperation> uninstall(TestInstallableIntent intent) {
+        public List<Collection<FlowRuleOperation>> uninstall(TestInstallableIntent intent) {
             if (fail) {
                 throw new IntentException("remove failed by design");
             }
@@ -335,7 +330,7 @@ public class IntentServiceTest {
         }
 
         @Override
-        public List<FlowRuleBatchOperation> replace(TestInstallableIntent intent,
+        public List<Collection<FlowRuleOperation>> replace(TestInstallableIntent intent,
                                                     TestInstallableIntent newIntent) {
             return null;
         }

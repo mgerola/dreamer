@@ -15,33 +15,29 @@
  */
 package org.onosproject.store.trivial.impl;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
-
+import com.google.common.collect.Maps;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Service;
-import org.onosproject.net.intent.BatchWrite;
 import org.onosproject.net.intent.Intent;
+import org.onosproject.net.intent.IntentData;
 import org.onosproject.net.intent.IntentEvent;
-import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.IntentStore;
 import org.onosproject.net.intent.IntentStoreDelegate;
-import org.onosproject.net.intent.BatchWrite.Operation;
+import org.onosproject.net.intent.Key;
 import org.onosproject.store.AbstractStore;
 import org.slf4j.Logger;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static org.onosproject.net.intent.IntentState.WITHDRAWN;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
+
+//TODO Note: this store will be removed
 
 @Component(immediate = true)
 @Service
@@ -50,10 +46,10 @@ public class SimpleIntentStore
         implements IntentStore {
 
     private final Logger log = getLogger(getClass());
-    private final Map<IntentId, Intent> intents = new ConcurrentHashMap<>();
-    private final Map<IntentId, IntentState> states = new ConcurrentHashMap<>();
-    private final Map<IntentId, List<Intent>> installable = new ConcurrentHashMap<>();
 
+    // current state maps FIXME.. make this a IntentData map
+    private final Map<Key, IntentData> current = Maps.newConcurrentMap();
+    private final Map<Key, IntentData> pending = Maps.newConcurrentMap(); //String is "key"
 
     @Activate
     public void activate() {
@@ -65,142 +61,67 @@ public class SimpleIntentStore
         log.info("Stopped");
     }
 
-    private void createIntent(Intent intent) {
-        if (intents.containsKey(intent.id())) {
-            return;
-        }
-        intents.put(intent.id(), intent);
-        this.setState(intent, IntentState.INSTALL_REQ);
-    }
-
-    private void removeIntent(IntentId intentId) {
-        checkState(getIntentState(intentId) == WITHDRAWN,
-                   "Intent state for {} is not WITHDRAWN.", intentId);
-        intents.remove(intentId);
-        installable.remove(intentId);
-        states.remove(intentId);
-    }
-
     @Override
     public long getIntentCount() {
-        return intents.size();
+        return current.size();
     }
 
     @Override
     public Iterable<Intent> getIntents() {
-        return ImmutableSet.copyOf(intents.values());
+        return current.values().stream()
+                .map(IntentData::intent)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Intent getIntent(IntentId intentId) {
-        return intents.get(intentId);
+    public IntentState getIntentState(Key intentKey) {
+        IntentData data = current.get(intentKey);
+        return (data != null) ? data.state() : null;
     }
 
     @Override
-    public IntentState getIntentState(IntentId id) {
-        return states.get(id);
-    }
-
-    private void setState(Intent intent, IntentState state) {
-        IntentId id = intent.id();
-        states.put(id, state);
-        IntentEvent.Type type = null;
-
-        switch (state) {
-        case INSTALL_REQ:
-            type = IntentEvent.Type.INSTALL_REQ;
-            break;
-        case INSTALLED:
-            type = IntentEvent.Type.INSTALLED;
-            break;
-        case FAILED:
-            type = IntentEvent.Type.FAILED;
-            break;
-        case WITHDRAW_REQ:
-            type = IntentEvent.Type.WITHDRAW_REQ;
-            break;
-        case WITHDRAWN:
-            type = IntentEvent.Type.WITHDRAWN;
-            break;
-        default:
-            break;
-        }
-        if (type != null) {
-            notifyDelegate(new IntentEvent(type, intent));
-        }
-    }
-
-    private void setInstallableIntents(IntentId intentId, List<Intent> result) {
-        installable.put(intentId, result);
+    public List<Intent> getInstallableIntents(Key intentKey) {
+        IntentData data = current.get(intentKey);
+        return (data != null) ? data.installables() : null;
     }
 
     @Override
-    public List<Intent> getInstallableIntents(IntentId intentId) {
-        return installable.get(intentId);
+    public void write(IntentData newData) {
+        //FIXME need to compare the versions
+        current.put(newData.key(), newData);
+        try {
+            notifyDelegate(IntentEvent.getEvent(newData));
+        } catch (IllegalArgumentException e) {
+            //no-op
+            log.trace("ignore this exception: {}", e);
+        }
+        IntentData old = pending.get(newData.key());
+        if (old != null /* && FIXME version check */) {
+            pending.remove(newData.key());
+        }
     }
 
-    private void removeInstalledIntents(IntentId intentId) {
-        installable.remove(intentId);
-    }
-
-    /**
-     * Execute writes in a batch.
-     *
-     * @param batch BatchWrite to execute
-     * @return failed operations
-     */
     @Override
-    public List<Operation> batchWrite(BatchWrite batch) {
-        if (batch.isEmpty()) {
-            return Collections.emptyList();
+    public void batchWrite(Iterable<IntentData> updates) {
+        for (IntentData data : updates) {
+            write(data);
         }
-
-        List<Operation> failed = Lists.newArrayList();
-        for (Operation op : batch.operations()) {
-            switch (op.type()) {
-            case CREATE_INTENT:
-                checkArgument(op.args().size() == 1,
-                              "CREATE_INTENT takes 1 argument. %s", op);
-                Intent intent = (Intent) op.args().get(0);
-                // TODO: what if it failed?
-                createIntent(intent);
-                break;
-
-            case REMOVE_INTENT:
-                checkArgument(op.args().size() == 1,
-                              "REMOVE_INTENT takes 1 argument. %s", op);
-                IntentId intentId = (IntentId) op.args().get(0);
-                removeIntent(intentId);
-                break;
-
-            case REMOVE_INSTALLED:
-                checkArgument(op.args().size() == 1,
-                              "REMOVE_INSTALLED takes 1 argument. %s", op);
-                intentId = (IntentId) op.args().get(0);
-                removeInstalledIntents(intentId);
-                break;
-
-            case SET_INSTALLABLE:
-                checkArgument(op.args().size() == 2,
-                              "SET_INSTALLABLE takes 2 arguments. %s", op);
-                intentId = (IntentId) op.args().get(0);
-                @SuppressWarnings("unchecked")
-                List<Intent> installableIntents = (List<Intent>) op.args().get(1);
-                setInstallableIntents(intentId, installableIntents);
-                break;
-
-            case SET_STATE:
-                checkArgument(op.args().size() == 2,
-                              "SET_STATE takes 2 arguments. %s", op);
-                intent = (Intent) op.args().get(0);
-                IntentState newState = (IntentState) op.args().get(1);
-                setState(intent, newState);
-                break;
-
-            default:
-                break;
-            }
-        }
-        return failed;
     }
+
+    @Override
+    public Intent getIntent(Key key) {
+        IntentData data = current.get(key);
+        return (data != null) ? data.intent() : null;
+    }
+
+
+    @Override
+    public void addPending(IntentData data) {
+        //FIXME need to compare versions
+        pending.put(data.key(), data);
+        checkNotNull(delegate, "Store delegate is not set")
+                .process(data);
+        notifyDelegate(IntentEvent.getEvent(data));
+    }
+
 }

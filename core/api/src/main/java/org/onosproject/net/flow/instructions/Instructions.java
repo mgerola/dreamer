@@ -21,13 +21,18 @@ import static org.onosproject.net.flow.instructions.L2ModificationInstruction.*;
 
 import java.util.Objects;
 
+import org.onosproject.core.GroupId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction.L0SubType;
 import org.onosproject.net.flow.instructions.L0ModificationInstruction.ModLambdaInstruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.L2SubType;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction.ModEtherInstruction;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.L3SubType;
 import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPInstruction;
+import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModIPv6FlowLabelInstruction;
+import org.onosproject.net.flow.instructions.L3ModificationInstruction.ModTtlInstruction;
+
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
@@ -61,6 +66,17 @@ public final class Instructions {
      */
     public static DropInstruction createDrop() {
         return new DropInstruction();
+    }
+
+    /**
+     * Creates a group instruction.
+     *
+     * @param groupId Group Id
+     * @return group instruction
+     */
+    public static GroupInstruction createGroup(final GroupId groupId) {
+        checkNotNull(groupId, "GroupId cannot be null");
+        return new GroupInstruction(groupId);
     }
 
     /**
@@ -122,24 +138,92 @@ public final class Instructions {
         checkNotNull(mplsLabel, "MPLS label cannot be null");
         return new ModMplsLabelInstruction(mplsLabel);
     }
+
     /**
-     * Creates a L3 src modification.
-     * @param addr the ip address to modify to.
-     * @return a L3 modification
+     * Creates a MPLS TTL modification.
+     *
+     * @return a L2 Modification
      */
-    public static L3ModificationInstruction modL3Src(IpAddress addr) {
-        checkNotNull(addr, "Src l3 address cannot be null");
-        return new ModIPInstruction(L3SubType.IP_SRC, addr);
+    public static L2ModificationInstruction decMplsTtl() {
+        return new ModMplsTtlInstruction();
     }
 
     /**
-     * Creates a L3 dst modification.
-     * @param addr the ip address to modify to.
+     * Creates a L3 IPv4 src modification.
+     *
+     * @param addr the IPv4 address to modify to
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction modL3Src(IpAddress addr) {
+        checkNotNull(addr, "Src l3 IPv4 address cannot be null");
+        return new ModIPInstruction(L3SubType.IPV4_SRC, addr);
+    }
+
+    /**
+     * Creates a L3 IPv4 dst modification.
+     *
+     * @param addr the IPv4 address to modify to
      * @return a L3 modification
      */
     public static L3ModificationInstruction modL3Dst(IpAddress addr) {
-        checkNotNull(addr, "Dst l3 address cannot be null");
-        return new ModIPInstruction(L3SubType.IP_DST, addr);
+        checkNotNull(addr, "Dst l3 IPv4 address cannot be null");
+        return new ModIPInstruction(L3SubType.IPV4_DST, addr);
+    }
+
+    /**
+     * Creates a L3 IPv6 src modification.
+     *
+     * @param addr the IPv6 address to modify to
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction modL3IPv6Src(IpAddress addr) {
+        checkNotNull(addr, "Src l3 IPv6 address cannot be null");
+        return new ModIPInstruction(L3SubType.IPV6_SRC, addr);
+    }
+
+    /**
+     * Creates a L3 IPv6 dst modification.
+     *
+     * @param addr the IPv6 address to modify to
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction modL3IPv6Dst(IpAddress addr) {
+        checkNotNull(addr, "Dst l3 IPv6 address cannot be null");
+        return new ModIPInstruction(L3SubType.IPV6_DST, addr);
+    }
+
+    /**
+     * Creates a L3 IPv6 Flow Label modification.
+     *
+     * @param flowLabel the IPv6 flow label to modify to (20 bits)
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction modL3IPv6FlowLabel(int flowLabel) {
+        return new ModIPv6FlowLabelInstruction(flowLabel);
+    }
+
+    /**
+     * Creates a L3 TTL modification.
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction decNwTtl() {
+        return new ModTtlInstruction(L3SubType.DEC_TTL);
+    }
+
+    /**
+     * Creates a L3 TTL modification.
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction copyTtlOut() {
+        return new ModTtlInstruction(L3SubType.TTL_OUT);
+    }
+
+    /**
+     * Creates a L3 TTL modification.
+     * @return a L3 modification
+     */
+    public static L3ModificationInstruction copyTtlIn() {
+        return new ModTtlInstruction(L3SubType.TTL_IN);
     }
 
     /**
@@ -148,7 +232,7 @@ public final class Instructions {
      */
     public static Instruction pushMpls() {
         return new PushHeaderInstructions(L2SubType.MPLS_PUSH,
-                                          new Ethernet().setEtherType(Ethernet.MPLS_UNICAST));
+                                          Ethernet.MPLS_UNICAST);
     }
 
     /**
@@ -157,24 +241,32 @@ public final class Instructions {
      */
     public static Instruction popMpls() {
         return new PushHeaderInstructions(L2SubType.MPLS_POP,
-                                          new Ethernet().setEtherType(Ethernet.MPLS_UNICAST));
+                                          Ethernet.MPLS_UNICAST);
     }
 
     /**
-     * Creates a mpls header instruction to pop the MPLS label.
+     * Creates a mpls header instruction.
      *
-     * @param ethetType the ethertype to modify to.
+     * @param etherType Ethernet type to set
      * @return a L2 modification.
      */
-    public static Instruction popMpls(Short ethetType) {
-        return new PushHeaderInstructions(L2SubType.MPLS_POP,
-                                          new Ethernet().setEtherType(ethetType));
+    public static Instruction popMpls(Short etherType) {
+        checkNotNull(etherType, "Ethernet type cannot be null");
+        return new PushHeaderInstructions(L2SubType.MPLS_POP, etherType);
     }
-    /*
-     *  Output instructions
-     */
 
+    public static Instruction transition(FlowRule.Type type) {
+        checkNotNull(type, "Table type cannot be null");
+        return new TableTypeTransition(type);
+    }
+
+    /**
+     *  Drop instruction.
+     */
     public static final class DropInstruction implements Instruction {
+
+        private DropInstruction() {}
+
         @Override
         public Type type() {
             return Type.DROP;
@@ -197,15 +289,15 @@ public final class Instructions {
                 return true;
             }
             if (obj instanceof DropInstruction) {
-                DropInstruction that = (DropInstruction) obj;
-                return Objects.equals(type(), that.type());
-
+                return true;
             }
             return false;
         }
     }
 
-
+    /**
+     *  Output Instruction.
+     */
     public static final class OutputInstruction implements Instruction {
         private final PortNumber port;
 
@@ -246,6 +338,93 @@ public final class Instructions {
         }
     }
 
+    /**
+     *  Group Instruction.
+     */
+    public static final class GroupInstruction implements Instruction {
+        private final GroupId groupId;
+
+        private GroupInstruction(GroupId groupId) {
+            this.groupId = groupId;
+        }
+
+        public GroupId groupId() {
+            return groupId;
+        }
+
+        @Override
+        public Type type() {
+            return Type.GROUP;
+        }
+
+        @Override
+        public String toString() {
+            return toStringHelper(type().toString())
+                    .add("group ID", groupId.id()).toString();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type(), groupId);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof GroupInstruction) {
+                GroupInstruction that = (GroupInstruction) obj;
+                return Objects.equals(groupId, that.groupId);
+
+            }
+            return false;
+        }
+    }
+
+    // FIXME: Temporary support for this. This should probably become it's own
+    // type like other instructions.
+    public static class TableTypeTransition implements Instruction {
+        private final FlowRule.Type tableType;
+
+        TableTypeTransition(FlowRule.Type type) {
+            this.tableType = type;
+        }
+
+        @Override
+        public Type type() {
+            return Type.TABLE;
+        }
+
+        public FlowRule.Type tableType() {
+            return this.tableType;
+        }
+
+        @Override
+        public String toString() {
+            return toStringHelper(type().toString())
+                    .add("tableType", this.tableType).toString();
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(type(), tableType);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj instanceof TableTypeTransition) {
+                TableTypeTransition that = (TableTypeTransition) obj;
+                return Objects.equals(tableType, that.tableType);
+
+            }
+            return false;
+        }
+
+    }
 }
 
 

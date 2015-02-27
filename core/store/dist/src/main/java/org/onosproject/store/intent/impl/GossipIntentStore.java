@@ -15,9 +15,6 @@
  */
 package org.onosproject.store.intent.impl;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -26,53 +23,35 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.NodeId;
-import org.onosproject.net.intent.BatchWrite;
 import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.IntentClockService;
+import org.onosproject.net.intent.IntentData;
 import org.onosproject.net.intent.IntentEvent;
-import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.IntentStore;
 import org.onosproject.net.intent.IntentStoreDelegate;
+import org.onosproject.net.intent.Key;
 import org.onosproject.store.AbstractStore;
-import org.onosproject.store.Timestamp;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
-import org.onosproject.store.cluster.messaging.ClusterMessage;
-import org.onosproject.store.cluster.messaging.ClusterMessageHandler;
-import org.onosproject.store.cluster.messaging.MessageSubject;
-import org.onosproject.store.impl.Timestamped;
-import org.onosproject.store.serializers.KryoSerializer;
-import org.onosproject.store.serializers.impl.DistributedStoreSerializers;
+import org.onosproject.store.ecmap.EventuallyConsistentMap;
+import org.onosproject.store.ecmap.EventuallyConsistentMapEvent;
+import org.onosproject.store.ecmap.EventuallyConsistentMapImpl;
+import org.onosproject.store.ecmap.EventuallyConsistentMapListener;
+import org.onosproject.store.impl.MultiValuedTimestamp;
+import org.onosproject.store.impl.SystemClockTimestamp;
+import org.onosproject.store.serializers.KryoNamespaces;
 import org.slf4j.Logger;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static org.onlab.util.Tools.minPriority;
-import static org.onlab.util.Tools.namedThreads;
-import static org.onosproject.net.intent.IntentState.INSTALL_REQ;
-import static org.onosproject.store.intent.impl.GossipIntentStoreMessageSubjects.INTENT_ANTI_ENTROPY_ADVERTISEMENT;
-import static org.onosproject.store.intent.impl.GossipIntentStoreMessageSubjects.INTENT_SET_INSTALLABLES_MSG;
-import static org.onosproject.store.intent.impl.GossipIntentStoreMessageSubjects.INTENT_UPDATED_MSG;
+import static org.onosproject.net.intent.IntentState.*;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Manages inventory of Intents in a distributed data store that uses optimistic
  * replication and gossip based techniques.
  */
-@Component(immediate = true, enabled = false)
+@Component(immediate = false, enabled = true)
 @Service
 public class GossipIntentStore
         extends AbstractStore<IntentEvent, IntentStoreDelegate>
@@ -80,20 +59,11 @@ public class GossipIntentStore
 
     private final Logger log = getLogger(getClass());
 
-    private final ConcurrentMap<IntentId, Intent> intents =
-            new ConcurrentHashMap<>();
+    // Map of intent key => current intent state
+    private EventuallyConsistentMap<Key, IntentData> currentMap;
 
-    private final ConcurrentMap<IntentId, Timestamped<IntentState>> intentStates
-            = new ConcurrentHashMap<>();
-
-    private final Set<IntentId> withdrawRequestedIntents
-            = Sets.newConcurrentHashSet();
-
-    private ConcurrentMap<IntentId, Timestamped<List<Intent>>> installables
-            = new ConcurrentHashMap<>();
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected IntentClockService intentClockService;
+    // Map of intent key => pending intent operation
+    private EventuallyConsistentMap<Key, IntentData> pendingMap;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterCommunicationService clusterCommunicator;
@@ -101,266 +71,220 @@ public class GossipIntentStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterService clusterService;
 
-    private static final KryoSerializer SERIALIZER = new KryoSerializer() {
-        @Override
-        protected void setupKryoPool() {
-            serializerPool = KryoNamespace.newBuilder()
-                    .register(DistributedStoreSerializers.STORE_COMMON)
-                    .nextId(DistributedStoreSerializers.STORE_CUSTOM_BEGIN)
-                    .register(InternalIntentEvent.class)
-                    .register(InternalSetInstallablesEvent.class)
-                    .register(Collections.emptyList().getClass())
-                    //.register(InternalIntentAntiEntropyEvent.class)
-                    //.register(IntentAntiEntropyAdvertisement.class)
-                    .build();
-        }
-    };
-
-    private ExecutorService executor;
-
-    private ScheduledExecutorService backgroundExecutor;
-
-    // TODO: Make these anti-entropy params configurable
-    private long initialDelaySec = 5;
-    private long periodSec = 5;
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected PartitionService partitionService;
 
     @Activate
     public void activate() {
-        clusterCommunicator.addSubscriber(INTENT_UPDATED_MSG,
-                new InternalIntentCreateOrUpdateEventListener());
-        clusterCommunicator.addSubscriber(INTENT_SET_INSTALLABLES_MSG,
-                                          new InternalIntentSetInstallablesListener());
-        clusterCommunicator.addSubscriber(
-                INTENT_ANTI_ENTROPY_ADVERTISEMENT,
-                new InternalIntentAntiEntropyAdvertisementListener());
+        KryoNamespace.Builder intentSerializer = KryoNamespace.newBuilder()
+                .register(KryoNamespaces.API)
+                .register(IntentData.class)
+                .register(MultiValuedTimestamp.class)
+                .register(SystemClockTimestamp.class);
 
-        executor = Executors.newCachedThreadPool(namedThreads("onos-intent-fg-%d"));
+        currentMap = new EventuallyConsistentMapImpl<>("intent-current",
+                                                       clusterService,
+                                                       clusterCommunicator,
+                                                       intentSerializer,
+                                                       new IntentDataLogicalClockManager<>());
 
-        backgroundExecutor =
-                newSingleThreadScheduledExecutor(minPriority(namedThreads("onos-intent-bg-%d")));
+        pendingMap = new EventuallyConsistentMapImpl<>("intent-pending",
+                                                       clusterService,
+                                                       clusterCommunicator,
+                                                       intentSerializer, // TODO
+                                                       new IntentDataClockManager<>());
 
-        // start anti-entropy thread
-        //backgroundExecutor.scheduleAtFixedRate(new SendAdvertisementTask(),
-                    //initialDelaySec, periodSec, TimeUnit.SECONDS);
+        currentMap.addListener(new InternalIntentStatesListener());
+        pendingMap.addListener(new InternalPendingListener());
 
         log.info("Started");
     }
 
     @Deactivate
     public void deactivate() {
-        executor.shutdownNow();
-        backgroundExecutor.shutdownNow();
-        try {
-            if (!backgroundExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                log.error("Timeout during executor shutdown");
-            }
-        } catch (InterruptedException e) {
-            log.error("Error during executor shutdown", e);
-        }
-
-        intents.clear();
+        currentMap.destroy();
+        pendingMap.destroy();
 
         log.info("Stopped");
     }
 
     @Override
     public long getIntentCount() {
-        return intents.size();
+        return currentMap.size();
     }
 
     @Override
     public Iterable<Intent> getIntents() {
-        // TODO don't actually need to copy intents, they are immutable
-        return ImmutableList.copyOf(intents.values());
+        return currentMap.values().stream()
+                .map(IntentData::intent)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Intent getIntent(IntentId intentId) {
-        return intents.get(intentId);
-    }
-
-    @Override
-    public IntentState getIntentState(IntentId intentId) {
-        Timestamped<IntentState> state = intentStates.get(intentId);
-        if (state != null) {
-            return state.value();
+    public IntentState getIntentState(Key intentKey) {
+        IntentData data = currentMap.get(intentKey);
+        if (data != null) {
+            return data.state();
         }
         return null;
     }
 
-    private IntentEvent setStateInternal(IntentId intentId, IntentState newState, Timestamp timestamp) {
-        switch (newState) {
-        case WITHDRAW_REQ:
-            withdrawRequestedIntents.add(intentId);
-            break;
-        case INSTALL_REQ:
-        case COMPILING:
-        case INSTALLING:
-        case INSTALLED:
-        case RECOMPILING:
-        case WITHDRAWING:
-        case WITHDRAWN:
-        case FAILED:
-            synchronized (intentStates) {
-                Timestamped<IntentState> existing = intentStates.get(intentId);
-                if (existing == null || !existing.isNewer(timestamp)) {
-                    intentStates.put(intentId, new Timestamped<>(newState, timestamp));
-                }
-            }
-            break;
-        default:
-            log.warn("Unknown intent state {}", newState);
-            break;
+    @Override
+    public List<Intent> getInstallableIntents(Key intentKey) {
+        IntentData data = currentMap.get(intentKey);
+        if (data != null) {
+            return data.installables();
         }
+        return null;
+    }
 
-        try {
-            // TODO make sure it's OK if the intent is null
-            return IntentEvent.getEvent(newState, intents.get(intentId));
-        } catch (IllegalArgumentException e) {
-            // Transient states can't be used for events, so don't send one
+    private IntentData copyData(IntentData original) {
+        if (original == null) {
             return null;
         }
+        IntentData result =
+                new IntentData(original.intent(), original.state(), original.version());
+
+        if (original.installables() != null) {
+            result.setInstallables(original.installables());
+        }
+        return result;
     }
 
-    private void setInstallableIntentsInternal(IntentId intentId,
-                                               List<Intent> installableIntents,
-                                               Timestamp timestamp) {
-        synchronized (installables) {
-            Timestamped<List<Intent>> existing = installables.get(intentId);
-            if (existing == null || !existing.isNewer(timestamp)) {
-                installables.put(intentId,
-                                 new Timestamped<>(installableIntents, timestamp));
+    /**
+     * Determines whether an intent data update is allowed. The update must
+     * either have a higher version than the current data, or the state
+     * transition between two updates of the same version must be sane.
+     *
+     * @param currentData existing intent data in the store
+     * @param newData new intent data update proposal
+     * @return true if we can apply the update, otherwise false
+     */
+    private boolean isUpdateAcceptable(IntentData currentData, IntentData newData) {
+
+        if (currentData == null) {
+            return true;
+        } else if (currentData.version().compareTo(newData.version()) < 0) {
+            return true;
+        } else if (currentData.version().compareTo(newData.version()) > 0) {
+            return false;
+        }
+
+        // current and new data versions are the same
+        IntentState currentState = currentData.state();
+        IntentState newState = newData.state();
+
+        switch (newState) {
+        case INSTALLING:
+            if (currentState == INSTALLING) {
+                return false;
             }
+            // FALLTHROUGH
+        case INSTALLED:
+            if (currentState == INSTALLED) {
+                return false;
+            } else if (currentState == WITHDRAWING || currentState == WITHDRAWN) {
+                log.warn("Invalid state transition from {} to {} for intent {}",
+                         currentState, newState, newData.key());
+                return false;
+            }
+            return true;
+
+        case WITHDRAWING:
+            if (currentState == WITHDRAWING) {
+                return false;
+            }
+            // FALLTHROUGH
+        case WITHDRAWN:
+            if (currentState == WITHDRAWN) {
+                return false;
+            } else if (currentState == INSTALLING || currentState == INSTALLED) {
+                log.warn("Invalid state transition from {} to {} for intent {}",
+                         currentState, newState, newData.key());
+                return false;
+            }
+            return true;
+
+
+        case FAILED:
+            if (currentState == FAILED) {
+                return false;
+            }
+            return true;
+
+
+        case COMPILING:
+        case RECOMPILING:
+        case INSTALL_REQ:
+        case WITHDRAW_REQ:
+        default:
+            log.warn("Invalid state {} for intent {}", newState, newData.key());
+            return false;
         }
     }
 
     @Override
-    public List<Intent> getInstallableIntents(IntentId intentId) {
-        Timestamped<List<Intent>> tInstallables = installables.get(intentId);
-        if (tInstallables != null) {
-            return tInstallables.value();
+    public void write(IntentData newData) {
+        //log.debug("writing intent {}", newData);
+
+        IntentData currentData = currentMap.get(newData.key());
+
+        if (isUpdateAcceptable(currentData, newData)) {
+            // Only the master is modifying the current state. Therefore assume
+            // this always succeeds
+            currentMap.put(newData.key(), copyData(newData));
+
+            // if current.put succeeded
+            pendingMap.remove(newData.key(), newData);
+        } else {
+            log.debug("not writing update: current {}, new {}", currentData, newData);
+        }
+        /*try {
+            notifyDelegate(IntentEvent.getEvent(newData));
+        } catch (IllegalArgumentException e) {
+            //no-op
+            log.trace("ignore this exception: {}", e);
+        }*/
+    }
+
+    @Override
+    public void batchWrite(Iterable<IntentData> updates) {
+        updates.forEach(this::write);
+    }
+
+    @Override
+    public Intent getIntent(Key key) {
+        IntentData data = currentMap.get(key);
+        if (data != null) {
+            return data.intent();
         }
         return null;
     }
 
     @Override
-    public List<BatchWrite.Operation> batchWrite(BatchWrite batch) {
+    public IntentData getIntentData(Key key) {
+        return copyData(currentMap.get(key));
+    }
 
-        List<IntentEvent> events = Lists.newArrayList();
-        List<BatchWrite.Operation> failed = new ArrayList<>();
-
-        Timestamp timestamp = null;
-
-        for (BatchWrite.Operation op : batch.operations()) {
-            switch (op.type()) {
-            case CREATE_INTENT:
-                checkArgument(op.args().size() == 1,
-                              "CREATE_INTENT takes 1 argument. %s", op);
-                Intent intent = op.arg(0);
-
-                timestamp = intentClockService.getTimestamp(intent.id());
-                if (createIntentInternal(intent)) {
-                    events.add(setStateInternal(intent.id(), INSTALL_REQ, timestamp));
-                    notifyPeers(new InternalIntentEvent(intent.id(), intent,
-                                                        INSTALL_REQ, timestamp));
-                }
-
-                break;
-            case REMOVE_INTENT:
-                checkArgument(op.args().size() == 1,
-                              "REMOVE_INTENT takes 1 argument. %s", op);
-                IntentId intentId = (IntentId) op.arg(0);
-                // TODO implement
-
-                break;
-            case SET_STATE:
-                checkArgument(op.args().size() == 2,
-                              "SET_STATE takes 2 arguments. %s", op);
-                intent = op.arg(0);
-                IntentState newState = op.arg(1);
-
-                timestamp = intentClockService.getTimestamp(intent.id());
-                IntentEvent externalEvent = setStateInternal(intent.id(), newState, timestamp);
-                events.add(externalEvent);
-                notifyPeers(new InternalIntentEvent(intent.id(), null, newState, timestamp));
-
-                break;
-            case SET_INSTALLABLE:
-                checkArgument(op.args().size() == 2,
-                              "SET_INSTALLABLE takes 2 arguments. %s", op);
-                intentId = op.arg(0);
-                List<Intent> installableIntents = op.arg(1);
-
-                timestamp = intentClockService.getTimestamp(intentId);
-                setInstallableIntentsInternal(
-                        intentId, installableIntents, timestamp);
-
-                notifyPeers(new InternalSetInstallablesEvent(intentId, installableIntents, timestamp));
-
-                break;
-            case REMOVE_INSTALLED:
-                checkArgument(op.args().size() == 1,
-                              "REMOVE_INSTALLED takes 1 argument. %s", op);
-                intentId = op.arg(0);
-                // TODO implement
-                break;
-            default:
-                log.warn("Unknown Operation encountered: {}", op);
-                failed.add(op);
-                break;
-            }
+    @Override
+    public void addPending(IntentData data) {
+        log.debug("new pending {} {} {}", data.key(), data.state(), data.version());
+        if (data.version() == null) {
+            data.setVersion(new SystemClockTimestamp());
         }
-
-        notifyDelegate(events);
-        return failed;
+        pendingMap.put(data.key(), copyData(data));
     }
 
-    private boolean createIntentInternal(Intent intent) {
-        Intent oldValue = intents.putIfAbsent(intent.id(), intent);
-        if (oldValue == null) {
-            return true;
-        }
-
-        log.warn("Intent ID {} already in store, throwing new update away",
-                 intent.id());
-        return false;
+    @Override
+    public boolean isMaster(Key intentKey) {
+        return partitionService.isMine(intentKey);
     }
 
-    private void notifyPeers(InternalIntentEvent event) {
-        try {
-            broadcastMessage(INTENT_UPDATED_MSG, event);
-        } catch (IOException e) {
-            // TODO this won't happen; remove from API
-            log.debug("IOException broadcasting update", e);
-        }
-    }
-
-    private void notifyPeers(InternalSetInstallablesEvent event) {
-        try {
-            broadcastMessage(INTENT_SET_INSTALLABLES_MSG, event);
-        } catch (IOException e) {
-            // TODO this won't happen; remove from API
-            log.debug("IOException broadcasting update", e);
-        }
-    }
-
-    private void broadcastMessage(MessageSubject subject, Object event) throws
-            IOException {
-        ClusterMessage message = new ClusterMessage(
-                clusterService.getLocalNode().id(),
-                subject,
-                SERIALIZER.encode(event));
-        clusterCommunicator.broadcast(message);
-    }
-
-    private void unicastMessage(NodeId peer,
-                                MessageSubject subject,
-                                Object event) throws IOException {
-        ClusterMessage message = new ClusterMessage(
-                clusterService.getLocalNode().id(),
-                subject,
-                SERIALIZER.encode(event));
-        clusterCommunicator.unicast(message, peer);
+    @Override
+    public Iterable<Intent> getPending() {
+        return pendingMap.values().stream()
+                .map(IntentData::intent)
+                .collect(Collectors.toList());
     }
 
     private void notifyDelegateIfNotNull(IntentEvent event) {
@@ -369,74 +293,39 @@ public class GossipIntentStore
         }
     }
 
-    private final class InternalIntentCreateOrUpdateEventListener
-            implements ClusterMessageHandler {
+    private final class InternalIntentStatesListener implements
+            EventuallyConsistentMapListener<Key, IntentData> {
         @Override
-        public void handle(ClusterMessage message) {
+        public void event(
+                EventuallyConsistentMapEvent<Key, IntentData> event) {
+            if (event.type() == EventuallyConsistentMapEvent.Type.PUT) {
+                IntentData intentData = event.value();
 
-            log.debug("Received intent update event from peer: {}", message.sender());
-            InternalIntentEvent event = SERIALIZER.decode(message.payload());
+                notifyDelegateIfNotNull(IntentEvent.getEvent(intentData));
+            }
+        }
+    }
 
-            IntentId intentId = event.intentId();
-            Intent intent = event.intent();
-            IntentState state = event.state();
-            Timestamp timestamp = event.timestamp();
-
-            executor.submit(() -> {
-                try {
-                    switch (state) {
-                    case INSTALL_REQ:
-                        createIntentInternal(intent);
-                        // Fallthrough to setStateInternal for INSTALL_REQ
-                    default:
-                        notifyDelegateIfNotNull(setStateInternal(intentId, state, timestamp));
-                        break;
+    private final class InternalPendingListener implements
+            EventuallyConsistentMapListener<Key, IntentData> {
+        @Override
+        public void event(
+                EventuallyConsistentMapEvent<Key, IntentData> event) {
+            if (event.type() == EventuallyConsistentMapEvent.Type.PUT) {
+                // The pending intents map has been updated. If we are master for
+                // this intent's partition, notify the Manager that it should do
+                // some work.
+                if (isMaster(event.value().intent().key())) {
+                    if (delegate != null) {
+                        log.debug("processing {}", event.key());
+                        delegate.process(copyData(event.value()));
                     }
-                } catch (Exception e) {
-                    log.warn("Exception thrown handling intent create or update", e);
                 }
-            });
+
+                notifyDelegateIfNotNull(IntentEvent.getEvent(event.value()));
+            }
         }
     }
 
-    private final class InternalIntentSetInstallablesListener
-            implements ClusterMessageHandler {
-        @Override
-        public void handle(ClusterMessage message) {
-            log.debug("Received intent set installables event from peer: {}", message.sender());
-            InternalSetInstallablesEvent event = SERIALIZER.decode(message.payload());
-
-            IntentId intentId = event.intentId();
-            List<Intent> installables = event.installables();
-            Timestamp timestamp = event.timestamp();
-
-            executor.submit(() -> {
-                try {
-                    setInstallableIntentsInternal(intentId, installables, timestamp);
-                } catch (Exception e) {
-                    log.warn("Exception thrown handling intent set installables", e);
-                }
-            });
-        }
-    }
-
-    private final class InternalIntentAntiEntropyAdvertisementListener
-            implements ClusterMessageHandler {
-
-        @Override
-        public void handle(ClusterMessage message) {
-            log.trace("Received intent Anti-Entropy advertisement from peer: {}", message.sender());
-            // TODO implement
-            //IntentAntiEntropyAdvertisement advertisement = SERIALIZER.decode(message.payload());
-            backgroundExecutor.submit(() -> {
-                try {
-                    log.debug("something");
-                    //handleAntiEntropyAdvertisement(advertisement);
-                } catch (Exception e) {
-                    log.warn("Exception thrown handling intent advertisements", e);
-                }
-            });
-        }
-    }
 }
 

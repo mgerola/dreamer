@@ -37,22 +37,29 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.pool.KeyedPoolableObjectFactory;
 import org.apache.commons.pool.impl.GenericKeyedObjectPool;
+import org.onlab.packet.IpAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Charsets;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -64,7 +71,7 @@ public class NettyMessagingService implements MessagingService {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     private final Endpoint localEp;
-    private final ConcurrentMap<String, MessageHandler> handlers = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, MessageHandler> handlers = new ConcurrentHashMap<>();
     private final AtomicLong messageIdGenerator = new AtomicLong(0);
     private final Cache<Long, SettableFuture<byte[]>> responseFutures = CacheBuilder.newBuilder()
             .maximumSize(100000)
@@ -72,10 +79,23 @@ public class NettyMessagingService implements MessagingService {
             .removalListener(new RemovalListener<Long, SettableFuture<byte[]>>() {
                 @Override
                 public void onRemoval(RemovalNotification<Long, SettableFuture<byte[]>> entry) {
-                    entry.getValue().setException(new TimeoutException("Timedout waiting for reply"));
+                    if (entry.wasEvicted()) {
+                        entry.getValue().setException(new TimeoutException("Timedout waiting for reply"));
+                    }
                 }
             })
             .build();
+
+    private final LoadingCache<String, Long> messageTypeLookupCache = CacheBuilder.newBuilder()
+            .softValues()
+            .build(new CacheLoader<String, Long>() {
+
+                @Override
+                public Long load(String type) {
+                    return hashToLong(type);
+                }
+            });
+
     private final GenericKeyedObjectPool<Endpoint, Channel> channels
             = new GenericKeyedObjectPool<Endpoint, Channel>(new OnosCommunicationChannelFactory());
 
@@ -101,7 +121,7 @@ public class NettyMessagingService implements MessagingService {
         clientChannelClass = NioSocketChannel.class;
     }
 
-    public NettyMessagingService(String ip, int port) {
+    public NettyMessagingService(IpAddress ip, int port) {
         localEp = new Endpoint(ip, port);
     }
 
@@ -111,7 +131,7 @@ public class NettyMessagingService implements MessagingService {
 
     public NettyMessagingService(int port) {
         try {
-            localEp = new Endpoint(java.net.InetAddress.getLocalHost().getHostName(), port);
+            localEp = new Endpoint(IpAddress.valueOf(InetAddress.getLocalHost()), port);
         } catch (UnknownHostException e) {
             // Cannot resolve the local host, something is very wrong. Bailing out.
             throw new IllegalStateException("Cannot resolve local host", e);
@@ -144,7 +164,7 @@ public class NettyMessagingService implements MessagingService {
         InternalMessage message = new InternalMessage.Builder(this)
             .withId(messageIdGenerator.incrementAndGet())
             .withSender(localEp)
-            .withType(type)
+            .withType(messageTypeLookupCache.getUnchecked(type))
             .withPayload(payload)
             .build();
         sendAsync(ep, message);
@@ -176,7 +196,7 @@ public class NettyMessagingService implements MessagingService {
         InternalMessage message = new InternalMessage.Builder(this)
             .withId(messageId)
             .withSender(localEp)
-            .withType(type)
+            .withType(messageTypeLookupCache.getUnchecked(type))
             .withPayload(payload)
             .build();
         try {
@@ -190,15 +210,31 @@ public class NettyMessagingService implements MessagingService {
 
     @Override
     public void registerHandler(String type, MessageHandler handler) {
-        handlers.putIfAbsent(type, handler);
+        handlers.putIfAbsent(hashToLong(type), handler);
+    }
+
+    @Override
+    public void registerHandler(String type, MessageHandler handler, ExecutorService executor) {
+        handlers.putIfAbsent(hashToLong(type), new MessageHandler() {
+            @Override
+            public void handle(Message message) throws IOException {
+                executor.submit(() -> {
+                    try {
+                        handler.handle(message);
+                    } catch (Exception e) {
+                        log.warn("Failed to process message of type {}", type, e);
+                    }
+                });
+            }
+        });
     }
 
     @Override
     public void unregisterHandler(String type) {
-        handlers.remove(type);
+        handlers.remove(hashToLong(type));
     }
 
-    private MessageHandler getMessageHandler(String type) {
+    private MessageHandler getMessageHandler(long type) {
         return handlers.get(type);
     }
 
@@ -243,7 +279,7 @@ public class NettyMessagingService implements MessagingService {
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
             bootstrap.handler(new OnosCommunicationChannelInitializer());
             // Start the client.
-            ChannelFuture f = bootstrap.connect(ep.host(), ep.port()).sync();
+            ChannelFuture f = bootstrap.connect(ep.host().toString(), ep.port()).sync();
             return f.channel();
         }
 
@@ -293,8 +329,8 @@ public class NettyMessagingService implements MessagingService {
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, InternalMessage message) throws Exception {
-            String type = message.type();
-            if (type.equals(InternalMessage.REPLY_MESSAGE_TYPE)) {
+            long type = message.type();
+            if (type == InternalMessage.REPLY_MESSAGE_TYPE) {
                 try {
                     SettableFuture<byte[]> futureResponse =
                         NettyMessagingService.this.responseFutures.getIfPresent(message.id());
@@ -323,5 +359,14 @@ public class NettyMessagingService implements MessagingService {
             log.error("Exception inside channel handling pipeline.", cause);
             context.close();
         }
+    }
+
+    /**
+     * Returns the md5 hash of the specified input string as a long.
+     * @param input input string.
+     * @return md5 hash as long.
+     */
+    public static long hashToLong(String input) {
+        return Hashing.md5().hashBytes(input.getBytes(Charsets.UTF_8)).asLong();
     }
 }

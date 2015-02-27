@@ -24,8 +24,8 @@
     var config = {
         colIds: ['_iconid_available', 'id', 'mfr', 'hw', 'sw', 'serial',
             'annotations'],
-        colText: ['Availability', 'URI', 'Vendor', 'Hardware Version', 'Software Version',
-            'Serial Number', 'Protocol']
+        colText: ['Availability', 'URI', 'Vendor', 'Hardware Version',
+            'Software Version', 'Serial Number', 'Protocol']
         },
         deviceData = {
             "devices": [{
@@ -232,36 +232,38 @@
 
     angular.module('practiceTable', ['onosWidget'])
 
-        .controller('showTableCtrl', ['$log', 'TableService',
-            function ($log, ts) {
-                ts.renderAndLoadTable(d3.select('#tableDiv'), config, deviceData);
+        .controller('showTableCtrl', ['$log', '$scope', '$rootScope',
+            '$timeout', 'TableService',
+            function ($log, $scope, $rootScope, $timeout, ts) {
+                var self = this;
+                var table = ts.renderTable(d3.select('#tableDiv'), config, deviceData);
             }])
 
-        .directive('fixedHeader', ['$log', '$timeout', function ($log, $timeout) {
-            return {
+        .directive('fixedHeader', ['$log', '$timeout', '$compile',
+            function ($log, $timeout, $compile) {
+             return {
                 restrict: 'A',
                 scope: {
-                    tableHeight: '@'
+                    tHeight: '@'
                 },
 
                 link: function (scope, element, attrs) {
                     var table = d3.select(element[0]),
                         thead = table.select('thead'),
                         tbody = table.select('tbody');
-                    $log.log('in directive function');
 
                     // wait until the table is visible
                     scope.$watch(
                         function () { return (!(table.offsetParent === null)); },
-                        function (newValue, oldValue) {
+                        function(newValue, oldValue) {
                             if (newValue === true) {
 
                                 // ensure thead and tbody have no display
                                 thead.style('display', null);
                                 tbody.style('display', null);
 
-                                $timeout(function() {
-                                    fixTable(table, thead, tbody, scope.tableHeight);
+                                $timeout(function () {
+                                    fixTable(table, thead, tbody, scope.tHeight);
                                 });
                             }
                         });

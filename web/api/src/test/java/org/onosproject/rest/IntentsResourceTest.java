@@ -15,15 +15,14 @@
  */
 package org.onosproject.rest;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.onlab.osgi.ServiceDirectory;
 import org.onlab.osgi.TestServiceDirectory;
@@ -31,20 +30,20 @@ import org.onlab.rest.BaseResource;
 import org.onosproject.codec.CodecService;
 import org.onosproject.codec.impl.CodecManager;
 import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreService;
 import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.IdGenerator;
 import org.onosproject.net.NetworkResource;
 import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.Key;
+import org.onosproject.net.intent.MockIdGenerator;
 
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.eclipsesource.json.JsonValue;
-import com.google.common.base.MoreObjects;
 import com.sun.jersey.api.client.UniformInterfaceException;
 import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.test.framework.JerseyTest;
 
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
@@ -56,47 +55,18 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
+import static org.onosproject.net.intent.IntentTestsMocks.MockIntent;
 
 /**
  * Unit tests for Intents REST APIs.
  */
-public class IntentsResourceTest extends JerseyTest {
+@Ignore
+public class IntentsResourceTest extends ResourceTest {
     final IntentService mockIntentService = createMock(IntentService.class);
+    final CoreService mockCoreService = createMock(CoreService.class);
     final HashSet<Intent> intents = new HashSet<>();
-    private static final ApplicationId APP_ID =
-            new DefaultApplicationId((short) 1, "test");
+    private static final ApplicationId APP_ID = new DefaultApplicationId(1, "test");
     private IdGenerator mockGenerator;
-
-    /**
-     * Mock ID generator.  This should be refactored to share the one in
-     * the core/api tests.
-     */
-    public class MockIdGenerator implements IdGenerator {
-        private AtomicLong nextId = new AtomicLong(0);
-
-        @Override
-        public long getNewId() {
-            return nextId.getAndIncrement();
-        }
-    }
-
-    /**
-     * Mock compilable intent class.
-     */
-    private static class MockIntent extends Intent {
-
-        public MockIntent(Collection<NetworkResource> resources) {
-            super(APP_ID, resources);
-        }
-
-        @Override
-        public String toString() {
-            return MoreObjects.toStringHelper(getClass())
-                    .add("id", id())
-                    .add("appId", appId())
-                    .toString();
-        }
-    }
 
     private class MockResource implements NetworkResource {
         int id;
@@ -105,13 +75,10 @@ public class IntentsResourceTest extends JerseyTest {
             this.id = id;
         }
 
+        @Override
         public String toString() {
             return "Resource " + Integer.toString(id);
         }
-    }
-
-    public IntentsResourceTest() {
-        super("org.onosproject.rest");
     }
 
     /**
@@ -258,17 +225,20 @@ public class IntentsResourceTest extends JerseyTest {
         return new IntentJsonArrayMatcher(intent);
     }
 
+    /**
+     * Initializes test mocks and environment.
+     */
     @Before
-    public void setUp() {
+    public void setUpTest() {
         expect(mockIntentService.getIntents()).andReturn(intents).anyTimes();
-
         // Register the services needed for the test
         final CodecManager codecService =  new CodecManager();
         codecService.activate();
         ServiceDirectory testDirectory =
                 new TestServiceDirectory()
                         .add(IntentService.class, mockIntentService)
-                        .add(CodecService.class, codecService);
+                        .add(CodecService.class, codecService)
+                        .add(CoreService.class, mockCoreService);
 
         BaseResource.setServiceDirectory(testDirectory);
 
@@ -276,9 +246,11 @@ public class IntentsResourceTest extends JerseyTest {
         Intent.bindIdGenerator(mockGenerator);
     }
 
+    /**
+     * Tears down and verifies test mocks and environment.
+     */
     @After
-    public void tearDown() throws Exception {
-        super.tearDown();
+    public void tearDownTest() {
         verify(mockIntentService);
         Intent.unbindIdGenerator(mockGenerator);
     }
@@ -301,12 +273,12 @@ public class IntentsResourceTest extends JerseyTest {
     public void testIntentsArray() {
         replay(mockIntentService);
 
-        final Intent intent1 = new MockIntent(Collections.emptyList());
+        final Intent intent1 = new MockIntent(1L, Collections.emptyList());
         final HashSet<NetworkResource> resources = new HashSet<>();
         resources.add(new MockResource(1));
         resources.add(new MockResource(2));
         resources.add(new MockResource(3));
-        final Intent intent2 = new MockIntent(resources);
+        final Intent intent2 = new MockIntent(2L, resources);
 
         intents.add(intent1);
         intents.add(intent2);
@@ -336,17 +308,22 @@ public class IntentsResourceTest extends JerseyTest {
         resources.add(new MockResource(1));
         resources.add(new MockResource(2));
         resources.add(new MockResource(3));
-        final Intent intent = new MockIntent(resources);
+        final Intent intent = new MockIntent(3L, resources);
 
         intents.add(intent);
 
-        expect(mockIntentService.getIntent(IntentId.valueOf(0)))
+        expect(mockIntentService.getIntent(Key.of(0, APP_ID)))
+                .andReturn(intent)
+                .anyTimes();
+        expect(mockIntentService.getIntent(Key.of("0", APP_ID)))
                 .andReturn(intent)
                 .anyTimes();
         replay(mockIntentService);
-
+        expect(mockCoreService.getAppId(APP_ID.id()))
+                .andReturn(APP_ID).anyTimes();
+        replay(mockCoreService);
         final WebResource rs = resource();
-        final String response = rs.path("intents/0").get(String.class);
+        final String response = rs.path("intents/1/0").get(String.class);
         final JsonObject result = JsonObject.readFrom(response);
         assertThat(result, matchesIntent(intent));
     }
@@ -357,7 +334,7 @@ public class IntentsResourceTest extends JerseyTest {
     @Test
     public void testBadGet() {
 
-        expect(mockIntentService.getIntent(IntentId.valueOf(0)))
+        expect(mockIntentService.getIntent(Key.of(0, APP_ID)))
                 .andReturn(null)
                 .anyTimes();
         replay(mockIntentService);

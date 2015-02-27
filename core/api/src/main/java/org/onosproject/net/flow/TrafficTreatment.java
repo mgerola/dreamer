@@ -17,7 +17,9 @@ package org.onosproject.net.flow;
 
 import java.util.List;
 
+import org.onosproject.core.GroupId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.DefaultTrafficTreatment.Builder;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
@@ -120,6 +122,27 @@ public interface TrafficTreatment {
         public Builder setIpDst(IpAddress addr);
 
         /**
+         * Decrement the TTL in IP header by one.
+         *
+         * @return a treatment builder
+         */
+        public Builder decNwTtl();
+
+        /**
+         * Copy the TTL to outer protocol layer.
+         *
+         * @return a treatment builder
+         */
+        public Builder copyTtlOut();
+
+        /**
+         * Copy the TTL to inner protocol layer.
+         *
+         * @return a treatment builder
+         */
+        public Builder copyTtlIn();
+
+        /**
          * Push MPLS ether type.
          *
          * @return a treatment builder.
@@ -139,7 +162,7 @@ public interface TrafficTreatment {
          * @param etherType an ether type
          * @return a treatment builder.
          */
-        Builder popMpls(short etherType);
+        public Builder popMpls(Short etherType);
 
         /**
          * Sets the mpls label.
@@ -150,12 +173,36 @@ public interface TrafficTreatment {
         public Builder setMpls(MplsLabel mplsLabel);
 
         /**
+         * Decrement MPLS TTL.
+         *
+         * @return a treatment builder
+         */
+        public Builder decMplsTtl();
+
+        /**
          * Sets the optical channel ID or lambda.
          *
          * @param lambda optical channel ID
          * @return a treatment builder
          */
         public Builder setLambda(short lambda);
+
+        /**
+         * Sets the group ID.
+         *
+         * @param groupId group ID
+         * @return a treatment builder
+         */
+        public Builder group(GroupId groupId);
+
+
+        /**
+         * Sets the next table type to transition to.
+         *
+         * @param type the table type
+         * @return a treatement builder
+         */
+        public Builder transition(FlowRule.Type type);
 
         /**
          * Builds an immutable traffic treatment descriptor.

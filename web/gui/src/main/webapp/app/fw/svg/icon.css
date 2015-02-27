@@ -23,20 +23,86 @@ svg#IconLibDefs {
 }
 
 svg.embeddedIcon .icon .glyph {
- stroke: none;
- fill: white;
- fill-rule: evenodd;
+    stroke: none;
+    fill: white;
+    fill-rule: evenodd;
 }
 
-svg.embeddedIcon .icon.deviceOnline {
- fill: green;
+.light svg.embeddedIcon .icon.deviceOnline,
+.light svg.embeddedIcon .icon.deviceOffline {
+    fill: none;
 }
 
-svg.embeddedIcon .icon.deviceOffline {
- fill: darkred;
+.dark svg.embeddedIcon .icon.deviceOnline,
+.dark svg.embeddedIcon .icon.deviceOffline {
+    fill: none;
+}
+
+.light svg.embeddedIcon .icon.devIcon_SWITCH {
+    fill: #ccc;
+}
+.dark svg.embeddedIcon .icon.devIcon_SWITCH {
+    fill: #222;
+}
+.light svg.embeddedIcon .icon.devIcon_SWITCH .glyph {
+    fill: #333;
+}
+.dark svg.embeddedIcon .icon.devIcon_SWITCH .glyph {
+    fill: #ccc;
+}
+
+.light svg.embeddedIcon .icon.deviceOnline .glyph {
+    fill: green;
+}
+.light svg.embeddedIcon .icon.deviceOffline .glyph {
+    fill: darkred;
+}
+.dark svg.embeddedIcon .icon.deviceOnline .glyph {
+    fill: #266610;
+}
+.dark svg.embeddedIcon .icon.deviceOffline .glyph {
+    fill: #610000;
+}
+
+.light svg.embeddedIcon .icon.tableColSortAsc .glyph,
+.light svg.embeddedIcon .icon.tableColSortDesc .glyph {
+    fill: black;
+}
+.dark svg.embeddedIcon .icon.tableColSortAsc .glyph,
+.dark svg.embeddedIcon .icon.tableColSortDesc .glyph {
+    fill: #ccc;
+}
+
+.light svg.embeddedIcon .icon.deviceOnline rect,
+.light svg.embeddedIcon .icon.deviceOffline rect,
+.dark svg.embeddedIcon .icon.deviceOnline rect,
+.dark svg.embeddedIcon .icon.deviceOffline rect {
+    stroke: none;
+    fill: none;
+}
+
+svg.embeddedIcon .icon.tableColSortAsc rect,
+svg.embeddedIcon .icon.tableColSortDesc rect {
+    stroke: none;
+    fill: none;
 }
 
 svg.embeddedIcon .icon rect {
- stroke: black;
- stroke-width: 1px;
+    stroke: black;
+    stroke-width: 1px;
+}
+.dark svg.embeddedIcon .icon.deviceOnline rect
+.dark svg.embeddedIcon .icon.deviceOffline rect {
+    stroke: none;
+}
+.dark svg.embeddedIcon .icon rect {
+    stroke: #ccc;
+}
+.dark svg.embeddedIcon .icon.tableColSortAsc rect,
+.dark svg.embeddedIcon .icon.tableColSortDesc rect {
+    stroke: none;
+}
+
+svg .svgIcon {
+    fill-rule: evenodd;
 }

@@ -24,7 +24,7 @@ public interface Criterion {
     /**
      * Types of fields to which the selection criterion may apply.
      */
-    // From page 42 of OpenFlow 1.3.x spec
+    // From page 75 of OpenFlow 1.5.0 spec
     public enum Type {
         /** Switch input port. */
         IN_PORT,
@@ -106,6 +106,21 @@ public interface Criterion {
         TUNNEL_ID,
         /** IPv6 Extension Header pseudo-field. */
         IPV6_EXTHDR,
+        /** Unassigned value: 40. */
+        UNASSIGNED_40,
+        /** PBB UCA header field. */
+        PBB_UCA,
+        /** TCP flags. */
+        TCP_FLAGS,
+        /** Output port from action set metadata. */
+        ACTSET_OUTPUT,
+        /** Packet type value. */
+        PACKET_TYPE,
+
+        //
+        // NOTE: Everything below is defined elsewhere: ONOS-specific,
+        // extensions, etc.
+        //
         /** Optical channel signal ID (lambda). */
         OCH_SIGID,
         /** Optical channel signal type (fixed or flexible). */
@@ -114,11 +129,48 @@ public interface Criterion {
 
     /**
      * Returns the type of criterion.
+     *
      * @return type of criterion
      */
     public Type type();
 
-    // TODO: Create factory class 'Criteria' that will have various factory
-    // to create specific criterions.
+    /**
+     * Bit definitions for IPv6 Extension Header pseudo-field.
+     * From page 79 of OpenFlow 1.5.0 spec.
+     */
+    public enum IPv6ExthdrFlags {
+        /** "No next header" encountered. */
+        NONEXT(1 << 0),
+        /** Encrypted Sec Payload header present. */
+        ESP(1 << 1),
+        /** Authentication header present. */
+        AUTH(1 << 2),
+        /** 1 or 2 dest headers present. */
+        DEST(1 << 3),
+        /** Fragment header present. */
+        FRAG(1 << 4),
+        /** Router header present. */
+        ROUTER(1 << 5),
+        /** Hop-by-hop header present. */
+        HOP(1 << 6),
+        /** Unexpected repeats encountered. */
+        UNREP(1 << 7),
+        /** Unexpected sequencing encountered. */
+        UNSEQ(1 << 8);
 
+        private int value;
+
+        IPv6ExthdrFlags(int value) {
+            this.value = value;
+        }
+
+        /**
+         * Gets the value as an integer.
+         *
+         * @return the value as an integer
+         */
+        public int getValue() {
+            return this.value;
+        }
+    }
 }

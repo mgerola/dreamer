@@ -17,123 +17,217 @@
 /*
  ONOS GUI -- Widget -- Table Service - Unit Tests
  */
-describe('factory: fw/widget/table.js', function() {
-    var ts, $log, d3Elem;
+describe('factory: fw/widget/table.js', function () {
+    var $log, $compile, $rootScope,
+        fs, is,
+        scope, compiled,
+        table, thead, tbody,
+        tableIconTdSize = 33,
+        bottomMargin = 200,
+        numTestElems = 4;
 
-    var config = {
-        colIds: ['id', 'mfr', 'hw', 'sw', 'serial', 'annotations.protocol'],
-        colText: ['URI', 'Vendor', 'Hardware Version', 'Software Version',
-            'Serial Number', 'Protocol']
-        },
-        fakeData = {
-            "devices": [{
-                "id": "of:0000000000000001",
-                "available": true,
-                "_iconid_available": "deviceOnline",
-                "role": "MASTER",
-                "mfr": "Nicira, Inc.",
-                "hw": "Open vSwitch",
-                "sw": "2.0.1",
-                "serial": "None",
-                "annotations": {
-                    "protocol": "OF_10"
-                    }
-                },
-                {
-                    "id": "of:0000000000000004",
-                    "available": false,
-                    "_iconid_available": "deviceOffline",
-                    "role": "MASTER",
-                    "mfr": "Nicira, Inc.",
-                    "hw": "Open vSwitch",
-                    "sw": "2.0.1",
-                    "serial": "None",
-                    "annotations": {
-                        "protocol": "OF_10"
-                    }
-                },
-                {
-                    "id": "of:0000000000000092",
-                    "available": false,
-                    "_iconid_available": "deviceOffline",
-                    "role": "MASTER",
-                    "mfr": "Nicira, Inc.",
-                    "hw": "Open vSwitch",
-                    "sw": "2.0.1",
-                    "serial": "None",
-                    "annotations": {
-                        "protocol": "OF_10"
-                    }
-                }]
-        };
+    var onosFixedHeaderTags = '<table ' +
+                                'onos-fixed-header>' +
+                                '<thead>' +
+                                '<tr>' +
+                                '<th></th>' +
+                                '<th>Device ID </th>' +
+                                '<th>H/W Version </th>' +
+                                '<th>S/W Version </th>' +
+                                '</tr>' +
+                                '</thead>' +
+                                '<tbody>' +
+                                '<tr>' +
+                                '<td class="table-icon">' +
+                                    '<div icon icon-id="{{dev._iconid_available}}">' +
+                                    '</div>' +
+                                '</td>' +
+                                '<td>Some ID</td>' +
+                                '<td>Some HW</td>' +
+                                '<td>Some Software</td>' +
+                                '</tr>' +
+                                '</tbody>' +
+                                '</table>',
 
-    beforeEach(module('onosWidget'));
+        onosSortableHeaderTags = '<table ' +
+                                'onos-sortable-header ' +
+                                'sort-callback="sortCallback(urlSuffix)">' +
+                                '<thead>' +
+                                '<tr>' +
+                                '<th colId="available"></th>' +
+                                '<th colId="id" sortable>Device ID </th>' +
+                                '<th colId="hw" sortable>H/W Version </th>' +
+                                '<th colId="sw" sortable>S/W Version </th>' +
+                                '</tr>' +
+                                '</thead>' +
+                                '<tbody>' +
+                                '<tr>' +
+                                '<td>' +
+                                    '<div icon icon-id="{{dev._iconid_available}}">' +
+                                    '</div>' +
+                                '</td>' +
+                                '<td>Some ID</td>' +
+                                '<td>Some HW</td>' +
+                                '<td>Some Software</td>' +
+                                '</tr>' +
+                                '</tbody>' +
+                                '</table>';
 
-    beforeEach(inject(function (TableService, _$log_) {
-        ts = TableService;
+    beforeEach(module('onosWidget', 'onosUtil', 'onosSvg'));
+
+    beforeEach(inject(function (_$log_, _$compile_, _$rootScope_,
+                                FnService, IconService) {
         $log = _$log_;
-        d3Elem = d3.select('body').append('div').attr('id', 'myDiv');
+        $compile = _$compile_;
+        $rootScope = _$rootScope_;
+        fs = FnService;
+        is = IconService;
     }));
 
+    beforeEach(function () {
+        scope = $rootScope.$new();
+    });
+
     afterEach(function () {
-        d3.select('#myDiv').remove();
+        table = null;
+        thead = null;
+        tbody = null;
     });
 
-    it('should define TableService', function () {
-        expect(ts).toBeDefined();
-    });
+    function compileTable() {
+        compiled = $compile(table);
+        compiled(scope);
+        scope.$digest();
+    }
 
-    function verifyTableTags(div) {
-        var table = div.select('table'),
-            tableHeaders;
-        expect(table).toBeTruthy();
-        expect(table.attr('fixed-header')).toBeFalsy();
-        expect(table.select('thead')).toBeTruthy();
-        expect(table.select('tbody')).toBeTruthy();
+    function verifyGivenTags(dirName) {
+        expect(table).toBeDefined();
+        expect(table.attr(dirName)).toBe('');
 
-        tableHeaders = table.select('thead').selectAll('th');
-        tableHeaders.each(function(thElement, i) {
-            thElement = d3.select(this);
-            expect(thElement).toBeTruthy();
-            expect(thElement.html()).toBe(config.colText[i]);
+        thead = table.find('thead');
+        expect(thead).toBeDefined();
+        tbody = table.find('tbody');
+        expect(tbody).toBeDefined();
+    }
+
+    function verifyCssDisplay() {
+        var winHeight = fs.windowSize().height;
+
+        expect(thead.css('display')).toBe('block');
+        expect(tbody.css('display')).toBe('block');
+        expect(tbody.css('height')).toBe((winHeight - bottomMargin) + 'px');
+        expect(tbody.css('overflow')).toBe('auto');
+    }
+
+    function verifyColWidth() {
+        var winWidth = fs.windowSize().width,
+            colWidth, thElems, tdElem;
+
+        colWidth = Math.floor(winWidth / numTestElems);
+
+        thElems = thead.find('th');
+
+        angular.forEach(thElems, function (thElem, i) {
+            thElem = angular.element(thElems[i]);
+            tdElem = angular.element(tbody.find('td').eq(i));
+
+            if (tdElem.attr('class') === 'table-icon') {
+                expect(thElem.css('width')).toBe(tableIconTdSize + 'px');
+                expect(tdElem.css('width')).toBe(tableIconTdSize + 'px');
+            } else {
+                expect(thElem.css('width')).toBe(colWidth + 'px');
+                expect(tdElem.css('width')).toBe(colWidth + 'px');
+            }
         });
     }
 
-    function verifyData(div) {
-        var tbody = div.select('tbody'),
-            tableBoxes = tbody.selectAll('td');
-        expect(tbody).toBeTruthy();
-        expect(tbody.select('tr')).toBeTruthy();
+    function verifyCallbacks(thElems) {
+        expect(scope.sortCallback).not.toHaveBeenCalled();
 
-        tableBoxes.each(function(tdElement, i){
-            tdElement = d3.select(this);
-            if(i === 0) {
-                expect(tdElement.html()).toBe('of:0000000000000001');
-            }
-            if(i === 1) {
-                expect(tdElement.html()).toBe('Nicira, Inc.');
-            }
-            if(i === 2) {
-                expect(tdElement.html()).toBe('Open vSwitch');
-            }
-            expect(tdElement).toBeTruthy();
-        });
+        // first test header has no 'sortable' attr
+        thElems[0].click();
+        expect(scope.sortCallback).not.toHaveBeenCalled();
+
+        // the other headers have 'sortable'
+        for(var i = 1; i < numTestElems; i += 1) {
+            thElems[i].click();
+            expect(scope.sortCallback).toHaveBeenCalled();
+        }
     }
 
-    it('should create table tags', function () {
-        ts.renderTable(d3Elem, config);
-        verifyTableTags(d3Elem);
+    function verifyIcons(thElems) {
+        var currentTh, div;
+        // make sure it has the correct icon after clicking
+        thElems[1].click();
+        currentTh = angular.element(thElems[1]);
+        div = currentTh.find('div');
+        expect(div.html()).toBe('<svg class="embeddedIcon" ' +
+                                'width="10" height="10" viewBox="0 0 50 50">' +
+                                '<g class="icon tableColSortAsc">' +
+                                '<rect width="50" height="50" rx="5"></rect>' +
+                                '<use width="50" height="50" class="glyph" ' +
+                                'xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+                                'xlink:href="#triangleUp">' +
+                                '</use>' +
+                                '</g></svg>');
+        thElems[1].click();
+        div = currentTh.find('div');
+        expect(div.html()).toBe('<svg class="embeddedIcon" ' +
+                                'width="10" height="10" viewBox="0 0 50 50">' +
+                                '<g class="icon tableColSortDesc">' +
+                                '<rect width="50" height="50" rx="5"></rect>' +
+                                '<use width="50" height="50" class="glyph" ' +
+                                'xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+                                'xlink:href="#triangleDown">' +
+                                '</use>' +
+                                '</g></svg>');
+
+        thElems[2].click();
+        div = currentTh.children();
+        // clicked on a new element, so the previous icon should have been deleted
+        expect(div.html()).toBeFalsy();
+
+        // the new element should have the ascending icon
+        currentTh = angular.element(thElems[2]);
+        div = currentTh.children();
+        expect(div.html()).toBe('<svg class="embeddedIcon" ' +
+                                'width="10" height="10" viewBox="0 0 50 50">' +
+                                '<g class="icon tableColSortAsc">' +
+                                '<rect width="50" height="50" rx="5"></rect>' +
+                                '<use width="50" height="50" class="glyph" ' +
+                                'xmlns:xlink="http://www.w3.org/1999/xlink" ' +
+                                'xlink:href="#triangleUp">' +
+                                '</use>' +
+                                '</g></svg>');
+    }
+
+    it('should affirm that onos-fixed-header is working', function () {
+        table = angular.element(onosFixedHeaderTags);
+
+        compileTable();
+        verifyGivenTags('onos-fixed-header');
+
+        // table will not be fixed unless it receives the 'LastElement' event
+        scope.$emit('LastElement');
+        scope.$digest();
+
+        verifyCssDisplay();
+        verifyColWidth();
     });
 
-    it('should load data into table', function () {
-        var colIds = ts.renderTable(d3Elem, config);
-        ts.loadTableData(fakeData, d3Elem, colIds);
-        verifyData(d3Elem);
-    });
+    it('should affirm that onos-sortable-header is working', function () {
+        var thElems;
+        table = angular.element(onosSortableHeaderTags);
 
-    it('should render table and load data', function () {
-        ts.renderAndLoadTable(d3Elem, config, fakeData);
-        verifyData(d3Elem);
+        compileTable();
+        verifyGivenTags('onos-sortable-header');
+        // ctrlCallback functionality is tested in device-spec
+        // only checking that it has been called correctly in the directive
+        scope.sortCallback = jasmine.createSpy('sortCallback');
+
+        thElems = thead.find('th');
+        verifyCallbacks(thElems);
+        verifyIcons(thElems);
     });
 
 });

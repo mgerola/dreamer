@@ -15,17 +15,26 @@
  */
 package org.onosproject.net.flow.impl;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ListenableFuture;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreServiceAdapter;
 import org.onosproject.core.DefaultApplicationId;
+import org.onosproject.core.IdGenerator;
 import org.onosproject.event.impl.TestEventDispatcher;
 import org.onosproject.net.DefaultDevice;
 import org.onosproject.net.Device;
@@ -36,14 +45,12 @@ import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceServiceAdapter;
-import org.onosproject.net.flow.BatchOperation;
 import org.onosproject.net.flow.CompletedBatchOperation;
 import org.onosproject.net.flow.DefaultFlowEntry;
 import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowEntry.FlowEntryState;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchEntry;
 import org.onosproject.net.flow.FlowRuleBatchOperation;
 import org.onosproject.net.flow.FlowRuleEvent;
 import org.onosproject.net.flow.FlowRuleListener;
@@ -60,21 +67,22 @@ import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.store.trivial.impl.SimpleFlowRuleStore;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 
-import static org.junit.Assert.*;
-import static org.onosproject.net.flow.FlowRuleEvent.Type.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_ADDED;
+import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_ADD_REQUESTED;
+import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_REMOVED;
+import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_REMOVE_REQUESTED;
+import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_UPDATED;
 
 /**
  * Test codifying the flow rule service & flow rule provider service contracts.
@@ -97,12 +105,16 @@ public class FlowRuleManagerTest {
     protected TestListener listener = new TestListener();
     private ApplicationId appId;
 
+
     @Before
     public void setUp() {
         mgr = new FlowRuleManager();
         mgr.store = new SimpleFlowRuleStore();
         mgr.eventDispatcher = new TestEventDispatcher();
         mgr.deviceService = new TestDeviceService();
+        mgr.coreService = new TestCoreService();
+        mgr.operationsService = MoreExecutors.newDirectExecutorService();
+        mgr.deviceInstallers = MoreExecutors.newDirectExecutorService();
         service = mgr;
         registry = mgr;
 
@@ -110,7 +122,7 @@ public class FlowRuleManagerTest {
         mgr.addListener(listener);
         provider = new TestProvider(PID);
         providerService = registry.register(provider);
-        appId = new TestApplicationId((short) 0, "FlowRuleManagerTest");
+        appId = new TestApplicationId(0, "FlowRuleManagerTest");
         assertTrue("provider should be registered",
                    registry.getProviders().contains(provider.id()));
     }
@@ -206,14 +218,14 @@ public class FlowRuleManagerTest {
         FlowRule r3 = flowRule(3, 3);
 
         assertTrue("store should be empty",
-                   Sets.newHashSet(service.getFlowEntries(DID)).isEmpty());
+                Sets.newHashSet(service.getFlowEntries(DID)).isEmpty());
         mgr.applyFlowRules(r1, r2, r3);
         assertEquals("3 rules should exist", 3, flowCount());
         assertTrue("Entries should be pending add.",
-                   validateState(ImmutableMap.of(
-                           r1, FlowEntryState.PENDING_ADD,
-                           r2, FlowEntryState.PENDING_ADD,
-                           r3, FlowEntryState.PENDING_ADD)));
+                validateState(ImmutableMap.of(
+                        r1, FlowEntryState.PENDING_ADD,
+                        r2, FlowEntryState.PENDING_ADD,
+                        r3, FlowEntryState.PENDING_ADD)));
     }
 
     @Test
@@ -235,10 +247,10 @@ public class FlowRuleManagerTest {
         validateEvents(RULE_REMOVE_REQUESTED, RULE_REMOVE_REQUESTED);
         assertEquals("3 rule should exist", 3, flowCount());
         assertTrue("Entries should be pending remove.",
-                   validateState(ImmutableMap.of(
-                           f1, FlowEntryState.PENDING_REMOVE,
-                           f2, FlowEntryState.PENDING_REMOVE,
-                           f3, FlowEntryState.ADDED)));
+                validateState(ImmutableMap.of(
+                        f1, FlowEntryState.PENDING_REMOVE,
+                        f2, FlowEntryState.PENDING_REMOVE,
+                        f3, FlowEntryState.ADDED)));
 
         mgr.removeFlowRules(f1);
         assertEquals("3 rule should still exist", 3, flowCount());
@@ -246,16 +258,25 @@ public class FlowRuleManagerTest {
 
     @Test
     public void flowRemoved() {
+
         FlowRule f1 = addFlowRule(1);
         FlowRule f2 = addFlowRule(2);
         StoredFlowEntry fe1 = new DefaultFlowEntry(f1);
         FlowEntry fe2 = new DefaultFlowEntry(f2);
+
+
         providerService.pushFlowMetrics(DID, ImmutableList.of(fe1, fe2));
         service.removeFlowRules(f1);
+
         fe1.setState(FlowEntryState.REMOVED);
+
+
+
         providerService.flowRemoved(fe1);
+
+
         validateEvents(RULE_ADD_REQUESTED, RULE_ADD_REQUESTED, RULE_ADDED,
-                       RULE_ADDED, RULE_REMOVE_REQUESTED, RULE_REMOVED);
+                RULE_ADDED, RULE_REMOVE_REQUESTED, RULE_REMOVED);
 
         providerService.flowRemoved(fe1);
         validateEvents();
@@ -263,11 +284,13 @@ public class FlowRuleManagerTest {
         FlowRule f3 = flowRule(3, 3);
         FlowEntry fe3 = new DefaultFlowEntry(f3);
         service.applyFlowRules(f3);
+
         providerService.pushFlowMetrics(DID, Collections.singletonList(fe3));
         validateEvents(RULE_ADD_REQUESTED, RULE_ADDED);
 
         providerService.flowRemoved(fe3);
         validateEvents();
+
     }
 
     @Test
@@ -281,7 +304,6 @@ public class FlowRuleManagerTest {
         FlowEntry fe1 = new DefaultFlowEntry(f1);
         FlowEntry fe2 = new DefaultFlowEntry(f2);
 
-
         //FlowRule updatedF1 = flowRule(f1, FlowRuleState.ADDED);
         //FlowRule updatedF2 = flowRule(f2, FlowRuleState.ADDED);
 
@@ -294,7 +316,7 @@ public class FlowRuleManagerTest {
                            f3, FlowEntryState.PENDING_ADD)));
 
         validateEvents(RULE_ADD_REQUESTED, RULE_ADD_REQUESTED, RULE_ADD_REQUESTED,
-                       RULE_ADDED, RULE_ADDED);
+                RULE_ADDED, RULE_ADDED);
     }
 
     @Test
@@ -351,7 +373,7 @@ public class FlowRuleManagerTest {
         mgr.applyFlowRules(f1, f2);
 
         assertTrue("should have two rules",
-                   Lists.newLinkedList(mgr.getFlowRulesById(appId)).size() == 2);
+                Lists.newLinkedList(mgr.getFlowRulesById(appId)).size() == 2);
     }
 
     @Test
@@ -369,89 +391,6 @@ public class FlowRuleManagerTest {
                 f1, FlowEntryState.PENDING_REMOVE,
                 f2, FlowEntryState.PENDING_REMOVE));
     }
-
-    @Test
-    public void applyBatch() {
-        FlowRule f1 = flowRule(1, 1);
-        FlowRule f2 = flowRule(2, 2);
-
-
-        mgr.applyFlowRules(f1);
-
-        FlowEntry fe1 = new DefaultFlowEntry(f1);
-        providerService.pushFlowMetrics(DID, Collections.<FlowEntry>singletonList(fe1));
-
-        FlowRuleBatchEntry fbe1 = new FlowRuleBatchEntry(
-                FlowRuleBatchEntry.FlowRuleOperation.REMOVE, f1);
-
-        FlowRuleBatchEntry fbe2 = new FlowRuleBatchEntry(
-                FlowRuleBatchEntry.FlowRuleOperation.ADD, f2);
-
-        FlowRuleBatchOperation fbo = new FlowRuleBatchOperation(
-                Lists.newArrayList(fbe1, fbe2));
-        Future<CompletedBatchOperation> future = mgr.applyBatch(fbo);
-        assertTrue("Entries in wrong state",
-                   validateState(ImmutableMap.of(
-                           f1, FlowEntryState.PENDING_REMOVE,
-                           f2, FlowEntryState.PENDING_ADD)));
-        CompletedBatchOperation completed = null;
-        try {
-            completed = future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            fail("Unexpected exception: " + e);
-        }
-        if (!completed.isSuccess()) {
-            fail("Installation should be a success");
-        }
-
-    }
-
-    @Test
-    public void cancelBatch() {
-        FlowRule f1 = flowRule(1, 1);
-        FlowRule f2 = flowRule(2, 2);
-
-
-        mgr.applyFlowRules(f1);
-
-        assertTrue("Entries in wrong state",
-                   validateState(ImmutableMap.of(
-                           f1, FlowEntryState.PENDING_ADD)));
-
-        FlowEntry fe1 = new DefaultFlowEntry(f1);
-        providerService.pushFlowMetrics(DID, Collections.<FlowEntry>singletonList(fe1));
-
-        assertTrue("Entries in wrong state",
-                   validateState(ImmutableMap.of(
-                           f1, FlowEntryState.ADDED)));
-
-
-        FlowRuleBatchEntry fbe1 = new FlowRuleBatchEntry(
-                FlowRuleBatchEntry.FlowRuleOperation.REMOVE, f1);
-
-        FlowRuleBatchEntry fbe2 = new FlowRuleBatchEntry(
-                FlowRuleBatchEntry.FlowRuleOperation.ADD, f2);
-
-        FlowRuleBatchOperation fbo = new FlowRuleBatchOperation(
-                Lists.newArrayList(fbe1, fbe2));
-        Future<CompletedBatchOperation> future = mgr.applyBatch(fbo);
-
-        future.cancel(true);
-
-        assertTrue(flowCount() == 2);
-
-        /*
-         * Rule f1 should be re-added to the list and therefore be in a pending add
-         * state.
-         */
-        assertTrue("Entries in wrong state",
-                   validateState(ImmutableMap.of(
-                           f2, FlowEntryState.PENDING_REMOVE,
-                           f1, FlowEntryState.PENDING_ADD)));
-
-
-    }
-
 
     private static class TestListener implements FlowRuleListener {
         final List<FlowRuleEvent> events = new ArrayList<>();
@@ -528,9 +467,8 @@ public class FlowRuleManagerTest {
         }
 
         @Override
-        public ListenableFuture<CompletedBatchOperation> executeBatch(
-                BatchOperation<FlowRuleBatchEntry> batch) {
-            return new TestInstallationFuture();
+        public void executeBatch(FlowRuleBatchOperation batch) {
+         // TODO: need to call batchOperationComplete
         }
 
         private class TestInstallationFuture
@@ -554,14 +492,14 @@ public class FlowRuleManagerTest {
             @Override
             public CompletedBatchOperation get()
                     throws InterruptedException, ExecutionException {
-                return new CompletedBatchOperation(true, Collections.<FlowRule>emptySet());
+                return new CompletedBatchOperation(true, Collections.<FlowRule>emptySet(), null);
             }
 
             @Override
             public CompletedBatchOperation get(long timeout, TimeUnit unit)
                     throws InterruptedException,
                     ExecutionException, TimeoutException {
-                return new CompletedBatchOperation(true, Collections.<FlowRule>emptySet());
+                return new CompletedBatchOperation(true, Collections.<FlowRule>emptySet(), null);
             }
 
             @Override
@@ -639,9 +577,22 @@ public class FlowRuleManagerTest {
     }
 
     public class TestApplicationId extends DefaultApplicationId {
-
-        public TestApplicationId(short id, String name) {
+        public TestApplicationId(int id, String name) {
             super(id, name);
+        }
+    }
+
+    private class TestCoreService extends CoreServiceAdapter {
+
+        @Override
+        public IdGenerator getIdGenerator(String topic) {
+            return new IdGenerator() {
+                private AtomicLong counter = new AtomicLong(0);
+                @Override
+                public long getNewId() {
+                    return counter.getAndIncrement();
+                }
+            };
         }
     }
 

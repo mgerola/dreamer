@@ -20,7 +20,6 @@ import com.codahale.metrics.Timer.Context;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.MapConfig;
 import com.hazelcast.core.EntryAdapter;
@@ -46,14 +45,13 @@ import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.IntentStore;
 import org.onosproject.net.intent.IntentStoreDelegate;
+import org.onosproject.net.intent.Key;
 import org.onosproject.store.hz.AbstractHazelcastStore;
 import org.onosproject.store.hz.SMap;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.serializers.KryoSerializer;
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -65,10 +63,15 @@ import java.util.concurrent.Future;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.onlab.metrics.MetricsUtil.startTimer;
 import static org.onlab.metrics.MetricsUtil.stopTimer;
-import static org.onosproject.net.intent.IntentState.*;
+import static org.onosproject.net.intent.IntentState.FAILED;
+import static org.onosproject.net.intent.IntentState.INSTALLED;
+import static org.onosproject.net.intent.IntentState.INSTALL_REQ;
+import static org.onosproject.net.intent.IntentState.WITHDRAWN;
 import static org.slf4j.LoggerFactory.getLogger;
 
-@Component(immediate = true, enabled = true)
+//TODO Note: this store will be removed
+
+@Component(immediate = true, enabled = false)
 @Service
 public class HazelcastIntentStore
         extends AbstractHazelcastStore<IntentEvent, IntentStoreDelegate>
@@ -209,6 +212,11 @@ public class HazelcastIntentStore
     }
 
     @Override
+    public Intent getIntent(Key intentKey) {
+        return null;
+    }
+
+
     public Intent getIntent(IntentId intentId) {
         Context timer = startTimer(getIntentTimer);
         try {
@@ -227,7 +235,10 @@ public class HazelcastIntentStore
     }
 
     @Override
-    public IntentState getIntentState(IntentId id) {
+    public IntentState getIntentState(Key key) {
+        // TODO: either implement this or remove this class
+        return IntentState.FAILED;
+        /*
         Context timer = startTimer(getIntentStateTimer);
         try {
             final IntentState localState = transientStates.get(id);
@@ -238,6 +249,7 @@ public class HazelcastIntentStore
         } finally {
             stopTimer(timer);
         }
+        */
     }
 
     private void verify(boolean expression, String errorMessageTemplate, Object... errorMessageArgs) {
@@ -251,16 +263,21 @@ public class HazelcastIntentStore
     }
 
     @Override
-    public List<Intent> getInstallableIntents(IntentId intentId) {
+    public List<Intent> getInstallableIntents(Key intentKey) {
+        // TODO: implement this or delete class
+        return null;
+
+        /*
         Context timer = startTimer(getInstallableIntentsTimer);
         try {
             return installable.get(intentId);
         } finally {
             stopTimer(timer);
         }
+        */
     }
 
-    @Override
+    /*@Override
     public List<Operation> batchWrite(BatchWrite batch) {
         if (batch.isEmpty()) {
             return Collections.emptyList();
@@ -280,7 +297,7 @@ public class HazelcastIntentStore
         notifyDelegate(events);
 
         return failed;
-    }
+    }*/
 
     private void batchWriteAsync(BatchWrite batch, List<Operation> failed,
                                  List<Pair<Operation, List<Future<?>>>> futures) {

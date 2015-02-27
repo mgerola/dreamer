@@ -18,7 +18,6 @@ package org.onosproject.net.intent;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.IdGenerator;
 import org.onosproject.net.NetworkResource;
-import org.onosproject.net.flow.BatchOperationTarget;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -32,10 +31,13 @@ import static com.google.common.base.Preconditions.checkState;
  * Make sure that an Intent should be immutable when a new type is defined.
  * </p>
  */
-public abstract class Intent implements BatchOperationTarget {
+public abstract class Intent {
 
     private final IntentId id;
+
     private final ApplicationId appId;
+    private final Key key;
+
     private final Collection<NetworkResource> resources;
 
     private static IdGenerator idGenerator;
@@ -46,6 +48,7 @@ public abstract class Intent implements BatchOperationTarget {
     protected Intent() {
         this.id = null;
         this.appId = null;
+        this.key = null;
         this.resources = null;
     }
 
@@ -57,9 +60,23 @@ public abstract class Intent implements BatchOperationTarget {
      */
     protected Intent(ApplicationId appId,
                      Collection<NetworkResource> resources) {
+        this(appId, null, resources);
+    }
+
+        /**
+         * Creates a new intent.
+         *
+         * @param appId         application identifier
+         * @param key           optional key
+         * @param resources     required network resources (optional)
+         */
+    protected Intent(ApplicationId appId,
+                     Key key,
+                     Collection<NetworkResource> resources) {
         checkState(idGenerator != null, "Id generator is not bound.");
         this.id = IntentId.valueOf(idGenerator.getNewId());
         this.appId = checkNotNull(appId, "Application ID cannot be null");
+        this.key = (key != null) ? key : Key.of(id.fingerprint(), appId);
         this.resources = checkNotNull(resources);
     }
 
@@ -137,5 +154,9 @@ public abstract class Intent implements BatchOperationTarget {
         if (Objects.equals(idGenerator, oldIdGenerator)) {
             idGenerator = null;
         }
+    }
+
+    public Key key() {
+        return key;
     }
 }

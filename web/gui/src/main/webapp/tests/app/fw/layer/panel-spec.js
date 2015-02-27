@@ -72,7 +72,6 @@ describe('factory: fw/layer/panel.js', function () {
         expect($log.debug).toHaveBeenCalledWith('creating panel:', 'foo', {
             edge: 'right',
             width: 200,
-            height: 80,
             margin: 20,
             xtnTime: 750
         });
@@ -83,6 +82,14 @@ describe('factory: fw/layer/panel.js', function () {
 
         var el = floatPanelSelection();
         expect(el.style('width')).toEqual('200px');
+    });
+
+    it('should provide an api of panel functions', function () {
+        var p = ps.createPanel('foo');
+        expect(fs.areFunctions(p, [
+            'show', 'hide', 'toggle', 'empty', 'append',
+            'width', 'height', 'isVisible', 'classed', 'el'
+        ])).toBeTruthy();
     });
 
     it('should complain when a duplicate ID is used', function () {
@@ -101,7 +108,7 @@ describe('factory: fw/layer/panel.js', function () {
     it('should note when there is no panel to destroy', function () {
         spyOn($log, 'debug');
         ps.destroyPanel('bar');
-        expect($log.debug).toHaveBeenCalledWith('no panel to destroy:', 'bar')
+        expect($log.debug).toHaveBeenCalledWith('no panel to destroy:', 'bar');
     });
 
     it('should destroy the panel', function () {
@@ -110,7 +117,7 @@ describe('factory: fw/layer/panel.js', function () {
         expect(floatPanelSelection().size()).toBe(1);
 
         ps.destroyPanel('foo');
-        expect($log.debug).toHaveBeenCalledWith('destroying panel:', 'foo')
+        expect($log.debug).toHaveBeenCalledWith('destroying panel:', 'foo');
         expect(floatPanelSelection().size()).toBe(0);
     });
 
@@ -120,7 +127,6 @@ describe('factory: fw/layer/panel.js', function () {
         expect($log.debug).toHaveBeenCalledWith('creating panel:', 'foo', {
             edge: 'left',
             width: 250,
-            height: 80,
             margin: 20,
             xtnTime: 750
         });

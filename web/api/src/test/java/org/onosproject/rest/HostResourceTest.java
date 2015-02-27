@@ -44,7 +44,6 @@ import com.eclipsesource.json.JsonObject;
 import com.google.common.collect.ImmutableSet;
 import com.sun.jersey.api.client.UniformInterfaceException;
 import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.test.framework.JerseyTest;
 
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
@@ -64,16 +63,15 @@ import static org.onosproject.net.PortNumber.portNumber;
  * Simple example on how to write a JAX-RS unit test using Jersey test framework.
  * A base class should/will be created to provide further assistance for testing.
  */
-public class HostResourceTest extends JerseyTest {
+public class HostResourceTest extends ResourceTest {
     final HostService mockHostService = createMock(HostService.class);
     final HashSet<Host> hosts = new HashSet<>();
 
-    public HostResourceTest() {
-        super("org.onosproject.rest");
-    }
-
+    /**
+     * Initializes test mocks and environment.
+     */
     @Before
-    public void setUp() {
+    public void setUpTest() {
         expect(mockHostService.getHosts()).andReturn(hosts).anyTimes();
 
         // Register the services needed for the test
@@ -87,9 +85,11 @@ public class HostResourceTest extends JerseyTest {
         BaseResource.setServiceDirectory(testDirectory);
     }
 
+    /**
+     * Verifies mocks.
+     */
     @After
-    public void tearDown() throws Exception {
-        super.tearDown();
+    public void tearDownTest() {
         verify(mockHostService);
     }
 

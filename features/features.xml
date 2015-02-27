@@ -16,12 +16,14 @@
   -->
 <features xmlns="http://karaf.apache.org/xmlns/features/v1.2.0"
           name="onos-@FEATURE-VERSION">
-    <repository>mvn:org.onosproject/onos-features/@ONOS-VERSION/xml/features</repository>
+    <repository>mvn:org.onosproject/onos-features/@ONOS-VERSION/xml/features
+    </repository>
 
     <feature name="onos-thirdparty-base" version="@FEATURE-VERSION"
              description="ONOS 3rd party dependencies">
         <bundle>mvn:commons-lang/commons-lang/2.6</bundle>
         <bundle>mvn:org.apache.commons/commons-lang3/3.3.2</bundle>
+        <bundle>mvn:commons-configuration/commons-configuration/1.10</bundle>
         <bundle>mvn:com.google.guava/guava/18.0</bundle>
         <bundle>mvn:io.netty/netty/3.9.2.Final</bundle>
         <bundle>mvn:io.netty/netty-common/4.0.23.Final</bundle>
@@ -34,7 +36,7 @@
 
         <bundle>mvn:joda-time/joda-time/2.5</bundle>
 
-        <bundle>mvn:com.hazelcast/hazelcast/3.3.2</bundle>
+        <bundle>mvn:com.hazelcast/hazelcast/3.4</bundle>
         <bundle>mvn:io.dropwizard.metrics/metrics-core/3.1.0</bundle>
         <bundle>mvn:io.dropwizard.metrics/metrics-json/3.1.0</bundle>
         <bundle>mvn:com.eclipsesource.minimal-json/minimal-json/0.9.1</bundle>
@@ -58,6 +60,7 @@
         <bundle>mvn:org.codehaus.jackson/jackson-core-asl/1.9.13</bundle>
         <bundle>mvn:org.codehaus.jackson/jackson-mapper-asl/1.9.13</bundle>
 
+        <bundle>mvn:com.typesafe/config/1.2.1</bundle>
         <bundle>mvn:org.onosproject/onlab-thirdparty/@ONOS-VERSION</bundle>
 
         <bundle>mvn:org.mapdb/mapdb/1.0.6</bundle>
@@ -86,6 +89,7 @@
              description="ONOS core components">
         <feature>onos-api</feature>
         <bundle>mvn:org.onosproject/onos-core-net/@ONOS-VERSION</bundle>
+        <bundle>mvn:org.onosproject/onos-core-common/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onos-core-dist/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onos-core-serializers/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onlab-netty/@ONOS-VERSION</bundle>
@@ -95,6 +99,7 @@
              description="ONOS core components">
         <feature>onos-api</feature>
         <bundle>mvn:org.onosproject/onos-core-net/@ONOS-VERSION</bundle>
+        <bundle>mvn:org.onosproject/onos-core-common/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onos-core-trivial/@ONOS-VERSION</bundle>
     </feature>
 
@@ -122,7 +127,7 @@
     </feature>
 
     <feature name="onos-null" version="@FEATURE-VERSION"
-            description="ONOS Null providers">
+             description="ONOS Null providers">
         <feature>onos-api</feature>
 
         <bundle>mvn:org.onosproject/onos-null-provider-device/@ONOS-VERSION</bundle>
@@ -146,7 +151,7 @@
         <bundle>mvn:org.onosproject/onos-of-provider-device/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onos-of-provider-packet/@ONOS-VERSION</bundle>
         <bundle>mvn:org.onosproject/onos-of-provider-flow/@ONOS-VERSION</bundle>
-
+        <bundle>mvn:org.onosproject/onos-of-provider-group/@ONOS-VERSION</bundle>
     </feature>
 
     <feature name="onos-app-tvue" version="@FEATURE-VERSION"
@@ -193,12 +198,12 @@
         <feature>onos-api</feature>
         <bundle>mvn:org.onosproject/onos-app-config/@ONOS-VERSION</bundle>
     </feature>
-   
-     <feature name="onos-app-optical" version="@FEATURE-VERSION"
+
+    <feature name="onos-app-optical" version="@FEATURE-VERSION"
              description="ONOS optical network config">
         <feature>onos-api</feature>
         <bundle>mvn:org.onosproject/onos-app-optical/@ONOS-VERSION</bundle>
-     </feature>
+    </feature>
 
     <feature name="onos-app-sdnip" version="@FEATURE-VERSION"
              description="SDN-IP peering application">
@@ -206,6 +211,18 @@
         <feature>onos-app-proxyarp</feature>
         <feature>onos-app-config</feature>
         <bundle>mvn:org.onosproject/onos-app-sdnip/@ONOS-VERSION</bundle>
+        <bundle>mvn:org.onosproject/onos-app-routing-api/@ONOS-VERSION</bundle>
+        <bundle>mvn:org.onosproject/onos-app-routing/@ONOS-VERSION</bundle>
+    </feature>
+
+    <feature name="onos-app-bgprouter" version="@FEATURE-VERSION"
+             description="BGP router application">
+        <feature>onos-api</feature>
+        <feature>onos-app-proxyarp</feature>
+        <feature>onos-app-config</feature>
+        <bundle>mvn:org.onosproject/onos-app-bgprouter/@ONOS-VERSION</bundle>
+	<bundle>mvn:org.onosproject/onos-app-routing-api/@ONOS-VERSION</bundle>
+	<bundle>mvn:org.onosproject/onos-app-routing/@ONOS-VERSION</bundle>
     </feature>
 
     <feature name="onos-app-calendar" version="@FEATURE-VERSION"
@@ -240,7 +257,13 @@
         <bundle>mvn:org.onosproject/onos-app-demo/@ONOS-VERSION</bundle>
     </feature>
 
-    <feature name="onos-app-election" version="1.0.0"
+    <feature name="onos-app-intent-perf" version="@FEATURE-VERSION"
+             description="ONOS intent perf applications">
+        <feature>onos-api</feature>
+        <bundle>mvn:org.onosproject/onos-app-intent-perf/@ONOS-VERSION</bundle>
+    </feature>
+
+    <feature name="onos-app-election" version="@FEATURE-VERSION"
              description="ONOS app leadership election test">
         <feature>onos-api</feature>
         <bundle>mvn:org.onosproject/onos-app-election/@ONOS-VERSION</bundle>

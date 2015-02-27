@@ -15,6 +15,6 @@
  */
 
 /**
- * Null Provider that advertises fake devices.
+ * Provider that advertises fake devices.
  */
 package org.onosproject.provider.nil.device.impl;

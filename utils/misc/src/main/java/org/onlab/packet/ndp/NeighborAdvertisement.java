@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Open Networking Laboratory
+ * Copyright 2014-2015 Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
-
 package org.onlab.packet.ndp;
 
 import org.onlab.packet.BasePacket;
-import org.onlab.packet.Data;
 import org.onlab.packet.IPacket;
 import org.onlab.packet.Ip6Address;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 /**
- * Implements ICMPv6 Neighbor Advertisement packet format. (RFC 4861)
+ * Implements ICMPv6 Neighbor Advertisement packet format (RFC 4861).
  */
 public class NeighborAdvertisement extends BasePacket {
     public static final byte HEADER_LENGTH = 20; // bytes
@@ -36,6 +33,9 @@ public class NeighborAdvertisement extends BasePacket {
     protected byte solicitedFlag;
     protected byte overrideFlag;
     protected byte[] targetAddress = new byte[Ip6Address.BYTE_LENGTH];
+
+    private final NeighborDiscoveryOptions options =
+        new NeighborDiscoveryOptions();
 
     /**
      * Gets router flag.
@@ -113,30 +113,54 @@ public class NeighborAdvertisement extends BasePacket {
      * @return this
      */
     public NeighborAdvertisement setTargetAddress(final byte[] targetAddress) {
-        this.targetAddress = Arrays.copyOfRange(targetAddress, 0, Ip6Address.BYTE_LENGTH);
+        this.targetAddress =
+            Arrays.copyOfRange(targetAddress, 0, Ip6Address.BYTE_LENGTH);
+        return this;
+    }
+
+    /**
+     * Gets the Neighbor Discovery Protocol packet options.
+     *
+     * @return the Neighbor Discovery Protocol packet options
+     */
+    public List<NeighborDiscoveryOptions.Option> getOptions() {
+        return this.options.options();
+    }
+
+    /**
+     * Adds a Neighbor Discovery Protocol packet option.
+     *
+     * @param type the option type
+     * @param data the option data
+     * @return this
+     */
+    public NeighborAdvertisement addOption(final byte type,
+                                           final byte[] data) {
+        this.options.addOption(type, data);
         return this;
     }
 
     @Override
     public byte[] serialize() {
-        byte[] payloadData = null;
-        if (this.payload != null) {
-            this.payload.setParent(this);
-            payloadData = this.payload.serialize();
+        byte[] optionsData = null;
+        if (this.options.hasOptions()) {
+            optionsData = this.options.serialize();
         }
 
-        int payloadLength = 0;
-        if (payloadData != null) {
-            payloadLength = payloadData.length;
+        int optionsLength = 0;
+        if (optionsData != null) {
+            optionsLength = optionsData.length;
         }
 
-        final byte[] data = new byte[HEADER_LENGTH + payloadLength];
+        final byte[] data = new byte[HEADER_LENGTH + optionsLength];
         final ByteBuffer bb = ByteBuffer.wrap(data);
 
-        bb.putInt((this.routerFlag & 0x1) << 31 | (this.solicitedFlag & 0x1) << 30 | (this.overrideFlag & 0x1) << 29);
+        bb.putInt((this.routerFlag & 0x1) << 31 |
+                  (this.solicitedFlag & 0x1) << 30 |
+                  (this.overrideFlag & 0x1) << 29);
         bb.put(this.targetAddress, 0, Ip6Address.BYTE_LENGTH);
-        if (payloadData != null) {
-            bb.put(payloadData);
+        if (optionsData != null) {
+            bb.put(optionsData);
         }
 
         return data;
@@ -153,10 +177,8 @@ public class NeighborAdvertisement extends BasePacket {
         this.overrideFlag = (byte) (iscratch >> 29 & 0x1);
         bb.get(this.targetAddress, 0, Ip6Address.BYTE_LENGTH);
 
-        this.payload = new Data();
-        this.payload = this.payload.deserialize(data, bb.position(), bb.limit()
-                - bb.position());
-        this.payload.setParent(this);
+        this.options.deserialize(data, bb.position(),
+                                 bb.limit() - bb.position());
 
         return this;
     }
@@ -175,9 +197,10 @@ public class NeighborAdvertisement extends BasePacket {
         result = prime * result + this.solicitedFlag;
         result = prime * result + this.overrideFlag;
         bb = ByteBuffer.wrap(this.targetAddress);
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < this.targetAddress.length / 4; i++) {
             result = prime * result + bb.getInt();
         }
+        result = prime * result + this.options.hashCode();
         return result;
     }
 
@@ -208,6 +231,9 @@ public class NeighborAdvertisement extends BasePacket {
             return false;
         }
         if (!Arrays.equals(this.targetAddress, other.targetAddress)) {
+            return false;
+        }
+        if (!this.options.equals(other.options)) {
             return false;
         }
         return true;

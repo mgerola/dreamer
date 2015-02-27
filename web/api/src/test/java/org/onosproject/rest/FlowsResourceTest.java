@@ -45,14 +45,12 @@ import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.instructions.Instruction;
-import org.onosproject.net.flow.instructions.L0ModificationInstruction;
-
+import org.onosproject.net.flow.instructions.Instructions;
 import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 import com.google.common.collect.ImmutableSet;
 import com.sun.jersey.api.client.UniformInterfaceException;
 import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.test.framework.JerseyTest;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
@@ -70,7 +68,7 @@ import static org.junit.Assert.fail;
 /**
  * Unit tests for Flows REST APIs.
  */
-public class FlowsResourceTest extends JerseyTest {
+public class FlowsResourceTest extends ResourceTest {
     final FlowRuleService mockFlowService = createMock(FlowRuleService.class);
     final HashMap<DeviceId, Set<FlowEntry>> rules = new HashMap<>();
 
@@ -187,10 +185,11 @@ public class FlowsResourceTest extends JerseyTest {
         public boolean isPermanent() {
             return false;
         }
-    }
 
-    public FlowsResourceTest() {
-        super("org.onosproject.rest");
+        @Override
+        public Type type() {
+            return Type.DEFAULT;
+        }
     }
 
     /**
@@ -198,10 +197,8 @@ public class FlowsResourceTest extends JerseyTest {
      */
     private void setupMockFlows() {
         flow2.treatment = DefaultTrafficTreatment.builder()
-                .add(new L0ModificationInstruction.ModLambdaInstruction(
-                        L0ModificationInstruction.L0SubType.LAMBDA, (short) 4))
-                .add(new L0ModificationInstruction.ModLambdaInstruction(
-                        L0ModificationInstruction.L0SubType.LAMBDA, (short) 5))
+                .add(Instructions.modL0Lambda((short) 4))
+                .add(Instructions.modL0Lambda((short) 5))
                 .setEthDst(MacAddress.BROADCAST)
                 .build();
         flow2.selector = DefaultTrafficSelector.builder()
@@ -209,8 +206,7 @@ public class FlowsResourceTest extends JerseyTest {
                 .matchIPProtocol((byte) 9)
                 .build();
         flow4.treatment = DefaultTrafficTreatment.builder()
-                .add(new L0ModificationInstruction.ModLambdaInstruction(
-                L0ModificationInstruction.L0SubType.LAMBDA, (short) 6))
+                .add(Instructions.modL0Lambda((short) 6))
                 .build();
         final Set<FlowEntry> flows1 = new HashSet<>();
         flows1.add(flow1);
@@ -233,7 +229,7 @@ public class FlowsResourceTest extends JerseyTest {
      * Sets up the global values for all the tests.
      */
     @Before
-    public void setUp() {
+    public void setUpTest() {
         // Mock device service
         expect(mockDeviceService.getDevice(deviceId1))
                 .andReturn(device1);
@@ -256,12 +252,9 @@ public class FlowsResourceTest extends JerseyTest {
 
     /**
      * Cleans up and verifies the mocks.
-     *
-     * @throws Exception if the super teardown fails.
      */
     @After
-    public void tearDown() throws Exception {
-        super.tearDown();
+    public void tearDownTest() {
         verify(mockFlowService);
     }
 

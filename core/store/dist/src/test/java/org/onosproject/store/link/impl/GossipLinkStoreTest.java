@@ -24,9 +24,12 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.onlab.packet.IpAddress;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.DefaultControllerNode;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.mastership.MastershipService;
+import org.onosproject.mastership.MastershipServiceAdapter;
 import org.onosproject.mastership.MastershipTerm;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DefaultAnnotations;
@@ -49,29 +52,25 @@ import org.onosproject.store.cluster.messaging.ClusterMessage;
 import org.onosproject.store.cluster.messaging.ClusterMessageHandler;
 import org.onosproject.store.cluster.messaging.MessageSubject;
 import org.onosproject.store.device.impl.DeviceClockManager;
-import org.onlab.packet.IpAddress;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.createNiceMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.expectLastCall;
-import static org.easymock.EasyMock.replay;
-import static org.easymock.EasyMock.reset;
-import static org.easymock.EasyMock.verify;
+import static org.easymock.EasyMock.*;
 import static org.junit.Assert.*;
 import static org.onosproject.cluster.ControllerNode.State.ACTIVE;
 import static org.onosproject.net.DeviceId.deviceId;
-import static org.onosproject.net.Link.Type.*;
-import static org.onosproject.net.link.LinkEvent.Type.*;
+import static org.onosproject.net.Link.Type.DIRECT;
+import static org.onosproject.net.Link.Type.EDGE;
+import static org.onosproject.net.Link.Type.INDIRECT;
 import static org.onosproject.net.NetTestTools.assertAnnotationsEquals;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_ADDED;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_REMOVED;
+import static org.onosproject.net.link.LinkEvent.Type.LINK_UPDATED;
 
 /**
  * Test of the GossipLinkStoreTest implementation.
@@ -120,7 +119,7 @@ public class GossipLinkStoreTest {
     private DeviceClockManager deviceClockManager;
     private DeviceClockService deviceClockService;
     private ClusterCommunicationService clusterCommunicator;
-
+    private MastershipService mastershipService;
 
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
@@ -143,7 +142,8 @@ public class GossipLinkStoreTest {
         // TODO mock clusterCommunicator
         clusterCommunicator = createNiceMock(ClusterCommunicationService.class);
         clusterCommunicator.addSubscriber(anyObject(MessageSubject.class),
-                                    anyObject(ClusterMessageHandler.class));
+                                    anyObject(ClusterMessageHandler.class),
+                                    anyObject(ExecutorService.class));
         expectLastCall().anyTimes();
         replay(clusterCommunicator);
 
@@ -151,11 +151,13 @@ public class GossipLinkStoreTest {
         linkStoreImpl.deviceClockService = deviceClockService;
         linkStoreImpl.clusterCommunicator = clusterCommunicator;
         linkStoreImpl.clusterService = new TestClusterService();
+        linkStoreImpl.mastershipService = new TestMastershipService();
         linkStoreImpl.activate();
         linkStore = linkStoreImpl;
 
         verify(clusterCommunicator);
         reset(clusterCommunicator);
+
     }
 
     @After
@@ -169,12 +171,8 @@ public class GossipLinkStoreTest {
         ConnectPoint src = new ConnectPoint(srcId, srcNum);
         ConnectPoint dst = new ConnectPoint(dstId, dstNum);
         reset(clusterCommunicator);
-        try {
-            expect(clusterCommunicator.broadcast(anyObject(ClusterMessage.class)))
-                .andReturn(true).anyTimes();
-        } catch (IOException e) {
-            fail("Should never reach here");
-        }
+        expect(clusterCommunicator.broadcast(anyObject(ClusterMessage.class)))
+            .andReturn(true).anyTimes();
         replay(clusterCommunicator);
         linkStore.createOrUpdateLink(PID, new DefaultLinkDescription(src, dst, type, annotations));
         verify(clusterCommunicator);
@@ -192,11 +190,7 @@ public class GossipLinkStoreTest {
 
         bcast.reset();
         reset(clusterCommunicator);
-        try {
-            expect(clusterCommunicator.broadcast(capture(bcast))).andReturn(true).once();
-        } catch (IOException e) {
-            fail("Should never reach here");
-        }
+        expect(clusterCommunicator.broadcast(capture(bcast))).andReturn(true).once();
         replay(clusterCommunicator);
     }
 
@@ -613,6 +607,13 @@ public class GossipLinkStoreTest {
 
             nodes.put(NID2, ONOS2);
             nodeStates.put(NID2, ACTIVE);
+        }
+    }
+
+    private final class TestMastershipService extends MastershipServiceAdapter {
+        @Override
+        public NodeId getMasterFor(DeviceId deviceId) {
+            return NID1;
         }
     }
 }

@@ -54,6 +54,13 @@
 
         <dependency>
             <groupId>org.onosproject</groupId>
+            <artifactId>onlab-osgi</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.onosproject</groupId>
             <artifactId>onlab-rest</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -122,13 +129,14 @@
                             org.slf4j,
                             org.osgi.framework,
                             javax.ws.rs,javax.ws.rs.core,javax.ws.rs.ext,
-                            com.sun.jersey.api.core,
+                            com.sun.jersey.api,
                             com.sun.jersey.spi.container.servlet,
                             com.sun.jersey.server.impl.container.servlet,
                             com.fasterxml.jackson.databind,
                             com.fasterxml.jackson.databind.node,
                             com.google.common.base.*,
                             com.google.common.collect.*,
+                            com.google.common.io.*,
                             org.eclipse.jetty.websocket.*,
                             org.onlab.util.*,
                             org.onlab.osgi.*,

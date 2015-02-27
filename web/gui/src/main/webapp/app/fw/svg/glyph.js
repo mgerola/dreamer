@@ -20,9 +20,11 @@
 (function () {
     'use strict';
 
-    var $log,
-        fs,
-        glyphs = d3.map(),
+    // injected references
+    var $log, fs, sus;
+
+    // internal state
+    var glyphs = d3.map(),
         msgGS = 'GlyphService.';
 
     // ----------------------------------------------------------------------
@@ -128,83 +130,114 @@
             "S3.8,0.2,2.9,0.7C1.9,1.1,2.3,2.3,2.3,2.3c0.3,1.1,0.8,2.1,1.4,2.9" +
             "C2.5,6.4,1.3,7.4,1.3,7.4S0.8,7.8,0.8,8.1C0.9,8.3,0.9,9.6,2.4,9.1" +
             "C3.1,8.8,4.1,7.9,5.1,7.0c1.3,1.3,2.5,1.9,2.5,1.9s0.5,0.5,1.4-0.2" +
-            "C9.8,7.9,9.0,7.2,9.0,7.2z"
+            "C9.8,7.9,9.0,7.2,9.0,7.2z",
+
+            triangleUp: "M0.5,6.2c0,0,3.8-3.8,4.2-4.2C5,1.7,5.3,2,5.3,2l4.3," +
+            "4.3c0,0,0.4,0.4-0.1,0.4c-1.7,0-8.2,0-8.8,0C0,6.6,0.5,6.2,0.5,6.2z",
+
+            triangleDown: "M9.5,4.2c0,0-3.8,3.8-4.2,4.2c-0.3,0.3-0.5,0-0.5," +
+            "0L0.5,4.2c0,0-0.4-0.4,0.1-0.4c1.7,0,8.2,0,8.8,0C10,3.8,9.5,4.2," +
+            "9.5,4.2z"
         };
 
     // ----------------------------------------------------------------------
 
+    function clear() {
+        // start with a fresh map
+        glyphs = d3.map();
+    }
+
+    function init() {
+        clear();
+        register(birdViewBox, birdData);
+        register(glyphViewBox, glyphData);
+        register(badgeViewBox, badgeData);
+    }
+
+    function register(viewBox, data, overwrite) {
+        var dmap = d3.map(data),
+            dups = [],
+            ok;
+
+        dmap.forEach(function (key, value) {
+            if (!overwrite && glyphs.get(key)) {
+                dups.push(key);
+            } else {
+                glyphs.set(key, {id: key, vb: viewBox, d: value});
+            }
+        });
+        ok = (dups.length == 0);
+        if (!ok) {
+            dups.forEach(function (id) {
+                $log.warn(msgGS + 'register(): ID collision: "'+id+'"');
+            });
+        }
+        return ok;
+    }
+
+    function ids() {
+        return glyphs.keys();
+    }
+
+    function glyph(id) {
+        return glyphs.get(id);
+    }
+
+    // Note: defs should be a D3 selection of a single <defs> element
+    function loadDefs(defs, glyphIds, noClear) {
+        var list = fs.isA(glyphIds) || ids(),
+            clearCache = !noClear;
+
+        if (clearCache) {
+            // remove all existing content
+            defs.html(null);
+        }
+
+        // load up the requested glyphs
+        list.forEach(function (id) {
+            var g = glyph(id);
+            if (g) {
+                if (noClear) {
+                    // quick exit if symbol is already present
+                    if (defs.select('symbol#' + g.id).size() > 0) {
+                        return;
+                    }
+                }
+                defs.append('symbol')
+                    .attr({ id: g.id, viewBox: g.vb })
+                    .append('path').attr('d', g.d);
+            }
+        });
+    }
+
+    // trans can specify translation [x,y]
+    function addGlyph(elem, glyphId, size, overlay, trans) {
+        var sz = size || 40,
+            ovr = !!overlay,
+            xns = fs.isA(trans),
+            atr = {
+                width: sz,
+                height: sz,
+                'class': 'glyph',
+                'xlink:href': '#' + glyphId
+            };
+
+        if (xns) {
+            atr.transform = sus.translate(trans);
+        }
+        return elem.append('use').attr(atr).classed('overlay', ovr);
+    }
+
+    // ----------------------------------------------------------------------
+
     angular.module('onosSvg')
-        .factory('GlyphService', ['$log', 'FnService', function (_$log_, _fs_) {
+    .factory('GlyphService',
+        ['$log', 'FnService', 'SvgUtilService',
+
+        function (_$log_, _fs_, _sus_) {
             $log = _$log_;
             fs = _fs_;
-
-            function clear() {
-                // start with a fresh map
-                glyphs = d3.map();
-            }
-
-            function init() {
-                clear();
-                register(birdViewBox, birdData);
-                register(glyphViewBox, glyphData);
-                register(badgeViewBox, badgeData);
-            }
-
-            function register(viewBox, data, overwrite) {
-                var dmap = d3.map(data),
-                    dups = [],
-                    ok;
-
-                dmap.forEach(function (key, value) {
-                    if (!overwrite && glyphs.get(key)) {
-                        dups.push(key);
-                    } else {
-                        glyphs.set(key, {id: key, vb: viewBox, d: value});
-                    }
-                });
-                ok = (dups.length == 0);
-                if (!ok) {
-                    dups.forEach(function (id) {
-                        $log.warn(msgGS + 'register(): ID collision: "'+id+'"');
-                    });
-                }
-                return ok;
-            }
-
-            function ids() {
-                return glyphs.keys();
-            }
-
-            function glyph(id) {
-                return glyphs.get(id);
-            }
-
-            // Note: defs should be a D3 selection of a single <defs> element
-            function loadDefs(defs, glyphIds, noClear) {
-                var list = fs.isA(glyphIds) || ids(),
-                    clearCache = !noClear;
-
-                if (clearCache) {
-                    // remove all existing content
-                    defs.html(null);
-                }
-
-                // load up the requested glyphs
-                list.forEach(function (id) {
-                    var g = glyph(id);
-                    if (g) {
-                        if (noClear) {
-                            // quick exit if symbol is already present
-                            if (defs.select('symbol#' + g.id).size() > 0) {
-                                return;
-                            }
-                        }
-                        defs.append('symbol')
-                            .attr({ id: g.id, viewBox: g.vb })
-                            .append('path').attr('d', g.d);
-                    }
-                });
-            }
+            sus = _sus_;
 
             return {
                 clear: clear,
@@ -212,8 +245,10 @@
                 register: register,
                 ids: ids,
                 glyph: glyph,
-                loadDefs: loadDefs
+                loadDefs: loadDefs,
+                addGlyph: addGlyph
             };
-        }]);
+        }]
+    );
 
 }());

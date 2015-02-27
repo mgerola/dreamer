@@ -22,10 +22,12 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreService;
 import org.onosproject.net.intent.HostToHostIntent;
 import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.PointToPointIntent;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -54,16 +56,24 @@ public class IntentsWebResource extends AbstractWebResource {
     /**
      * Gets a single intent by Id.
      *
-     * @param id Id to look up
+     * @param appId the Application ID
+     * @param key the Intent key value to look up
      * @return intent data
      */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("{id}")
-    public Response getIntentById(@PathParam("id") long id) {
-        final Intent intent = nullIsNotFound(get(IntentService.class)
-                        .getIntent(IntentId.valueOf(id)),
-                INTENT_NOT_FOUND);
+    @Path("{appId}/{key}")
+    public Response getIntentById(@PathParam("appId") Short appId,
+                                  @PathParam("key") String key) {
+        final ApplicationId app = get(CoreService.class).getAppId(appId);
+
+        Intent intent = get(IntentService.class).getIntent(Key.of(key, app));
+        if (intent == null) {
+            intent = get(IntentService.class)
+                    .getIntent(Key.of(Long.parseLong(key), app));
+        }
+        nullIsNotFound(intent, INTENT_NOT_FOUND);
+
         final ObjectNode root;
         if (intent instanceof HostToHostIntent) {
             root = codec(HostToHostIntent.class).encode((HostToHostIntent) intent, this);

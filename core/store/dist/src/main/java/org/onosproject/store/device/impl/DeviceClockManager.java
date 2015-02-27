@@ -19,7 +19,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -43,7 +43,7 @@ public class DeviceClockManager implements DeviceClockService, DeviceClockProvid
     private final Logger log = getLogger(getClass());
 
     // TODO: Implement per device ticker that is reset to 0 at the beginning of a new term.
-    private final AtomicInteger ticker = new AtomicInteger(0);
+    private final AtomicLong ticker = new AtomicLong(0);
     private ConcurrentMap<DeviceId, MastershipTerm> deviceMastershipTerms = new ConcurrentHashMap<>();
 
     @Activate
@@ -62,7 +62,7 @@ public class DeviceClockManager implements DeviceClockService, DeviceClockProvid
         log.trace("term info for {} is: {}", deviceId, term);
 
         if (term == null) {
-            throw new IllegalStateException("Requesting timestamp for a deviceId without mastership");
+            throw new IllegalStateException("Requesting timestamp for " + deviceId + " without mastership");
         }
         return new MastershipBasedTimestamp(term.termNumber(), ticker.incrementAndGet());
     }

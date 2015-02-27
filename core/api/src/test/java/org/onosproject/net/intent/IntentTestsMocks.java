@@ -28,12 +28,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.onosproject.core.DefaultGroupId;
 import org.onosproject.core.GroupId;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.ElementId;
 import org.onosproject.net.Link;
+import org.onosproject.net.NetTestTools;
+import org.onosproject.net.NetworkResource;
 import org.onosproject.net.Path;
 import org.onosproject.net.flow.FlowId;
 import org.onosproject.net.flow.FlowRule;
@@ -42,6 +45,7 @@ import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.criteria.Criterion.Type;
 import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.resource.Bandwidth;
 import org.onosproject.net.resource.BandwidthResourceRequest;
 import org.onosproject.net.resource.LambdaResourceRequest;
 import org.onosproject.net.resource.LinkResourceAllocations;
@@ -56,6 +60,9 @@ import org.onosproject.net.topology.DefaultTopologyVertex;
 import org.onosproject.net.topology.LinkWeight;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyVertex;
+import org.onosproject.store.Timestamp;
+
+import com.google.common.base.MoreObjects;
 
 /**
  * Common mocks used by the intent framework tests.
@@ -264,7 +271,8 @@ public class IntentTestsMocks {
         public Iterable<ResourceRequest> getAvailableResources(Link link) {
             final List<ResourceRequest> result = new LinkedList<>();
             if (availableBandwidth > 0.0) {
-                result.add(new BandwidthResourceRequest(availableBandwidth));
+                result.add(new BandwidthResourceRequest(
+                        Bandwidth.bps(availableBandwidth)));
             }
             if (availableLambda > 0) {
                 result.add(new LambdaResourceRequest());
@@ -296,8 +304,11 @@ public class IntentTestsMocks {
     public static class MockFlowRule implements FlowRule {
 
         int priority;
+        Type type;
+
         public MockFlowRule(int priority) {
             this.priority = priority;
+            this.type = Type.DEFAULT;
         }
 
         @Override
@@ -360,6 +371,60 @@ public class IntentTestsMocks {
             }
             final MockFlowRule other = (MockFlowRule) obj;
             return Objects.equals(this.priority, other.priority);
+        }
+
+        @Override
+        public Type type() {
+            return type;
+        }
+    }
+
+    public static class MockIntent extends Intent {
+        private static AtomicLong counter = new AtomicLong(0);
+
+        private final Long number;
+
+        public MockIntent(Long number) {
+            super(NetTestTools.APP_ID, Collections.emptyList());
+            this.number = number;
+        }
+
+        public MockIntent(Long number, Collection<NetworkResource> resources) {
+            super(NetTestTools.APP_ID, resources);
+            this.number = number;
+        }
+
+        public Long number() {
+            return number;
+        }
+
+        public static Long nextId() {
+            return counter.getAndIncrement();
+        }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(getClass())
+                    .add("id", id())
+                    .add("appId", appId())
+                    .toString();
+        }
+    }
+
+    public static class MockTimestamp implements Timestamp {
+        final int value;
+
+        public MockTimestamp(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public int compareTo(Timestamp o) {
+            if (!(o instanceof MockTimestamp)) {
+                return -1;
+            }
+            MockTimestamp that = (MockTimestamp) o;
+            return (this.value > that.value ? -1 : (this.value == that.value ? 0 : 1));
         }
     }
 

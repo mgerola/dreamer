@@ -47,14 +47,21 @@
         <dependency>
           <!-- FIXME once fixes get merged to upstream -->
           <groupId>org.onosproject</groupId>
-            <artifactId>copycat</artifactId>
+            <artifactId>copycat-api</artifactId>
             <version>${copycat.version}</version>
         </dependency>
 
         <dependency>
           <!-- FIXME once fixes get merged to upstream -->
           <groupId>org.onosproject</groupId>
-            <artifactId>copycat-tcp</artifactId>
+            <artifactId>copycat-core</artifactId>
+            <version>${copycat.version}</version>
+        </dependency>
+
+        <dependency>
+          <!-- FIXME once fixes get merged to upstream -->
+          <groupId>org.onosproject</groupId>
+            <artifactId>copycat-netty</artifactId>
             <version>${copycat.version}</version>
         </dependency>
 
@@ -91,9 +98,9 @@
             </filter>
 
             <filter>
-              <artifact>net.kuujo.copycat:*</artifact>
+              <artifact>org.onosproject:copycat*</artifact>
               <includes>
-                <include>net/kuujo/copycat/**</include>
+                <include>**</include>
               </includes>
             </filter>
 

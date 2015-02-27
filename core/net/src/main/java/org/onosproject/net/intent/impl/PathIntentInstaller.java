@@ -15,9 +15,8 @@
  */
 package org.onosproject.net.intent.impl;
 
-import java.util.Iterator;
-import java.util.List;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -31,9 +30,7 @@ import org.onosproject.net.Link;
 import org.onosproject.net.flow.DefaultFlowRule;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.FlowRuleBatchEntry;
-import org.onosproject.net.flow.FlowRuleBatchEntry.FlowRuleOperation;
-import org.onosproject.net.flow.FlowRuleBatchOperation;
+import org.onosproject.net.flow.FlowRuleOperation;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.intent.Constraint;
@@ -46,7 +43,9 @@ import org.onosproject.net.resource.LinkResourceRequest;
 import org.onosproject.net.resource.LinkResourceService;
 import org.slf4j.Logger;
 
-import com.google.common.collect.Lists;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 
 import static org.onosproject.net.flow.DefaultTrafficTreatment.builder;
 import static org.slf4j.LoggerFactory.getLogger;
@@ -82,17 +81,17 @@ public class PathIntentInstaller implements IntentInstaller<PathIntent> {
     }
 
     @Override
-    public List<FlowRuleBatchOperation> install(PathIntent intent) {
+    public List<Collection<FlowRuleOperation>> install(PathIntent intent) {
         LinkResourceAllocations allocations = allocateResources(intent);
 
         TrafficSelector.Builder builder =
                 DefaultTrafficSelector.builder(intent.selector());
         Iterator<Link> links = intent.path().links().iterator();
         ConnectPoint prev = links.next().dst();
-        List<FlowRuleBatchEntry> rules = Lists.newLinkedList();
+        List<FlowRuleOperation> rules = Lists.newLinkedList();
         // TODO Generate multiple batches
         while (links.hasNext()) {
-            builder.matchInport(prev.port());
+            builder.matchInPort(prev.port());
             Link link = links.next();
             // if this is the last flow rule, apply the intent's treatments
             TrafficTreatment treatment =
@@ -104,27 +103,24 @@ public class PathIntentInstaller implements IntentInstaller<PathIntent> {
                     appId,
                     new DefaultGroupId((short) (intent.id().fingerprint() & 0xffff)),
                     0, true);
-            rules.add(new FlowRuleBatchEntry(FlowRuleOperation.ADD, rule,
-                                             intent.id().fingerprint()));
+            rules.add(new FlowRuleOperation(rule, FlowRuleOperation.Type.ADD));
             prev = link.dst();
         }
-        return Lists.newArrayList(new FlowRuleBatchOperation(rules));
+
+        return Lists.newArrayList(ImmutableSet.of(rules));
     }
 
     @Override
-    public List<FlowRuleBatchOperation> uninstall(PathIntent intent) {
-        LinkResourceAllocations allocatedResources = resourceService.getAllocations(intent.id());
-        if (allocatedResources != null) {
-            resourceService.releaseResources(allocatedResources);
-        }
+    public List<Collection<FlowRuleOperation>> uninstall(PathIntent intent) {
+        deallocateResources(intent);
         TrafficSelector.Builder builder =
                 DefaultTrafficSelector.builder(intent.selector());
         Iterator<Link> links = intent.path().links().iterator();
         ConnectPoint prev = links.next().dst();
-        List<FlowRuleBatchEntry> rules = Lists.newLinkedList();
+        List<FlowRuleOperation> rules = Lists.newLinkedList();
         // TODO Generate multiple batches
         while (links.hasNext()) {
-            builder.matchInport(prev.port());
+            builder.matchInPort(prev.port());
             Link link = links.next();
             // if this is the last flow rule, apply the intent's treatments
             TrafficTreatment treatment =
@@ -134,17 +130,17 @@ public class PathIntentInstaller implements IntentInstaller<PathIntent> {
                     builder.build(), treatment, 123, appId,
                     new DefaultGroupId((short) (intent.id().fingerprint() & 0xffff)),
                     0, true);
-            rules.add(new FlowRuleBatchEntry(FlowRuleOperation.REMOVE, rule,
-                                             intent.id().fingerprint()));
+            rules.add(new FlowRuleOperation(rule, FlowRuleOperation.Type.REMOVE));
             prev = link.dst();
         }
-        return Lists.newArrayList(new FlowRuleBatchOperation(rules));
+        // FIXME this should change to new api
+        return Lists.newArrayList(ImmutableSet.of(rules));
     }
 
     @Override
-    public List<FlowRuleBatchOperation> replace(PathIntent oldIntent, PathIntent newIntent) {
+    public List<Collection<FlowRuleOperation>> replace(PathIntent oldIntent, PathIntent newIntent) {
         // FIXME: implement this
-        List<FlowRuleBatchOperation> batches = Lists.newArrayList();
+        List<Collection<FlowRuleOperation>> batches = Lists.newArrayList();
         batches.addAll(uninstall(oldIntent));
         batches.addAll(install(newIntent));
         return batches;
@@ -164,5 +160,21 @@ public class PathIntentInstaller implements IntentInstaller<PathIntent> {
         }
         LinkResourceRequest request = builder.build();
         return request.resources().isEmpty() ? null : resourceService.requestResources(request);
+    }
+
+    /**
+     * Deallocate resources held by an intent.
+     *
+     * @param intent intent to deallocate resources for
+     */
+    private void deallocateResources(PathIntent intent) {
+        if (intent.constraints().isEmpty()) {
+            return;
+        }
+
+        LinkResourceAllocations allocatedResources = resourceService.getAllocations(intent.id());
+        if (allocatedResources != null) {
+            resourceService.releaseResources(allocatedResources);
+        }
     }
 }

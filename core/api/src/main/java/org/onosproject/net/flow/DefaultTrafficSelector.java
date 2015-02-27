@@ -24,6 +24,7 @@ import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onlab.packet.IpPrefix;
+import org.onlab.packet.Ip6Address;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
@@ -130,13 +131,18 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchInport(PortNumber port) {
+        public Builder matchInPort(PortNumber port) {
             return add(Criteria.matchInPort(port));
         }
 
         @Override
-        public Builder matchEthSrc(MacAddress addr) {
-            return add(Criteria.matchEthSrc(addr));
+        public Builder matchInPhyPort(PortNumber port) {
+            return add(Criteria.matchInPhyPort(port));
+        }
+
+        @Override
+        public Builder matchMetadata(Long metadata) {
+            return add(Criteria.matchMetadata(metadata));
         }
 
         @Override
@@ -145,7 +151,12 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchEthType(short ethType) {
+        public Builder matchEthSrc(MacAddress addr) {
+            return add(Criteria.matchEthSrc(addr));
+        }
+
+        @Override
+        public Builder matchEthType(Short ethType) {
             return add(Criteria.matchEthType(ethType));
         }
 
@@ -157,6 +168,16 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         @Override
         public Builder matchVlanPcp(Byte vlanPcp) {
             return add(Criteria.matchVlanPcp(vlanPcp));
+        }
+
+        @Override
+        public Builder matchIPDscp(Byte ipDscp) {
+            return add(Criteria.matchIPDscp(ipDscp));
+        }
+
+        @Override
+        public Builder matchIPEcn(Byte ipEcn) {
+            return add(Criteria.matchIPEcn(ipEcn));
         }
 
         @Override
@@ -185,6 +206,36 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
+        public Builder matchUdpSrc(Short udpPort) {
+            return add(Criteria.matchUdpSrc(udpPort));
+        }
+
+        @Override
+        public Builder matchUdpDst(Short udpPort) {
+            return add(Criteria.matchUdpDst(udpPort));
+        }
+
+        @Override
+        public Builder matchSctpSrc(Short sctpPort) {
+            return add(Criteria.matchSctpSrc(sctpPort));
+        }
+
+        @Override
+        public Builder matchSctpDst(Short sctpPort) {
+            return add(Criteria.matchSctpDst(sctpPort));
+        }
+
+        @Override
+        public Builder matchIcmpType(Byte icmpType) {
+            return add(Criteria.matchIcmpType(icmpType));
+        }
+
+        @Override
+        public Builder matchIcmpCode(Byte icmpCode) {
+            return add(Criteria.matchIcmpCode(icmpCode));
+        }
+
+        @Override
         public Builder matchIPv6Src(IpPrefix ip) {
             return add(Criteria.matchIPv6Src(ip));
         }
@@ -192,6 +243,11 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         @Override
         public Builder matchIPv6Dst(IpPrefix ip) {
             return add(Criteria.matchIPv6Dst(ip));
+        }
+
+        @Override
+        public Builder matchIPv6FlowLabel(Integer flowLabel) {
+            return add(Criteria.matchIPv6FlowLabel(flowLabel));
         }
 
         @Override
@@ -205,8 +261,28 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
+        public Builder matchIPv6NDTargetAddress(Ip6Address targetAddress) {
+            return add(Criteria.matchIPv6NDTargetAddress(targetAddress));
+        }
+
+        @Override
+        public Builder matchIPv6NDSourceLinkLayerAddress(MacAddress mac) {
+            return add(Criteria.matchIPv6NDSourceLinkLayerAddress(mac));
+        }
+
+        @Override
+        public Builder matchIPv6NDTargetLinkLayerAddress(MacAddress mac) {
+            return add(Criteria.matchIPv6NDTargetLinkLayerAddress(mac));
+        }
+
+        @Override
         public Builder matchMplsLabel(MplsLabel mplsLabel) {
             return add(Criteria.matchMplsLabel(mplsLabel));
+        }
+
+        @Override
+        public Builder matchIPv6ExthdrFlags(Integer exthdrFlags) {
+            return add(Criteria.matchIPv6ExthdrFlags(exthdrFlags));
         }
 
         @Override
@@ -223,7 +299,5 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         public TrafficSelector build() {
             return new DefaultTrafficSelector(ImmutableSet.copyOf(selector.values()));
         }
-
     }
-
 }

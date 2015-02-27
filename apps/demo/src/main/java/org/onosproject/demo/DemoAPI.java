@@ -27,6 +27,14 @@ public interface DemoAPI {
     enum InstallType { MESH, RANDOM };
 
     /**
+     * Tests flow subsystem based on the parameters supplied.
+     *
+     * @param params the test parameters
+     * @return JSON representation
+     */
+    JsonNode flowTest(Optional<JsonNode> params);
+
+    /**
      * Installs intents based on the installation type.
      * @param type the installation type.
      * @param runParams run params

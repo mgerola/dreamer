@@ -31,7 +31,6 @@ import org.onosproject.net.intent.HostToHostIntent;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentEvent;
 import org.onosproject.net.intent.IntentListener;
-import org.onosproject.net.intent.IntentOperations;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.OpticalConnectivityIntent;
@@ -101,7 +100,7 @@ public class OpticalPathProvisioner {
         inStatusTportMap.clear();
         outStatusTportMap.clear();
         for (Intent intent : intentService.getIntents()) {
-            if (intentService.getIntentState(intent.id()) == INSTALLED) {
+            if (intentService.getIntentState(intent.key()) == INSTALLED) {
                 if (intent instanceof OpticalConnectivityIntent) {
                     inStatusTportMap.put(((OpticalConnectivityIntent) intent).getSrc(),
                             (OpticalConnectivityIntent) intent);
@@ -178,9 +177,9 @@ public class OpticalPathProvisioner {
             // TODO change the coordination approach between packet intents and optical intents
             // Low speed LLDP may cause multiple calls which are not expected
 
-            if (!IntentState.FAILED.equals(intentService.getIntentState(intent.id()))) {
+            if (!IntentState.FAILED.equals(intentService.getIntentState(intent.key()))) {
                    return;
-             }
+            }
 
             List<Intent> intents = Lists.newArrayList();
             if (intent instanceof HostToHostIntent) {
@@ -202,22 +201,20 @@ public class OpticalPathProvisioner {
                 log.info("Unsupported intent type: {}", intent.getClass());
             }
 
-            // Build the intent batch
-            IntentOperations.Builder ops = IntentOperations.builder(appId);
+            // Create the intents
             for (Intent i : intents) {
                 // TODO: don't allow duplicate intents between the same points for now
                 //       we may want to allow this carefully in future to increase capacity
                 if (i instanceof OpticalConnectivityIntent) {
                     OpticalConnectivityIntent oi = (OpticalConnectivityIntent) i;
                     if (addIntent(oi.getSrc(), oi.getDst(), oi)) {
-                        ops.addSubmitOperation(i);
+                        intentService.submit(i);
                         reserveTport(i);
                     }
                 } else {
                     log.warn("Invalid intent type: {} for {}", i.getClass(), i);
                 }
             }
-            intentService.execute(ops.build());
         }
 
         private List<Intent> getOpticalPath(ConnectPoint ingress, ConnectPoint egress) {

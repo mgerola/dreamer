@@ -30,14 +30,14 @@ public enum IntentState {
      * Intents will also pass through this state when they are updated.
      * </p>
      */
-    INSTALL_REQ,
+    INSTALL_REQ, // TODO submit_REQ?
 
     /**
      * Signifies that the intent is being compiled into installable intents.
      * This is a transitional state after which the intent will enter either
      * {@link #FAILED} state or {@link #INSTALLING} state.
      */
-    COMPILING,
+    COMPILING, //TODO do we really need this?
 
     /**
      * Signifies that the resulting installable intents are being installed
@@ -66,7 +66,7 @@ public enum IntentState {
      * previously failed to be installed.
      * </p>
      */
-    RECOMPILING,
+    RECOMPILING, // TODO perhaps repurpose as BROKEN.
 
     /**
      * Indicates that an application has requested that an intent be withdrawn.
@@ -92,5 +92,5 @@ public enum IntentState {
      * Signifies that the intent has failed compiling, installing or
      * recompiling states.
      */
-    FAILED
+    FAILED //TODO consider renaming to UNSAT.
 }

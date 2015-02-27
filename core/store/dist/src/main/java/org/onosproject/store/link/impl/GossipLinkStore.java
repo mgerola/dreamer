@@ -15,22 +15,12 @@
  */
 package org.onosproject.store.link.impl;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.base.Function;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.RandomUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -42,6 +32,7 @@ import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.AnnotationKeys;
 import org.onosproject.net.AnnotationsUtil;
 import org.onosproject.net.ConnectPoint;
@@ -70,19 +61,28 @@ import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.serializers.impl.DistributedStoreSerializers;
 import org.slf4j.Logger;
 
-import com.google.common.base.Function;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimaps;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Multimaps.synchronizedSetMultimap;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.onlab.util.Tools.minPriority;
-import static org.onlab.util.Tools.namedThreads;
 import static org.onosproject.cluster.ControllerNodeToNodeId.toNodeId;
 import static org.onosproject.net.DefaultAnnotations.merge;
 import static org.onosproject.net.DefaultAnnotations.union;
@@ -91,9 +91,7 @@ import static org.onosproject.net.Link.State.INACTIVE;
 import static org.onosproject.net.Link.Type.DIRECT;
 import static org.onosproject.net.Link.Type.INDIRECT;
 import static org.onosproject.net.LinkKey.linkKey;
-import static org.onosproject.net.link.LinkEvent.Type.LINK_ADDED;
-import static org.onosproject.net.link.LinkEvent.Type.LINK_REMOVED;
-import static org.onosproject.net.link.LinkEvent.Type.LINK_UPDATED;
+import static org.onosproject.net.link.LinkEvent.Type.*;
 import static org.onosproject.store.link.impl.GossipLinkStoreMessageSubjects.LINK_ANTI_ENTROPY_ADVERTISEMENT;
 import static org.slf4j.LoggerFactory.getLogger;
 
@@ -106,6 +104,9 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class GossipLinkStore
         extends AbstractStore<LinkEvent, LinkStoreDelegate>
         implements LinkStore {
+
+    // Timeout in milliseconds to process links on remote master node
+    private static final int REMOTE_MASTER_TIMEOUT = 1000;
 
     private final Logger log = getLogger(getClass());
 
@@ -132,6 +133,9 @@ public class GossipLinkStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterService clusterService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected MastershipService mastershipService;
+
     protected static final KryoSerializer SERIALIZER = new KryoSerializer() {
         @Override
         protected void setupKryoPool() {
@@ -142,6 +146,7 @@ public class GossipLinkStore
                     .register(InternalLinkRemovedEvent.class)
                     .register(LinkAntiEntropyAdvertisement.class)
                     .register(LinkFragmentId.class)
+                    .register(LinkInjectedEvent.class)
                     .build();
         }
     };
@@ -153,20 +158,23 @@ public class GossipLinkStore
     @Activate
     public void activate() {
 
-        clusterCommunicator.addSubscriber(
-                GossipLinkStoreMessageSubjects.LINK_UPDATE,
-                new InternalLinkEventListener());
-        clusterCommunicator.addSubscriber(
-                GossipLinkStoreMessageSubjects.LINK_REMOVED,
-                new InternalLinkRemovedEventListener());
-        clusterCommunicator.addSubscriber(
-                GossipLinkStoreMessageSubjects.LINK_ANTI_ENTROPY_ADVERTISEMENT,
-                new InternalLinkAntiEntropyAdvertisementListener());
-
-        executor = Executors.newCachedThreadPool(namedThreads("onos-link-fg-%d"));
+        executor = Executors.newCachedThreadPool(groupedThreads("onos/link", "fg-%d"));
 
         backgroundExecutors =
-                newSingleThreadScheduledExecutor(minPriority(namedThreads("onos-link-bg-%d")));
+                newSingleThreadScheduledExecutor(minPriority(groupedThreads("onos/link", "bg-%d")));
+
+        clusterCommunicator.addSubscriber(
+                GossipLinkStoreMessageSubjects.LINK_UPDATE,
+                new InternalLinkEventListener(), executor);
+        clusterCommunicator.addSubscriber(
+                GossipLinkStoreMessageSubjects.LINK_REMOVED,
+                new InternalLinkRemovedEventListener(), executor);
+        clusterCommunicator.addSubscriber(
+                GossipLinkStoreMessageSubjects.LINK_ANTI_ENTROPY_ADVERTISEMENT,
+                new InternalLinkAntiEntropyAdvertisementListener(), backgroundExecutors);
+        clusterCommunicator.addSubscriber(
+                GossipLinkStoreMessageSubjects.LINK_INJECTED,
+                new LinkInjectedEventListener(), executor);
 
         long initialDelaySec = 5;
         long periodSec = 5;
@@ -271,33 +279,60 @@ public class GossipLinkStore
     public LinkEvent createOrUpdateLink(ProviderId providerId,
                                         LinkDescription linkDescription) {
 
-        DeviceId dstDeviceId = linkDescription.dst().deviceId();
-        Timestamp newTimestamp = deviceClockService.getTimestamp(dstDeviceId);
+        final DeviceId dstDeviceId = linkDescription.dst().deviceId();
+        final NodeId localNode = clusterService.getLocalNode().id();
+        final NodeId dstNode = mastershipService.getMasterFor(dstDeviceId);
 
-        final Timestamped<LinkDescription> deltaDesc = new Timestamped<>(linkDescription, newTimestamp);
+        // Process link update only if we're the master of the destination node,
+        // otherwise signal the actual master.
+        LinkEvent linkEvent = null;
+        if (localNode.equals(dstNode)) {
 
-        LinkKey key = linkKey(linkDescription.src(), linkDescription.dst());
-        final LinkEvent event;
-        final Timestamped<LinkDescription> mergedDesc;
-        Map<ProviderId, Timestamped<LinkDescription>> map = getOrCreateLinkDescriptions(key);
-        synchronized (map) {
-            event = createOrUpdateLinkInternal(providerId, deltaDesc);
-            mergedDesc = map.get(providerId);
-        }
+            Timestamp newTimestamp = deviceClockService.getTimestamp(dstDeviceId);
 
-        if (event != null) {
-            log.info("Notifying peers of a link update topology event from providerId: "
-                    + "{}  between src: {} and dst: {}",
-                    providerId, linkDescription.src(), linkDescription.dst());
-            try {
-                notifyPeers(new InternalLinkEvent(providerId, mergedDesc));
-            } catch (IOException e) {
-                log.debug("Failed to notify peers of a link update topology event from providerId: "
-                                 + "{}  between src: {} and dst: {}",
-                         providerId, linkDescription.src(), linkDescription.dst());
+            final Timestamped<LinkDescription> deltaDesc = new Timestamped<>(linkDescription, newTimestamp);
+
+            LinkKey key = linkKey(linkDescription.src(), linkDescription.dst());
+            final Timestamped<LinkDescription> mergedDesc;
+            Map<ProviderId, Timestamped<LinkDescription>> map = getOrCreateLinkDescriptions(key);
+
+            synchronized (map) {
+                linkEvent = createOrUpdateLinkInternal(providerId, deltaDesc);
+                mergedDesc = map.get(providerId);
             }
+
+            if (linkEvent != null) {
+                log.info("Notifying peers of a link update topology event from providerId: "
+                                + "{}  between src: {} and dst: {}",
+                        providerId, linkDescription.src(), linkDescription.dst());
+                notifyPeers(new InternalLinkEvent(providerId, mergedDesc));
+            }
+
+        } else {
+            // FIXME Temporary hack for NPE (ONOS-1171).
+            // Proper fix is to implement forwarding to master on ConfigProvider
+            // redo ONOS-490
+            if (dstNode == null) {
+                // silently ignore
+                return null;
+            }
+
+
+            LinkInjectedEvent linkInjectedEvent = new LinkInjectedEvent(providerId, linkDescription);
+            ClusterMessage linkInjectedMessage = new ClusterMessage(localNode,
+                    GossipLinkStoreMessageSubjects.LINK_INJECTED, SERIALIZER.encode(linkInjectedEvent));
+
+            try {
+                clusterCommunicator.unicast(linkInjectedMessage, dstNode);
+            } catch (IOException e) {
+                log.warn("Failed to process link update between src: {} and dst: {} " +
+                                "(cluster messaging failed: {})",
+                        linkDescription.src(), linkDescription.dst(), e);
+            }
+
         }
-        return event;
+
+        return linkEvent;
     }
 
     @Override
@@ -325,7 +360,7 @@ public class GossipLinkStore
             Timestamped<LinkDescription> linkDescription) {
 
         final LinkKey key = linkKey(linkDescription.value().src(),
-                                    linkDescription.value().dst());
+                linkDescription.value().dst());
         Map<ProviderId, Timestamped<LinkDescription>> descs = getOrCreateLinkDescriptions(key);
 
         synchronized (descs) {
@@ -333,7 +368,7 @@ public class GossipLinkStore
             // only if this request is more recent.
             Timestamp linkRemovedTimestamp = removedLinks.get(key);
             if (linkRemovedTimestamp != null) {
-                if (linkDescription.isNewer(linkRemovedTimestamp)) {
+                if (linkDescription.isNewerThan(linkRemovedTimestamp)) {
                     removedLinks.remove(key);
                 } else {
                     log.trace("Link {} was already removed ignoring.", key);
@@ -404,7 +439,7 @@ public class GossipLinkStore
             !AnnotationsUtil.isEqual(oldLink.annotations(), newLink.annotations())) {
 
             links.put(key, newLink);
-            // strictly speaking following can be ommitted
+            // strictly speaking following can be omitted
             srcLinks.put(oldLink.src().deviceId(), key);
             dstLinks.put(oldLink.dst().deviceId(), key);
             return new LinkEvent(LINK_UPDATED, newLink);
@@ -432,12 +467,7 @@ public class GossipLinkStore
         if (event != null) {
             log.info("Notifying peers of a link removed topology event for a link "
                     + "between src: {} and dst: {}", src, dst);
-            try {
-                notifyPeers(new InternalLinkRemovedEvent(key, timestamp));
-            } catch (IOException e) {
-                log.error("Failed to notify peers of a link removed topology event for a link "
-                        + "between src: {} and dst: {}", src, dst);
-            }
+            notifyPeers(new InternalLinkRemovedEvent(key, timestamp));
         }
         return event;
     }
@@ -607,7 +637,7 @@ public class GossipLinkStore
         }
     }
 
-    private void broadcastMessage(MessageSubject subject, Object event) throws IOException {
+    private void broadcastMessage(MessageSubject subject, Object event) {
         ClusterMessage message = new ClusterMessage(
                 clusterService.getLocalNode().id(),
                 subject,
@@ -623,11 +653,11 @@ public class GossipLinkStore
         clusterCommunicator.unicast(message, recipient);
     }
 
-    private void notifyPeers(InternalLinkEvent event) throws IOException {
+    private void notifyPeers(InternalLinkEvent event) {
         broadcastMessage(GossipLinkStoreMessageSubjects.LINK_UPDATE, event);
     }
 
-    private void notifyPeers(InternalLinkRemovedEvent event) throws IOException {
+    private void notifyPeers(InternalLinkRemovedEvent event) {
         broadcastMessage(GossipLinkStoreMessageSubjects.LINK_REMOVED, event);
     }
 
@@ -740,7 +770,7 @@ public class GossipLinkStore
                         remoteTimestamp = ad.linkTombstones().get(key);
                     }
                     if (remoteTimestamp == null ||
-                        pDesc.isNewer(remoteTimestamp)) {
+                        pDesc.isNewerThan(remoteTimestamp)) {
                         // I have more recent link description. update peer.
                         notifyPeer(sender, new InternalLinkEvent(providerId, pDesc));
                     } else {
@@ -754,7 +784,7 @@ public class GossipLinkStore
 
                     // search local latest along the way
                     if (localLatest == null ||
-                        pDesc.isNewer(localLatest)) {
+                        pDesc.isNewerThan(localLatest)) {
                         localLatest = pDesc.timestamp();
                     }
                 }
@@ -800,17 +830,11 @@ public class GossipLinkStore
             ProviderId providerId = event.providerId();
             Timestamped<LinkDescription> linkDescription = event.linkDescription();
 
-            executor.submit(new Runnable() {
-
-                @Override
-                public void run() {
-                    try {
-                        notifyDelegateIfNotNull(createOrUpdateLinkInternal(providerId, linkDescription));
-                    } catch (Exception e) {
-                        log.warn("Exception thrown handling link event", e);
-                    }
-                }
-            });
+            try {
+                notifyDelegateIfNotNull(createOrUpdateLinkInternal(providerId, linkDescription));
+            } catch (Exception e) {
+                log.warn("Exception thrown handling link event", e);
+            }
         }
     }
 
@@ -825,17 +849,11 @@ public class GossipLinkStore
             LinkKey linkKey = event.linkKey();
             Timestamp timestamp = event.timestamp();
 
-            executor.submit(new Runnable() {
-
-                @Override
-                public void run() {
-                    try {
-                        notifyDelegateIfNotNull(removeLinkInternal(linkKey, timestamp));
-                    } catch (Exception e) {
-                        log.warn("Exception thrown handling link removed", e);
-                    }
-                }
-            });
+            try {
+                notifyDelegateIfNotNull(removeLinkInternal(linkKey, timestamp));
+            } catch (Exception e) {
+                log.warn("Exception thrown handling link removed", e);
+            }
         }
     }
 
@@ -846,18 +864,31 @@ public class GossipLinkStore
         public void handle(ClusterMessage message) {
             log.trace("Received Link Anti-Entropy advertisement from peer: {}", message.sender());
             LinkAntiEntropyAdvertisement advertisement = SERIALIZER.decode(message.payload());
-            backgroundExecutors.submit(new Runnable() {
+            try {
+                handleAntiEntropyAdvertisement(advertisement);
+            } catch (Exception e) {
+                log.warn("Exception thrown while handling Link advertisements", e);
+                throw e;
+            }
+        }
+    }
 
-                @Override
-                public void run() {
-                    try {
-                        handleAntiEntropyAdvertisement(advertisement);
-                    } catch (Exception e) {
-                        log.warn("Exception thrown while handling Link advertisements", e);
-                        throw e;
-                    }
-                }
-            });
+    private final class LinkInjectedEventListener
+            implements ClusterMessageHandler {
+        @Override
+        public void handle(ClusterMessage message) {
+
+            log.trace("Received injected link event from peer: {}", message.sender());
+            LinkInjectedEvent linkInjectedEvent = SERIALIZER.decode(message.payload());
+
+            ProviderId providerId = linkInjectedEvent.providerId();
+            LinkDescription linkDescription = linkInjectedEvent.linkDescription();
+
+            try {
+                createOrUpdateLink(providerId, linkDescription);
+            } catch (Exception e) {
+                log.warn("Exception thrown while handling link injected event", e);
+            }
         }
     }
 }

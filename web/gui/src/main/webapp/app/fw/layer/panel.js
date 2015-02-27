@@ -25,9 +25,10 @@
     var defaultSettings = {
         edge: 'right',
         width: 200,
-        height: 80,
         margin: 20,
-        xtnTime: 750
+        hideMargin: 20,
+        xtnTime: 750,
+        fade: true
     };
 
     var panels,
@@ -46,6 +47,9 @@
     function margin(p) {
         return p.settings.margin;
     }
+    function hideMargin(p) {
+        return p.settings.hideMargin;
+    }
     function noPx(p, what) {
         return Number(p.el.style(what).replace(/px$/, ''));
     }
@@ -59,7 +63,7 @@
         return margin(p) + 'px';
     }
     function pxHide(p) {
-        return (-margin(p) - widthVal(p)) + 'px';
+        return (-hideMargin(p) - widthVal(p) - (noPx(p, 'padding') * 2)) + 'px';
     }
 
     function makePanel(id, settings) {
@@ -72,11 +76,14 @@
             api = {
                 show: showPanel,
                 hide: hidePanel,
+                toggle: togglePanel,
                 empty: emptyPanel,
                 append: appendPanel,
                 width: panelWidth,
                 height: panelHeight,
-                isVisible: panelIsVisible
+                isVisible: panelIsVisible,
+                classed: classed,
+                el: panelEl
             };
 
         p.el = panelLayer.append('div')
@@ -87,7 +94,9 @@
         // has to be called after el is set
         p.el.style(p.settings.edge, pxHide(p));
         panelWidth(p.settings.width);
-        panelHeight(p.settings.height);
+        if (p.settings.height) {
+            panelHeight(p.settings.height);
+        }
 
         panels[id] = p;
 
@@ -101,12 +110,21 @@
         }
 
         function hidePanel(cb) {
-            var endCb = fs.isF(cb) || noop;
+            var endCb = fs.isF(cb) || noop,
+                endOpacity = p.settings.fade ? 0 : 1;
             p.on = false;
             p.el.transition().duration(p.settings.xtnTime)
                 .each('end', endCb)
                 .style(p.settings.edge, pxHide(p))
-                .style('opacity', 0);
+                .style('opacity', endOpacity);
+        }
+
+        function togglePanel(cb) {
+            if (p.on) {
+                hidePanel(cb);
+            } else {
+                showPanel(cb);
+            }
         }
 
         function emptyPanel() {
@@ -133,6 +151,14 @@
 
         function panelIsVisible() {
             return p.on;
+        }
+
+        function classed(cls, bool) {
+            return p.el.classed(cls, bool);
+        }
+
+        function panelEl() {
+            return p.el;
         }
 
         return api;

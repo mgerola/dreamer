@@ -22,6 +22,7 @@ import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
+import org.onosproject.core.GroupId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
@@ -133,6 +134,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
                 case DROP:
                     drop = true;
                     break;
+                case TABLE:
                 case OUTPUT:
                     outputs.add(instruction);
                     break;
@@ -198,6 +200,21 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
 
         @Override
+        public Builder decNwTtl() {
+            return add(Instructions.decNwTtl());
+        }
+
+        @Override
+        public Builder copyTtlIn() {
+            return add(Instructions.copyTtlIn());
+        }
+
+        @Override
+        public Builder copyTtlOut() {
+            return add(Instructions.copyTtlOut());
+        }
+
+        @Override
         public Builder pushMpls() {
             return add(Instructions.pushMpls());
         }
@@ -208,7 +225,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
 
         @Override
-        public Builder popMpls(short etherType) {
+        public Builder popMpls(Short etherType) {
             return add(Instructions.popMpls(etherType));
         }
 
@@ -218,8 +235,23 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
 
         @Override
+        public Builder decMplsTtl() {
+            return add(Instructions.decMplsTtl());
+        }
+
+        @Override
         public Builder setLambda(short lambda) {
             return add(Instructions.modL0Lambda(lambda));
+        }
+
+        @Override
+        public Builder group(GroupId groupId) {
+            return add(Instructions.createGroup(groupId));
+        }
+
+        @Override
+        public TrafficTreatment.Builder transition(FlowRule.Type type) {
+            return add(Instructions.transition(type));
         }
 
         @Override

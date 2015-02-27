@@ -61,12 +61,23 @@
             return {
                 restrict: 'A',
                 scope: {
-                    iconId: '@'
+                    iconId: '@',
+                    iconSize: '@'
                 },
                 link: function (scope, element, attrs) {
-                    is.loadEmbeddedIcon(d3.select(element[0]), scope.iconId);
+                    is.loadEmbeddedIcon(d3.select(element[0]),
+                                        scope.iconId, scope.iconSize);
                 }
             };
 
+        }])
+
+        // create a general ng-repeat complete notifier directive
+        .directive('ngRepeatDone', [function () {
+            return function (scope, element, attrs) {
+                if(scope.$last) {
+                    scope.$emit('LastElement');
+                }
+            }
         }]);
 }());

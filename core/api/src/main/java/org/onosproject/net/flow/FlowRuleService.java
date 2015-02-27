@@ -15,8 +15,6 @@
  */
 package org.onosproject.net.flow;
 
-import java.util.concurrent.Future;
-
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.DeviceId;
 
@@ -28,6 +26,11 @@ import org.onosproject.net.DeviceId;
  * 'cached' copy.
  */
 public interface FlowRuleService {
+
+    /**
+     * The topic used for obtaining globally unique ids.
+     */
+    static String FLOW_OP_TOPIC = "flow-ops-ids";
 
     /**
      * Returns the number of flow rules in the system.
@@ -95,10 +98,9 @@ public interface FlowRuleService {
     /**
      * Applies a batch operation of FlowRules.
      *
-     * @param batch batch operation to apply
-     * @return future indicating the state of the batch operation
+     * @param ops batch operation to apply
      */
-    Future<CompletedBatchOperation> applyBatch(FlowRuleBatchOperation batch);
+    void apply(FlowRuleOperations ops);
 
     /**
      * Adds the specified flow rule listener.

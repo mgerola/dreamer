@@ -19,10 +19,12 @@ import com.google.common.collect.Lists;
 
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
+import org.onlab.packet.Ip6Address;
 import org.onlab.packet.Ip6Prefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
+import org.onosproject.core.DefaultGroupId;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.DefaultFlowEntry;
@@ -35,13 +37,16 @@ import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.openflow.controller.Dpid;
+import org.projectfloodlight.openflow.protocol.OFFlowMod;
 import org.projectfloodlight.openflow.protocol.OFFlowRemoved;
 import org.projectfloodlight.openflow.protocol.OFFlowStatsEntry;
 import org.projectfloodlight.openflow.protocol.OFInstructionType;
 import org.projectfloodlight.openflow.protocol.action.OFAction;
 import org.projectfloodlight.openflow.protocol.action.OFActionCircuit;
 import org.projectfloodlight.openflow.protocol.action.OFActionExperimenter;
+import org.projectfloodlight.openflow.protocol.action.OFActionGroup;
 import org.projectfloodlight.openflow.protocol.action.OFActionOutput;
+import org.projectfloodlight.openflow.protocol.action.OFActionPopMpls;
 import org.projectfloodlight.openflow.protocol.action.OFActionSetDlDst;
 import org.projectfloodlight.openflow.protocol.action.OFActionSetDlSrc;
 import org.projectfloodlight.openflow.protocol.action.OFActionSetField;
@@ -59,6 +64,7 @@ import org.projectfloodlight.openflow.types.IPv4Address;
 import org.projectfloodlight.openflow.types.IPv6Address;
 import org.projectfloodlight.openflow.types.Masked;
 import org.projectfloodlight.openflow.types.OFVlanVidMatch;
+import org.projectfloodlight.openflow.types.U32;
 import org.projectfloodlight.openflow.types.VlanPcp;
 import org.slf4j.Logger;
 
@@ -71,13 +77,16 @@ public class FlowEntryBuilder {
 
     private final OFFlowStatsEntry stat;
     private final OFFlowRemoved removed;
+    private final OFFlowMod flowMod;
 
     private final Match match;
     private final List<OFAction> actions;
 
     private final Dpid dpid;
 
-    private final boolean addedRule;
+    public enum FlowType { STAT, REMOVED, MOD }
+
+    private final FlowType type;
 
 
     public FlowEntryBuilder(Dpid dpid, OFFlowStatsEntry entry) {
@@ -86,7 +95,8 @@ public class FlowEntryBuilder {
         this.actions = getActions(entry);
         this.dpid = dpid;
         this.removed = null;
-        this.addedRule = true;
+        this.flowMod = null;
+        this.type = FlowType.STAT;
     }
 
     public FlowEntryBuilder(Dpid dpid, OFFlowRemoved removed) {
@@ -96,26 +106,48 @@ public class FlowEntryBuilder {
         this.dpid = dpid;
         this.actions = null;
         this.stat = null;
-        this.addedRule = false;
+        this.flowMod = null;
+        this.type = FlowType.REMOVED;
 
     }
 
-    public FlowEntry build() {
-        if (addedRule) {
-            FlowRule rule = new DefaultFlowRule(DeviceId.deviceId(Dpid.uri(dpid)),
-                    buildSelector(), buildTreatment(), stat.getPriority(),
-                    stat.getCookie().getValue(), stat.getIdleTimeout(), false);
-            return new DefaultFlowEntry(rule, FlowEntryState.ADDED,
-                    stat.getDurationSec(), stat.getPacketCount().getValue(),
-                    stat.getByteCount().getValue());
+    public FlowEntryBuilder(Dpid dpid, OFFlowMod fm) {
+        this.match = fm.getMatch();
+        this.dpid = dpid;
+        this.actions = fm.getActions();
+        this.type = FlowType.MOD;
+        this.flowMod = fm;
+        this.stat = null;
+        this.removed = null;
+    }
 
-        } else {
-            FlowRule rule = new DefaultFlowRule(DeviceId.deviceId(Dpid.uri(dpid)),
-                    buildSelector(), null, removed.getPriority(),
-                   removed.getCookie().getValue(), removed.getIdleTimeout(), false);
-            return new DefaultFlowEntry(rule, FlowEntryState.REMOVED, removed.getDurationSec(),
-                    removed.getPacketCount().getValue(), removed.getByteCount().getValue());
+    public FlowEntry build(FlowEntryState... state) {
+        FlowRule rule;
+        switch (this.type) {
+            case STAT:
+                rule = new DefaultFlowRule(DeviceId.deviceId(Dpid.uri(dpid)),
+                                      buildSelector(), buildTreatment(), stat.getPriority(),
+                                      stat.getCookie().getValue(), stat.getIdleTimeout(), false);
+                return new DefaultFlowEntry(rule, FlowEntryState.ADDED,
+                                      stat.getDurationSec(), stat.getPacketCount().getValue(),
+                                      stat.getByteCount().getValue());
+            case REMOVED:
+                rule = new DefaultFlowRule(DeviceId.deviceId(Dpid.uri(dpid)),
+                                      buildSelector(), null, removed.getPriority(),
+                                      removed.getCookie().getValue(), removed.getIdleTimeout(), false);
+                return new DefaultFlowEntry(rule, FlowEntryState.REMOVED, removed.getDurationSec(),
+                                      removed.getPacketCount().getValue(), removed.getByteCount().getValue());
+            case MOD:
+                FlowEntryState flowState = state.length > 0 ? state[0] : FlowEntryState.FAILED;
+                rule = new DefaultFlowRule(DeviceId.deviceId(Dpid.uri(dpid)),
+                                      buildSelector(), buildTreatment(), flowMod.getPriority(),
+                                      flowMod.getCookie().getValue(), flowMod.getIdleTimeout(), false);
+                return new DefaultFlowEntry(rule, flowState, 0, 0, 0);
+            default:
+                log.error("Unknown flow type : {}", this.type);
+                return null;
         }
+
     }
 
     private List<OFAction> getActions(OFFlowStatsEntry entry) {
@@ -196,12 +228,33 @@ public class FlowEntryBuilder {
                 OFActionSetField setField = (OFActionSetField) act;
                 handleSetField(builder, setField.getField());
                 break;
+            case POP_MPLS:
+                OFActionPopMpls popMpls = (OFActionPopMpls) act;
+                builder.popMpls((short) popMpls.getEthertype().getValue());
+                break;
+            case PUSH_MPLS:
+                builder.pushMpls();
+                break;
+            case COPY_TTL_IN:
+                builder.copyTtlIn();
+                break;
+            case COPY_TTL_OUT:
+                builder.copyTtlOut();
+                break;
+            case DEC_MPLS_TTL:
+                builder.decMplsTtl();
+                break;
+            case DEC_NW_TTL:
+                builder.decNwTtl();
+                break;
+            case GROUP:
+                OFActionGroup group = (OFActionGroup) act;
+                builder.group(new DefaultGroupId(group.getGroup().getGroupNumber()));
+                break;
             case SET_TP_DST:
             case SET_TP_SRC:
-            case POP_MPLS:
             case POP_PBB:
             case POP_VLAN:
-            case PUSH_MPLS:
             case PUSH_PBB:
             case PUSH_VLAN:
             case SET_MPLS_LABEL:
@@ -212,13 +265,7 @@ public class FlowEntryBuilder {
             case SET_NW_TTL:
             case SET_QUEUE:
             case STRIP_VLAN:
-            case COPY_TTL_IN:
-            case COPY_TTL_OUT:
-            case DEC_MPLS_TTL:
-            case DEC_NW_TTL:
             case ENQUEUE:
-
-            case GROUP:
             default:
                 log.warn("Action type {} not yet implemented.", act.getType());
             }
@@ -261,6 +308,11 @@ public class FlowEntryBuilder {
             OFOxm<IPv4Address> ip4src = (OFOxm<IPv4Address>) oxm;
             builder.setIpSrc(Ip4Address.valueOf(ip4src.getValue().getInt()));
             break;
+        case MPLS_LABEL:
+            @SuppressWarnings("unchecked")
+            OFOxm<U32> labelId = (OFOxm<U32>) oxm;
+            builder.setMpls(MplsLabel.mplsLabel((int) labelId.getValue().getValue()));
+            break;
         case ARP_OP:
         case ARP_SHA:
         case ARP_SPA:
@@ -301,7 +353,6 @@ public class FlowEntryBuilder {
         case IP_ECN:
         case IP_PROTO:
         case METADATA:
-        case MPLS_LABEL:
         case MPLS_TC:
         case OCH_SIGID:
         case OCH_SIGID_BASIC:
@@ -321,64 +372,38 @@ public class FlowEntryBuilder {
     }
 
     private TrafficSelector buildSelector() {
+        MacAddress mac;
+        Ip4Prefix ip4Prefix;
+        Ip6Address ip6Address;
+        Ip6Prefix ip6Prefix;
+
         TrafficSelector.Builder builder = DefaultTrafficSelector.builder();
         for (MatchField<?> field : match.getMatchFields()) {
             switch (field.id) {
             case IN_PORT:
-                builder.matchInport(PortNumber
+                builder.matchInPort(PortNumber
                         .portNumber(match.get(MatchField.IN_PORT).getPortNumber()));
                 break;
-            case ETH_SRC:
-                MacAddress sMac = MacAddress.valueOf(match.get(MatchField.ETH_SRC).getLong());
-                builder.matchEthSrc(sMac);
+            case IN_PHY_PORT:
+                builder.matchInPhyPort(PortNumber
+                        .portNumber(match.get(MatchField.IN_PHY_PORT).getPortNumber()));
+                break;
+            case METADATA:
+                long metadata =
+                    match.get(MatchField.METADATA).getValue().getValue();
+                builder.matchMetadata(metadata);
                 break;
             case ETH_DST:
-                MacAddress dMac = MacAddress.valueOf(match.get(MatchField.ETH_DST).getLong());
-                builder.matchEthDst(dMac);
+                mac = MacAddress.valueOf(match.get(MatchField.ETH_DST).getLong());
+                builder.matchEthDst(mac);
+                break;
+            case ETH_SRC:
+                mac = MacAddress.valueOf(match.get(MatchField.ETH_SRC).getLong());
+                builder.matchEthSrc(mac);
                 break;
             case ETH_TYPE:
                 int ethType = match.get(MatchField.ETH_TYPE).getValue();
                 builder.matchEthType((short) ethType);
-                break;
-            case IPV4_DST:
-                Ip4Prefix dip;
-                if (match.isPartiallyMasked(MatchField.IPV4_DST)) {
-                    Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_DST);
-
-                    dip = Ip4Prefix.valueOf(
-                            maskedIp.getValue().getInt(),
-                            maskedIp.getMask().asCidrMaskLength());
-                } else {
-                    dip = Ip4Prefix.valueOf(
-                            match.get(MatchField.IPV4_DST).getInt(),
-                            Ip4Prefix.MAX_MASK_LENGTH);
-                }
-
-                builder.matchIPDst(dip);
-                break;
-            case IPV4_SRC:
-                Ip4Prefix sip;
-                if (match.isPartiallyMasked(MatchField.IPV4_SRC)) {
-                    Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_SRC);
-
-                    sip = Ip4Prefix.valueOf(
-                            maskedIp.getValue().getInt(),
-                            maskedIp.getMask().asCidrMaskLength());
-                } else {
-                    sip = Ip4Prefix.valueOf(
-                            match.get(MatchField.IPV4_SRC).getInt(),
-                            Ip4Prefix.MAX_MASK_LENGTH);
-                }
-
-                builder.matchIPSrc(sip);
-                break;
-            case IP_PROTO:
-                short proto = match.get(MatchField.IP_PROTO).getIpProtocolNumber();
-                builder.matchIPProtocol((byte) proto);
-                break;
-            case VLAN_PCP:
-                byte vlanPcp = match.get(MatchField.VLAN_PCP).getValue();
-                builder.matchVlanPcp(vlanPcp);
                 break;
             case VLAN_VID:
                 VlanId vlanId = null;
@@ -395,50 +420,107 @@ public class FlowEntryBuilder {
                     builder.matchVlanId(vlanId);
                 }
                 break;
-            case TCP_DST:
-                builder.matchTcpDst((short) match.get(MatchField.TCP_DST).getPort());
+            case VLAN_PCP:
+                byte vlanPcp = match.get(MatchField.VLAN_PCP).getValue();
+                builder.matchVlanPcp(vlanPcp);
+                break;
+            case IP_DSCP:
+                byte ipDscp = match.get(MatchField.IP_DSCP).getDscpValue();
+                builder.matchIPDscp(ipDscp);
+                break;
+            case IP_ECN:
+                byte ipEcn = match.get(MatchField.IP_ECN).getEcnValue();
+                builder.matchIPEcn(ipEcn);
+                break;
+            case IP_PROTO:
+                short proto = match.get(MatchField.IP_PROTO).getIpProtocolNumber();
+                builder.matchIPProtocol((byte) proto);
+                break;
+            case IPV4_SRC:
+                if (match.isPartiallyMasked(MatchField.IPV4_SRC)) {
+                    Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_SRC);
+                    ip4Prefix = Ip4Prefix.valueOf(
+                            maskedIp.getValue().getInt(),
+                            maskedIp.getMask().asCidrMaskLength());
+                } else {
+                    ip4Prefix = Ip4Prefix.valueOf(
+                            match.get(MatchField.IPV4_SRC).getInt(),
+                            Ip4Prefix.MAX_MASK_LENGTH);
+                }
+                builder.matchIPSrc(ip4Prefix);
+                break;
+            case IPV4_DST:
+                if (match.isPartiallyMasked(MatchField.IPV4_DST)) {
+                    Masked<IPv4Address> maskedIp = match.getMasked(MatchField.IPV4_DST);
+                    ip4Prefix = Ip4Prefix.valueOf(
+                            maskedIp.getValue().getInt(),
+                            maskedIp.getMask().asCidrMaskLength());
+                } else {
+                    ip4Prefix = Ip4Prefix.valueOf(
+                            match.get(MatchField.IPV4_DST).getInt(),
+                            Ip4Prefix.MAX_MASK_LENGTH);
+                }
+                builder.matchIPDst(ip4Prefix);
                 break;
             case TCP_SRC:
                 builder.matchTcpSrc((short) match.get(MatchField.TCP_SRC).getPort());
                 break;
+            case TCP_DST:
+                builder.matchTcpDst((short) match.get(MatchField.TCP_DST).getPort());
+                break;
+            case UDP_SRC:
+                builder.matchUdpSrc((short) match.get(MatchField.UDP_SRC).getPort());
+                break;
+            case UDP_DST:
+                builder.matchUdpDst((short) match.get(MatchField.UDP_DST).getPort());
             case MPLS_LABEL:
                 builder.matchMplsLabel(MplsLabel.mplsLabel((int) match.get(MatchField.MPLS_LABEL)
                                             .getValue()));
                 break;
-            case OCH_SIGID:
-                builder.matchLambda(match.get(MatchField.OCH_SIGID).getChannelNumber());
+            case SCTP_SRC:
+                builder.matchSctpSrc((short) match.get(MatchField.SCTP_SRC).getPort());
                 break;
-            case OCH_SIGTYPE:
-                builder.matchOpticalSignalType(match.get(MatchField
-                                                                 .OCH_SIGTYPE).getValue());
+            case SCTP_DST:
+                builder.matchSctpDst((short) match.get(MatchField.SCTP_DST).getPort());
                 break;
-            case IPV6_DST:
-                Ip6Prefix dipv6;
-                if (match.isPartiallyMasked(MatchField.IPV6_DST)) {
-                    Masked<IPv6Address> maskedIp = match.getMasked(MatchField.IPV6_DST);
-                    dipv6 = Ip6Prefix.valueOf(
-                            maskedIp.getValue().getBytes(),
-                            maskedIp.getMask().asCidrMaskLength());
-                } else {
-                    dipv6 = Ip6Prefix.valueOf(
-                            match.get(MatchField.IPV6_DST).getBytes(),
-                            Ip6Prefix.MAX_MASK_LENGTH);
-                }
-                builder.matchIPv6Dst(dipv6);
+            case ICMPV4_TYPE:
+                byte icmpType = (byte) match.get(MatchField.ICMPV4_TYPE).getType();
+                builder.matchIcmpType(icmpType);
+                break;
+            case ICMPV4_CODE:
+                byte icmpCode = (byte) match.get(MatchField.ICMPV4_CODE).getCode();
+                builder.matchIcmpCode(icmpCode);
                 break;
             case IPV6_SRC:
-                Ip6Prefix sipv6;
                 if (match.isPartiallyMasked(MatchField.IPV6_SRC)) {
                     Masked<IPv6Address> maskedIp = match.getMasked(MatchField.IPV6_SRC);
-                    sipv6 = Ip6Prefix.valueOf(
+                    ip6Prefix = Ip6Prefix.valueOf(
                             maskedIp.getValue().getBytes(),
                             maskedIp.getMask().asCidrMaskLength());
                 } else {
-                    sipv6 = Ip6Prefix.valueOf(
+                    ip6Prefix = Ip6Prefix.valueOf(
                             match.get(MatchField.IPV6_SRC).getBytes(),
                             Ip6Prefix.MAX_MASK_LENGTH);
                 }
-                builder.matchIPv6Src(sipv6);
+                builder.matchIPv6Src(ip6Prefix);
+                break;
+            case IPV6_DST:
+                if (match.isPartiallyMasked(MatchField.IPV6_DST)) {
+                    Masked<IPv6Address> maskedIp = match.getMasked(MatchField.IPV6_DST);
+                    ip6Prefix = Ip6Prefix.valueOf(
+                            maskedIp.getValue().getBytes(),
+                            maskedIp.getMask().asCidrMaskLength());
+                } else {
+                    ip6Prefix = Ip6Prefix.valueOf(
+                            match.get(MatchField.IPV6_DST).getBytes(),
+                            Ip6Prefix.MAX_MASK_LENGTH);
+                }
+                builder.matchIPv6Dst(ip6Prefix);
+                break;
+            case IPV6_FLABEL:
+                int flowLabel =
+                    match.get(MatchField.IPV6_FLABEL).getIPv6FlowLabelValue();
+                builder.matchIPv6FlowLabel(flowLabel);
                 break;
             case ICMPV6_TYPE:
                 byte icmpv6type = (byte) match.get(MatchField.ICMPV6_TYPE).getValue();
@@ -448,32 +530,41 @@ public class FlowEntryBuilder {
                 byte icmpv6code = (byte) match.get(MatchField.ICMPV6_CODE).getValue();
                 builder.matchIcmpv6Code(icmpv6code);
                 break;
+            case IPV6_ND_TARGET:
+                ip6Address =
+                    Ip6Address.valueOf(match.get(MatchField.IPV6_ND_TARGET).getBytes());
+                builder.matchIPv6NDTargetAddress(ip6Address);
+                break;
+            case IPV6_ND_SLL:
+                mac = MacAddress.valueOf(match.get(MatchField.IPV6_ND_SLL).getLong());
+                builder.matchIPv6NDSourceLinkLayerAddress(mac);
+                break;
+            case IPV6_ND_TLL:
+                mac = MacAddress.valueOf(match.get(MatchField.IPV6_ND_TLL).getLong());
+                builder.matchIPv6NDTargetLinkLayerAddress(mac);
+                break;
+            case IPV6_EXTHDR:
+                builder.matchIPv6ExthdrFlags((int) match.get(MatchField.IPV6_EXTHDR)
+                                            .getValue());
+                break;
+            case OCH_SIGID:
+                builder.matchLambda(match.get(MatchField.OCH_SIGID).getChannelNumber());
+                break;
+            case OCH_SIGTYPE:
+                builder.matchOpticalSignalType(match.get(MatchField
+                                                                 .OCH_SIGTYPE).getValue());
+                break;
             case ARP_OP:
             case ARP_SHA:
             case ARP_SPA:
             case ARP_THA:
             case ARP_TPA:
-            case ICMPV4_CODE:
-            case ICMPV4_TYPE:
-            case IN_PHY_PORT:
-            case IPV6_FLABEL:
-            case IPV6_ND_SLL:
-            case IPV6_ND_TARGET:
-            case IPV6_ND_TLL:
-            case IP_DSCP:
-            case IP_ECN:
-            case METADATA:
             case MPLS_TC:
-            case SCTP_DST:
-            case SCTP_SRC:
             case TUNNEL_ID:
-            case UDP_DST:
-            case UDP_SRC:
             default:
                 log.warn("Match type {} not yet implemented.", field.id);
             }
         }
         return builder.build();
     }
-
 }

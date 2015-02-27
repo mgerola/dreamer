@@ -18,7 +18,7 @@ package org.onosproject.rest.exceptions;
 import javax.ws.rs.core.Response;
 
 /**
- * Mapper for service not found exceptions to the NOT_FOUND response code.
+ * Mapper for service not found exceptions to the INTERNAL_SERVER_ERROR response code.
  */
 public class ServerErrorMapper extends AbstractMapper<RuntimeException> {
     @Override

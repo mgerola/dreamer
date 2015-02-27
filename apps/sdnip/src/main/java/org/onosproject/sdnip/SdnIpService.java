@@ -15,49 +15,10 @@
  */
 package org.onosproject.sdnip;
 
-import java.util.Collection;
-
-import org.onosproject.sdnip.bgp.BgpRouteEntry;
-import org.onosproject.sdnip.bgp.BgpSession;
-
 /**
  * Service interface exported by SDN-IP.
  */
 public interface SdnIpService {
-    /**
-     * Gets the BGP sessions.
-     *
-     * @return the BGP sessions
-     */
-    public Collection<BgpSession> getBgpSessions();
-
-    /**
-     * Gets the selected IPv4 BGP routes among all BGP sessions.
-     *
-     * @return the selected IPv4 BGP routes among all BGP sessions
-     */
-    public Collection<BgpRouteEntry> getBgpRoutes4();
-
-    /**
-     * Gets the selected IPv6 BGP routes among all BGP sessions.
-     *
-     * @return the selected IPv6 BGP routes among all BGP sessions
-     */
-    public Collection<BgpRouteEntry> getBgpRoutes6();
-
-    /**
-     * Gets all IPv4 routes known to SDN-IP.
-     *
-     * @return the SDN-IP IPv4 routes
-     */
-    public Collection<RouteEntry> getRoutes4();
-
-    /**
-     * Gets all IPv6 routes known to SDN-IP.
-     *
-     * @return the SDN-IP IPv6 routes
-     */
-    public Collection<RouteEntry> getRoutes6();
 
     /**
      * Changes whether this SDN-IP instance is the primary or not based on the

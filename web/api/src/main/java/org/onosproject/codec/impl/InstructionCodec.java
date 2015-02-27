@@ -15,7 +15,6 @@
  */
 package org.onosproject.codec.impl;
 
-import org.onlab.packet.Ethernet;
 import org.onosproject.codec.CodecContext;
 import org.onosproject.codec.JsonCodec;
 import org.onosproject.net.flow.instructions.Instruction;
@@ -33,7 +32,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Instruction codec.
  */
-public class InstructionCodec extends JsonCodec<Instruction> {
+public final class InstructionCodec extends JsonCodec<Instruction> {
 
     protected static final Logger log = LoggerFactory.getLogger(InstructionCodec.class);
 
@@ -100,11 +99,7 @@ public class InstructionCodec extends JsonCodec<Instruction> {
                 final L2ModificationInstruction.PushHeaderInstructions pushHeaderInstructions =
                         (L2ModificationInstruction.PushHeaderInstructions) instruction;
 
-                final JsonCodec<Ethernet> ethernetCodec =
-                        context.codec(Ethernet.class);
-                result.set("ethernetType",
-                        ethernetCodec.encode(pushHeaderInstructions.ethernetType(),
-                                context));
+                result.put("ethernetType", pushHeaderInstructions.ethernetType());
                 break;
 
             default:
@@ -122,11 +117,20 @@ public class InstructionCodec extends JsonCodec<Instruction> {
     private void encodeL3(ObjectNode result, L3ModificationInstruction instruction) {
         result.put("subtype", instruction.subtype().name());
         switch (instruction.subtype()) {
-            case IP_SRC:
-            case IP_DST:
+            case IPV4_SRC:
+            case IPV4_DST:
+            case IPV6_SRC:
+            case IPV6_DST:
                 final L3ModificationInstruction.ModIPInstruction modIPInstruction =
                         (L3ModificationInstruction.ModIPInstruction) instruction;
                 result.put("ip", modIPInstruction.ip().toString());
+                break;
+
+            case IPV6_FLABEL:
+                final L3ModificationInstruction.ModIPv6FlowLabelInstruction
+                    modFlowLabelInstruction =
+                        (L3ModificationInstruction.ModIPv6FlowLabelInstruction) instruction;
+                result.put("flowLabel", modFlowLabelInstruction.flowLabel());
                 break;
 
             default:
@@ -169,6 +173,7 @@ public class InstructionCodec extends JsonCodec<Instruction> {
                 final L3ModificationInstruction l3ModificationInstruction =
                         (L3ModificationInstruction) instruction;
                 encodeL3(result, l3ModificationInstruction);
+                break;
 
             default:
                 log.info("Cannot convert instruction type of {}", instruction.type());

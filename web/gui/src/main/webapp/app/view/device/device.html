@@ -1,26 +1,40 @@
 <!-- Device partial HTML -->
 <div id="ov-device">
-    <h2>Device View</h2>
-    <table class="summary-list">
-        <tbody>
+    <h2>Devices ({{ctrl.deviceData.length}} total)</h2>
+    <table class="summary-list"
+           onos-fixed-header
+           onos-sortable-header
+           sort-callback="sortCallback(urlSuffix)">
+        <thead>
             <tr>
-                <th></th>
-                <th>URI</th>
-                <th>Vendor</th>
-                <th>Hardware Version</th>
-                <th>Software Version</th>
-                <th>Serial Number</th>
-                <th>Protocol</th>
+                <th colId="available"></th>
+                <th colId="type"></th>
+                <th colId="id" sortable>Device ID </th>
+                <th colId="mfr" sortable>Vendor </th>
+                <th colId="hw" sortable>H/W Version </th>
+                <th colId="sw" sortable>S/W Version </th>
+                <th colId="chassisid" sortable>Chassis ID </th>
+                <th colId="serial" sortable>Serial # </th>
+                <th colId="protocol" sortable>Protocol </th>
             </tr>
+        </thead>
 
-            <tr ng-repeat="dev in ctrl.deviceData">
-                <td><div icon icon-id="{{dev._iconid_available}}"></div></td>
+        <tbody>
+            <tr ng-repeat="dev in ctrl.deviceData"
+                ng-repeat-done>
+                <td class="table-icon">
+                    <div icon icon-id="{{dev._iconid_available}}"></div>
+                </td>
+                <td class="table-icon">
+                    <div icon icon-id="{{dev._iconid_type}}"></div>
+                </td>
                 <td>{{dev.id}}</td>
                 <td>{{dev.mfr}}</td>
                 <td>{{dev.hw}}</td>
                 <td>{{dev.sw}}</td>
+                <td>{{dev.chassisid}}</td>
                 <td>{{dev.serial}}</td>
-                <td>{{dev.annotations.protocol}}</td>
+                <td>{{dev.protocol}}</td>
             </tr>
         </tbody>
     </table>

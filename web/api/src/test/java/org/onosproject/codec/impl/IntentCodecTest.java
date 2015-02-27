@@ -65,8 +65,7 @@ public class IntentCodecTest extends AbstractIntentTest {
 
     private final HostId id1 = hid("12:34:56:78:91:ab/1");
     private final HostId id2 = hid("12:34:56:78:92:ab/1");
-    private final ApplicationId appId =
-            new DefaultApplicationId((short) 3, "test");
+    private final ApplicationId appId = new DefaultApplicationId(3, "test");
     final TrafficSelector emptySelector =
             DefaultTrafficSelector.builder().build();
     final TrafficTreatment emptyTreatment =
@@ -138,7 +137,7 @@ public class IntentCodecTest extends AbstractIntentTest {
 
         final List<Constraint> constraints =
                 ImmutableList.of(
-                    new BandwidthConstraint(Bandwidth.valueOf(1.0)),
+                    new BandwidthConstraint(Bandwidth.bps(1.0)),
                     new LambdaConstraint(Lambda.valueOf(3)),
                     new AnnotationConstraint("key", 33.0),
                     new AsymmetricPathConstraint(),

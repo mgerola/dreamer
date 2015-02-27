@@ -15,24 +15,30 @@
  */
 package org.onosproject.store.serializers;
 
-import java.net.URI;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Optional;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.onlab.packet.ChassisId;
+import org.onlab.packet.Ip4Address;
+import org.onlab.packet.Ip4Prefix;
+import org.onlab.packet.Ip6Address;
+import org.onlab.packet.Ip6Prefix;
+import org.onlab.packet.IpAddress;
+import org.onlab.packet.IpPrefix;
+import org.onlab.packet.MacAddress;
+import org.onlab.packet.VlanId;
+import org.onlab.util.KryoNamespace;
+import org.onosproject.app.ApplicationState;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.DefaultControllerNode;
 import org.onosproject.cluster.Leadership;
 import org.onosproject.cluster.LeadershipEvent;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.cluster.RoleInfo;
+import org.onosproject.core.DefaultApplication;
 import org.onosproject.core.DefaultApplicationId;
 import org.onosproject.core.DefaultGroupId;
+import org.onosproject.core.Version;
 import org.onosproject.mastership.MastershipTerm;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DefaultAnnotations;
@@ -59,8 +65,11 @@ import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.FlowEntry;
 import org.onosproject.net.flow.FlowId;
+import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleBatchEntry;
+import org.onosproject.net.flow.FlowRuleBatchEvent;
 import org.onosproject.net.flow.FlowRuleBatchOperation;
+import org.onosproject.net.flow.FlowRuleBatchRequest;
 import org.onosproject.net.flow.StoredFlowEntry;
 import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
@@ -75,8 +84,8 @@ import org.onosproject.net.intent.HostToHostIntent;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentOperation;
-import org.onosproject.net.intent.IntentOperations;
 import org.onosproject.net.intent.IntentState;
+import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.LinkCollectionIntent;
 import org.onosproject.net.intent.MplsIntent;
 import org.onosproject.net.intent.MplsPathIntent;
@@ -85,8 +94,8 @@ import org.onosproject.net.intent.OpticalConnectivityIntent;
 import org.onosproject.net.intent.OpticalPathIntent;
 import org.onosproject.net.intent.PathIntent;
 import org.onosproject.net.intent.PointToPointIntent;
-import org.onosproject.net.intent.constraint.AnnotationConstraint;
 import org.onosproject.net.intent.SinglePointToMultiPointIntent;
+import org.onosproject.net.intent.constraint.AnnotationConstraint;
 import org.onosproject.net.intent.constraint.BandwidthConstraint;
 import org.onosproject.net.intent.constraint.BooleanConstraint;
 import org.onosproject.net.intent.constraint.LambdaConstraint;
@@ -110,29 +119,17 @@ import org.onosproject.net.resource.MplsLabel;
 import org.onosproject.net.resource.MplsLabelResourceAllocation;
 import org.onosproject.net.resource.MplsLabelResourceRequest;
 import org.onosproject.store.Timestamp;
-import org.onosproject.store.service.BatchReadRequest;
-import org.onosproject.store.service.BatchWriteRequest;
-import org.onosproject.store.service.ReadRequest;
-import org.onosproject.store.service.ReadResult;
-import org.onosproject.store.service.ReadStatus;
-import org.onosproject.store.service.VersionedValue;
-import org.onosproject.store.service.WriteRequest;
-import org.onosproject.store.service.WriteResult;
-import org.onosproject.store.service.WriteStatus;
-import org.onlab.packet.ChassisId;
-import org.onlab.packet.IpAddress;
-import org.onlab.packet.Ip4Address;
-import org.onlab.packet.Ip6Address;
-import org.onlab.packet.IpPrefix;
-import org.onlab.packet.Ip4Prefix;
-import org.onlab.packet.Ip6Prefix;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.VlanId;
-import org.onlab.util.KryoNamespace;
+import org.onosproject.store.service.Versioned;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import java.net.URI;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Optional;
 
 public final class KryoNamespaces {
 
@@ -163,6 +160,8 @@ public final class KryoNamespaces {
             .register(Duration.class)
             .register(Collections.emptySet().getClass())
             .register(Optional.class)
+            .register(Collections.emptyList().getClass())
+            .register(Collections.unmodifiableSet(Collections.emptySet()).getClass())
             .build();
 
     /**
@@ -196,7 +195,10 @@ public final class KryoNamespaces {
             .register(MISC)
             .nextId(KryoNamespace.INITIAL_ID + 30 + 10)
             .register(
+                    Version.class,
                     ControllerNode.State.class,
+                    ApplicationState.class,
+                    DefaultApplication.class,
                     Device.Type.class,
                     Port.Type.class,
                     ChassisId.class,
@@ -219,45 +221,71 @@ public final class KryoNamespaces {
                     DefaultHostDescription.class,
                     DefaultFlowEntry.class,
                     StoredFlowEntry.class,
+                    FlowRule.Type.class,
                     DefaultFlowRule.class,
                     DefaultFlowEntry.class,
                     FlowEntry.FlowEntryState.class,
                     FlowId.class,
                     DefaultTrafficSelector.class,
                     Criteria.PortCriterion.class,
+                    Criteria.MetadataCriterion.class,
                     Criteria.EthCriterion.class,
                     Criteria.EthTypeCriterion.class,
-                    Criteria.IPCriterion.class,
-                    Criteria.IPProtocolCriterion.class,
                     Criteria.VlanIdCriterion.class,
                     Criteria.VlanPcpCriterion.class,
+                    Criteria.IPDscpCriterion.class,
+                    Criteria.IPEcnCriterion.class,
+                    Criteria.IPProtocolCriterion.class,
+                    Criteria.IPCriterion.class,
                     Criteria.TcpPortCriterion.class,
-                    Criteria.OpticalSignalTypeCriterion.class,
-                    Criteria.LambdaCriterion.class,
+                    Criteria.UdpPortCriterion.class,
+                    Criteria.SctpPortCriterion.class,
+                    Criteria.IcmpTypeCriterion.class,
+                    Criteria.IcmpCodeCriterion.class,
+                    Criteria.IPv6FlowLabelCriterion.class,
+                    Criteria.Icmpv6TypeCriterion.class,
+                    Criteria.Icmpv6CodeCriterion.class,
+                    Criteria.IPv6NDTargetAddressCriterion.class,
+                    Criteria.IPv6NDLinkLayerAddressCriterion.class,
                     Criteria.MplsCriterion.class,
+                    Criteria.IPv6ExthdrFlagsCriterion.class,
+                    Criteria.LambdaCriterion.class,
+                    Criteria.OpticalSignalTypeCriterion.class,
                     Criterion.class,
                     Criterion.Type.class,
                     DefaultTrafficTreatment.class,
                     Instructions.DropInstruction.class,
                     Instructions.OutputInstruction.class,
+                    Instructions.GroupInstruction.class,
                     L0ModificationInstruction.class,
                     L0ModificationInstruction.L0SubType.class,
                     L0ModificationInstruction.ModLambdaInstruction.class,
                     L2ModificationInstruction.class,
                     L2ModificationInstruction.L2SubType.class,
                     L2ModificationInstruction.ModEtherInstruction.class,
+                    L2ModificationInstruction.PushHeaderInstructions.class,
                     L2ModificationInstruction.ModVlanIdInstruction.class,
                     L2ModificationInstruction.ModVlanPcpInstruction.class,
+                    L2ModificationInstruction.ModMplsLabelInstruction.class,
+                    L2ModificationInstruction.ModMplsTtlInstruction.class,
                     L3ModificationInstruction.class,
                     L3ModificationInstruction.L3SubType.class,
                     L3ModificationInstruction.ModIPInstruction.class,
+                    L3ModificationInstruction.ModIPv6FlowLabelInstruction.class,
+                    L3ModificationInstruction.ModTtlInstruction.class,
                     RoleInfo.class,
+                    FlowRuleBatchEvent.class,
+                    FlowRuleBatchEvent.Type.class,
+                    FlowRuleBatchRequest.class,
                     FlowRuleBatchOperation.class,
                     CompletedBatchOperation.class,
                     FlowRuleBatchEntry.class,
                     FlowRuleBatchEntry.FlowRuleOperation.class,
                     IntentId.class,
                     IntentState.class,
+                    //Key.class, is abstract
+                    Key.of(1L, new DefaultApplicationId(0, "bar")).getClass(), //LongKey.class
+                    Key.of("foo", new DefaultApplicationId(0, "bar")).getClass(), //StringKey.class
                     Intent.class,
                     ConnectivityIntent.class,
                     PathIntent.class,
@@ -288,8 +316,7 @@ public final class KryoNamespaces {
                     ObstacleConstraint.class,
                     AnnotationConstraint.class,
                     BooleanConstraint.class,
-                    IntentOperation.class,
-                    IntentOperations.class
+                    IntentOperation.class
                     )
             .register(new DefaultApplicationIdSerializer(), DefaultApplicationId.class)
             .register(new URISerializer(), URI.class)
@@ -304,16 +331,7 @@ public final class KryoNamespaces {
             .register(new MastershipTermSerializer(), MastershipTerm.class)
             .register(new HostLocationSerializer(), HostLocation.class)
             .register(new DefaultOutboundPacketSerializer(), DefaultOutboundPacket.class)
-            .register(ReadRequest.class)
-            .register(WriteRequest.class)
-            .register(WriteRequest.Type.class)
-            .register(WriteResult.class)
-            .register(ReadResult.class)
-            .register(BatchReadRequest.class)
-            .register(BatchWriteRequest.class)
-            .register(ReadStatus.class)
-            .register(WriteStatus.class)
-            .register(VersionedValue.class)
+            .register(Versioned.class)
             .register(DefaultGroupId.class)
             .register(
                     MplsIntent.class,

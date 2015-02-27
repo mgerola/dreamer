@@ -19,8 +19,6 @@ package org.onosproject.net.flow;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.DeviceId;
 
-import java.util.concurrent.Future;
-
 /**
  * Test adapter for flow rule service.
  */
@@ -61,8 +59,8 @@ public class FlowRuleServiceAdapter implements FlowRuleService {
     }
 
     @Override
-    public Future<CompletedBatchOperation> applyBatch(FlowRuleBatchOperation batch) {
-        return null;
+    public void apply(FlowRuleOperations ops) {
+
     }
 
     @Override

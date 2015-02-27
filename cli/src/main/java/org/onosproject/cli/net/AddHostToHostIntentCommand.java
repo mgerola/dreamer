@@ -54,10 +54,12 @@ public class AddHostToHostIntentCommand extends ConnectivityIntentCommand {
         TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
         List<Constraint> constraints = buildConstraints();
 
-        HostToHostIntent intent = new HostToHostIntent(appId(), oneId, twoId,
+        HostToHostIntent intent = new HostToHostIntent(appId(), key(),
+                                                       oneId, twoId,
                                                        selector, treatment,
                                                        constraints);
         service.submit(intent);
+        print("Host to Host intent submitted:\n%s", intent.toString());
     }
 
 }

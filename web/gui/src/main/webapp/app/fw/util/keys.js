@@ -21,10 +21,11 @@
     'use strict';
 
     // references to injected services
-    var $log, fs, ts;
+    var $log, fs, ts, qhs;
 
     // internal state
-    var keyHandler = {
+    var enabled = true,
+        keyHandler = {
             globalKeys: {},
             maskedKeys: {},
             viewKeys: {},
@@ -80,14 +81,16 @@
 
         d3.event.stopPropagation();
 
-        // global callback?
-        if (gcb && gcb(token, key, keyCode, event)) {
-            // if the event was 'handled', we are done
-            return;
-        }
-        // otherwise, let the view callback have a shot
-        if (vcb) {
-            vcb(token, key, keyCode, event);
+        if (enabled) {
+            // global callback?
+            if (gcb && gcb(token, key, keyCode, event)) {
+                // if the event was 'handled', we are done
+                return;
+            }
+            // otherwise, let the view callback have a shot
+            if (vcb) {
+                vcb(token, key, keyCode, event);
+            }
         }
     }
 
@@ -112,27 +115,13 @@
     }
 
     function quickHelp(view, key, code, ev) {
-        // TODO: show quick help
-        // delegate to QuickHelp service.
-        //libApi.quickHelp.show(keyHandler);
-        console.log('QUICK-HELP');
+        qhs.showQuickHelp(keyHandler);
         return true;
     }
 
+    // returns true if we 'consumed' the ESC keypress, false otherwise
     function escapeKey(view, key, code, ev) {
-        // TODO: plumb in handling of alerts and quick help dismissal
-        // We will delegate to the Alert / QuickHelp Services as appropriate.
-/*
-        if (alerts.open) {
-            closeAlerts();
-            return true;
-        }
-        if (libApi.quickHelp.hide()) {
-            return true;
-        }
-*/
-        console.log('ESCAPE');
-        return false;
+        return qhs.hideQuickHelp();
     }
 
     function toggleTheme(view, key, code, ev) {
@@ -178,13 +167,18 @@
     }
 
     angular.module('onosUtil')
-        .factory('KeyService', ['$log', 'FnService', 'ThemeService',
+    .factory('KeyService',
+        ['$log', 'FnService', 'ThemeService',
+
         function (_$log_, _fs_, _ts_) {
             $log = _$log_;
             fs = _fs_;
             ts = _ts_;
 
             return {
+                bindQhs: function (_qhs_) {
+                    qhs = _qhs_;
+                },
                 installOn: function (elem) {
                     elem.on('keydown', keyIn);
                     setupGlobalKeys();
@@ -202,6 +196,9 @@
                     } else {
                         keyHandler.viewGestures = fs.isA(g) || [];
                     }
+                },
+                enableKeys: function (b) {
+                    enabled = b;
                 }
             };
     }]);

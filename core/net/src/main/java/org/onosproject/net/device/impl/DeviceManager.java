@@ -15,17 +15,6 @@
  */
 package org.onosproject.net.device.impl;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.onosproject.net.MastershipRole.*;
-import static org.onlab.util.Tools.namedThreads;
-import static org.slf4j.LoggerFactory.getLogger;
-
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-
 import com.google.common.collect.Lists;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -64,6 +53,16 @@ import org.onosproject.net.device.PortDescription;
 import org.onosproject.net.provider.AbstractProviderRegistry;
 import org.onosproject.net.provider.AbstractProviderService;
 import org.slf4j.Logger;
+
+import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.onlab.util.Tools.groupedThreads;
+import static org.onosproject.net.MastershipRole.*;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Provides implementation of the device SB &amp; NB APIs.
@@ -111,7 +110,7 @@ public class DeviceManager
 
     @Activate
     public void activate() {
-        backgroundService = Executors.newSingleThreadScheduledExecutor(namedThreads("onos-device-manager-background"));
+        backgroundService = newSingleThreadScheduledExecutor(groupedThreads("onos/device", "manager-background"));
 
         store.setDelegate(delegate);
         eventDispatcher.addSink(DeviceEvent.class, listenerRegistry);
@@ -234,7 +233,7 @@ public class DeviceManager
         log.debug("Checking mastership");
         for (Device device : getDevices()) {
             final DeviceId deviceId = device.id();
-            log.debug("Checking device {}", deviceId);
+            log.trace("Checking device {}", deviceId);
 
             if (!isReachable(deviceId)) {
                 continue;
@@ -305,17 +304,15 @@ public class DeviceManager
                 // TODO: Do we need to explicitly tell the Provider that
                 // this instance is not the MASTER
                 applyRole(deviceId, MastershipRole.STANDBY);
-                return;
+            } else {
+                log.info("Role of this node is MASTER for {}", deviceId);
+                // tell clock provider if this instance is the master
+                deviceClockProviderService.setMastershipTerm(deviceId, term);
+                applyRole(deviceId, MastershipRole.MASTER);
             }
-            log.info("Role of this node is MASTER for {}", deviceId);
-
-            // tell clock provider if this instance is the master
-            deviceClockProviderService.setMastershipTerm(deviceId, term);
 
             DeviceEvent event = store.createOrUpdateDevice(provider().id(),
                                                            deviceId, deviceDescription);
-
-            applyRole(deviceId, MastershipRole.MASTER);
 
             // If there was a change of any kind, tell the provider
             // that this instance is the master.
@@ -614,7 +611,11 @@ public class DeviceManager
             }
 
             // device is connected to this node:
-            reassertRole(did, myNextRole);
+            if (store.getDevice(did) != null) {
+                reassertRole(did, myNextRole);
+            } else {
+                log.warn("Device is not yet/no longer in the store: {}", did);
+            }
         }
     }
 

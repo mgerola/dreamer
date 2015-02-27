@@ -18,7 +18,8 @@
  ONOS GUI -- Util -- General Purpose Functions - Unit Tests
  */
 describe('factory: fw/util/fn.js', function() {
-    var fs,
+    var $window,
+        fs,
         someFunction = function () {},
         someArray = [1, 2, 3],
         someObject = { foo: 'bar'},
@@ -29,10 +30,13 @@ describe('factory: fw/util/fn.js', function() {
 
     beforeEach(module('onosUtil'));
 
-    beforeEach(inject(function (FnService) {
+    beforeEach(inject(function (_$window_, FnService) {
+        $window = _$window_;
         fs = FnService;
-    }));
 
+        $window.innerWidth = 400;
+        $window.innerHeight = 200;
+    }));
 
     // === Tests for isF()
     it('isF(): null for undefined', function () {
@@ -176,8 +180,16 @@ describe('factory: fw/util/fn.js', function() {
             b: 'not-a-function'
         }, ['b', 'a'])).toBeFalsy();
     });
-    it('areFunctions(): extraneous stuff ignored', function () {
+    it('areFunctions(): extraneous stuff NOT ignored', function () {
         expect(fs.areFunctions({
+            a: function () {},
+            b: function () {},
+            c: 1,
+            d: 'foo'
+        }, ['a', 'b'])).toBeFalsy();
+    });
+    it('areFunctions(): extraneous stuff ignored (alternate fn)', function () {
+        expect(fs.areFunctionsNonStrict({
             a: function () {},
             b: function () {},
             c: 1,
@@ -185,5 +197,142 @@ describe('factory: fw/util/fn.js', function() {
         }, ['a', 'b'])).toBeTruthy();
     });
 
+    // == use the now-tested areFunctions() on our own api:
+    it('should define api functions', function () {
+        expect(fs.areFunctions(fs, [
+            'isF', 'isA', 'isS', 'isO', 'contains',
+            'areFunctions', 'areFunctionsNonStrict', 'windowSize', 'find',
+            'inArray', 'removeFromArray', 'cap'
+        ])).toBeTruthy();
+    });
+
+
+    // === Tests for windowSize()
+    it('windowSize(): noargs', function () {
+        var dim = fs.windowSize();
+        expect(dim.width).toEqual(400);
+        expect(dim.height).toEqual(200);
+    });
+
+    it('windowSize(): adjust height', function () {
+        var dim = fs.windowSize(50);
+        expect(dim.width).toEqual(400);
+        expect(dim.height).toEqual(150);
+    });
+
+    it('windowSize(): adjust width', function () {
+        var dim = fs.windowSize(0, 50);
+        expect(dim.width).toEqual(350);
+        expect(dim.height).toEqual(200);
+    });
+
+    it('windowSize(): adjust width and height', function () {
+        var dim = fs.windowSize(101, 201);
+        expect(dim.width).toEqual(199);
+        expect(dim.height).toEqual(99);
+    });
+
+
+    // === Tests for find()
+    var dataset = [
+        { id: 'foo', name: 'Furby'},
+        { id: 'bar', name: 'Barbi'},
+        { id: 'baz', name: 'Basil'},
+        { id: 'goo', name: 'Gabby'},
+        { id: 'zoo', name: 'Zevvv'}
+    ];
+
+    it('should not find ooo', function () {
+        expect(fs.find('ooo', dataset)).toEqual(-1);
+    });
+    it('should find foo', function () {
+        expect(fs.find('foo', dataset)).toEqual(0);
+    });
+    it('should find zoo', function () {
+        expect(fs.find('zoo', dataset)).toEqual(4);
+    });
+
+    it('should not find Simon', function () {
+        expect(fs.find('Simon', dataset, 'name')).toEqual(-1);
+    });
+    it('should find Furby', function () {
+        expect(fs.find('Furby', dataset, 'name')).toEqual(0);
+    });
+    it('should find Zevvv', function () {
+        expect(fs.find('Zevvv', dataset, 'name')).toEqual(4);
+    });
+
+
+    // === Tests for inArray()
+    var objRef = { x:1, y:2 },
+        array = [1, 3.14, 'hey', objRef, 'there', true],
+        array2 = ['b', 'a', 'd', 'a', 's', 's'];
+
+    it('should return -1 on non-arrays', function () {
+        expect(fs.inArray(1, {x:1})).toEqual(-1);
+    });
+    it('should not find HOO', function () {
+        expect(fs.inArray('HOO', array)).toEqual(-1);
+    });
+    it('should find 1', function () {
+        expect(fs.inArray(1, array)).toEqual(0);
+    });
+    it('should find pi', function () {
+        expect(fs.inArray(3.14, array)).toEqual(1);
+    });
+    it('should find hey', function () {
+        expect(fs.inArray('hey', array)).toEqual(2);
+    });
+    it('should find the object', function () {
+        expect(fs.inArray(objRef, array)).toEqual(3);
+    });
+    it('should find there', function () {
+        expect(fs.inArray('there', array)).toEqual(4);
+    });
+    it('should find true', function () {
+        expect(fs.inArray(true, array)).toEqual(5);
+    });
+
+    it('should find the first occurrence A', function () {
+        expect(fs.inArray('a', array2)).toEqual(1);
+    });
+    it('should find the first occurrence S', function () {
+        expect(fs.inArray('s', array2)).toEqual(4);
+    });
+    it('should not find X', function () {
+        expect(fs.inArray('x', array2)).toEqual(-1);
+    });
+
+    // === Tests for removeFromArray()
+    it('should ignore non-arrays', function () {
+        expect(fs.removeFromArray(1, {x:1})).toBe(false);
+    });
+    it('should keep the array the same, for non-match', function () {
+        var array = [1, 2, 3];
+        expect(fs.removeFromArray(4, array)).toBe(false);
+        expect(array).toEqual([1, 2, 3]);
+    });
+    it('should remove a value', function () {
+        var array = [1, 2, 3];
+        expect(fs.removeFromArray(2, array)).toBe(true);
+        expect(array).toEqual([1, 3]);
+    });
+    it('should remove the first occurrence', function () {
+        var array = ['x', 'y', 'z', 'z', 'y'];
+        expect(fs.removeFromArray('y', array)).toBe(true);
+        expect(array).toEqual(['x', 'z', 'z', 'y']);
+        expect(fs.removeFromArray('x', array)).toBe(true);
+        expect(array).toEqual(['z', 'z', 'y']);
+    });
+
+    // === Tests for cap()
+    it('should ignore non-alpha', function () {
+        expect(fs.cap('123')).toEqual('123');
+    });
+    it('should capitalize first char', function () {
+        expect(fs.cap('Foo')).toEqual('Foo');
+        expect(fs.cap('foo')).toEqual('Foo');
+        expect(fs.cap('foo bar')).toEqual('Foo bar');
+    });
 
 });

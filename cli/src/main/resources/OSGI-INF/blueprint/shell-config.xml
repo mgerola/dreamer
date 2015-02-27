@@ -14,47 +14,59 @@
         </command>
 
         <command>
+            <action class="org.onosproject.cli.app.ApplicationsListCommand"/>
+        </command>
+
+        <command>
+            <action class="org.onosproject.cli.app.ApplicationCommand"/>
+            <completers>
+                <ref component-id="appCommandCompleter"/>
+                <ref component-id="appNameCompleter"/>
+                <null/>
+            </completers>
+        </command>
+
+        <!--
+        <command>
+            <action class="org.onosproject.cli.app.ApplicationActivateCommand"/>
+            <completers>
+                <ref component-id="appNameCompleter"/>
+                <null/>
+            </completers>
+        </command>
+
+        <command>
+            <action class="org.onosproject.cli.app.ApplicationDeactivateCommand"/>
+            <completers>
+                <ref component-id="appNameCompleter"/>
+                <null/>
+            </completers>
+        </command>
+
+        <command>
+            <action class="org.onosproject.cli.app.ApplicationUninstallCommand"/>
+            <completers>
+                <ref component-id="appNameCompleter"/>
+                <null/>
+            </completers>
+        </command>
+        -->
+
+        <command>
             <action class="org.onosproject.cli.MetricsListCommand"/>
         </command>
 
         <command>
-            <action class="org.onosproject.cli.TabletMemberCommand"/>
-        </command>
-
-        <command>
-            <action class="org.onosproject.cli.TabletLeaderCommand"/>
-        </command>
-
-<!--
-        <command>
-            <action class="org.onosproject.cli.TabletAddCommand"/>
-            <completers>
-                <ref component-id="nodeIdCompleter"/>
-                <null/>
-                <null/>
-            </completers>
-        </command>
-        <command>
-            <action class="org.onosproject.cli.TabletRemoveCommand"/>
-            <completers>
-                <ref component-id="nodeIdCompleter"/>
-                <null/>
-                <null/>
-            </completers>
-        </command>
--->
-
-        <command>
             <action class="org.onosproject.cli.NodesListCommand"/>
         </command>
-<!--
+        <!--
         <command>
             <action class="org.onosproject.cli.NodeAddCommand"/>
         </command>
         <command>
             <action class="org.onosproject.cli.NodeRemoveCommand"/>
         </command>
--->
+        -->
 
         <command>
             <action class="org.onosproject.cli.RolesCommand"/>
@@ -66,7 +78,7 @@
             <action class="org.onosproject.cli.BalanceMastersCommand"/>
         </command>
         <command>
-            <action class="org.onosproject.cli.ApplicationIdListCommand"/>
+            <action class="org.onosproject.cli.app.ApplicationIdListCommand"/>
         </command>
 
         <command>
@@ -122,6 +134,7 @@
         <command>
             <action class="org.onosproject.cli.net.IntentRemoveCommand"/>
             <completers>
+                <ref component-id="appIdNameCompleter"/>
                 <ref component-id="intentIdCompleter"/>
                 <null/>
             </completers>
@@ -156,9 +169,9 @@
         </command>
         <command>
             <action class="org.onosproject.cli.net.GetStatistics"/>
-                <completers>
-                    <ref component-id="connectPointCompleter"/>
-                </completers>
+            <completers>
+                <ref component-id="connectPointCompleter"/>
+            </completers>
         </command>
         <command>
             <action class="org.onosproject.cli.net.AddMultiPointToSinglePointIntentCommand"/>
@@ -181,6 +194,15 @@
         </command>
         <command>
             <action class="org.onosproject.cli.net.IntentPushTestCommand"/>
+            <completers>
+                <ref component-id="connectPointCompleter"/>
+                <ref component-id="connectPointCompleter"/>
+                <ref component-id="nullCompleter"/>
+                <null/>
+            </completers>
+        </command>
+        <command>
+            <action class="org.onosproject.cli.net.IntentCycleCommand"/>
             <completers>
                 <ref component-id="connectPointCompleter"/>
                 <ref component-id="connectPointCompleter"/>
@@ -213,6 +235,9 @@
         </command>
         <command>
             <action class="org.onosproject.cli.net.ClustersListCommand"/>
+        </command>
+        <command>
+            <action class="org.onosproject.cli.net.PartitionsListCommand"/>
         </command>
         <command>
             <action class="org.onosproject.cli.net.ClusterDevicesCommand"/>
@@ -263,6 +288,12 @@
             <action class="org.onosproject.cli.net.WipeOutCommand"/>
         </command>
         <command>
+            <action class="org.onosproject.cli.net.AddMplsIntent"/>
+            <completers>
+                <ref component-id="connectPointCompleter"/>
+            </completers>
+        </command>
+        <command>
 			<action class="org.onosproject.cli.icona.TopologyCommand" />
 		</command>
 		<command>
@@ -294,6 +325,9 @@
 		</command>
     </command-bundle>
 
+    <bean id="appCommandCompleter" class="org.onosproject.cli.app.ApplicationCommandCompleter"/>
+    <bean id="appNameCompleter" class="org.onosproject.cli.app.ApplicationNameCompleter"/>
+    <bean id="appIdNameCompleter" class="org.onosproject.cli.app.ApplicationIdNameCompleter"/>
     <bean id="nodeIdCompleter" class="org.onosproject.cli.NodeIdCompleter"/>
     <bean id="deviceIdCompleter" class="org.onosproject.cli.net.DeviceIdCompleter"/>
     <bean id="clusterIdCompleter" class="org.onosproject.cli.net.ClusterIdCompleter"/>

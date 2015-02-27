@@ -56,6 +56,11 @@ public class IntentsListCommand extends AbstractShellCommand {
             required = false, multiValued = false)
     private boolean intentsSummary = false;
 
+    @Option(name = "-p", aliases = "--pending",
+            description = "Show inforamtion about pending intents",
+            required = false, multiValued = false)
+    private boolean pending = false;
+
     @Override
     protected void execute() {
         IntentService service = get(IntentService.class);
@@ -70,16 +75,25 @@ public class IntentsListCommand extends AbstractShellCommand {
                 intentSummaries.printSummary();
             }
             return;
+        } else if (pending) {
+            service.getPending().forEach(intent ->
+            print("id=%s, key=%s, type=%s, appId=%s",
+                  intent.id(), intent.key(),
+                  intent.getClass().getSimpleName(),
+                  intent.appId().name())
+            );
+            return;
         }
 
         if (outputJson()) {
             print("%s", json(service, service.getIntents()));
         } else {
             for (Intent intent : service.getIntents()) {
-                IntentState state = service.getIntentState(intent.id());
+                IntentState state = service.getIntentState(intent.key());
                 if (state != null) {
-                    print("id=%s, state=%s, type=%s, appId=%s",
-                          intent.id(), state, intent.getClass().getSimpleName(),
+                    print("id=%s, state=%s, key=%s, type=%s, appId=%s",
+                          intent.id(), state, intent.key(),
+                          intent.getClass().getSimpleName(),
                           intent.appId().name());
                     printDetails(service, intent);
                 }
@@ -130,7 +144,7 @@ public class IntentsListCommand extends AbstractShellCommand {
 
             // Collect the summary for each intent type intents
             for (Intent intent : intents) {
-                IntentState intentState = service.getIntentState(intent.id());
+                IntentState intentState = service.getIntentState(intent.key());
                 if (intentState == null) {
                     continue;
                 }
@@ -180,17 +194,17 @@ public class IntentsListCommand extends AbstractShellCommand {
         ObjectNode json() {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode result = mapper.createObjectNode();
-            result.put("connectivity", summaryConnectivity.json(mapper));
-            result.put("hostToHost", summaryHostToHost.json(mapper));
-            result.put("pointToPoint", summaryPointToPoint.json(mapper));
-            result.put("multiPointToSinglePoint",
+            result.set("connectivity", summaryConnectivity.json(mapper));
+            result.set("hostToHost", summaryHostToHost.json(mapper));
+            result.set("pointToPoint", summaryPointToPoint.json(mapper));
+            result.set("multiPointToSinglePoint",
                        summaryMultiPointToSinglePoint.json(mapper));
-            result.put("singlePointToMultiPoint",
+            result.set("singlePointToMultiPoint",
                        summarySinglePointToMultiPoint.json(mapper));
-            result.put("path", summaryPath.json(mapper));
-            result.put("linkCollection", summaryLinkCollection.json(mapper));
-            result.put("unknownType", summaryUnknownType.json(mapper));
-            result.put("all", summaryAll.json(mapper));
+            result.set("path", summaryPath.json(mapper));
+            result.set("linkCollection", summaryLinkCollection.json(mapper));
+            result.set("unknownType", summaryUnknownType.json(mapper));
+            result.set("all", summaryAll.json(mapper));
             return result;
         }
 
@@ -365,7 +379,7 @@ public class IntentsListCommand extends AbstractShellCommand {
             print("    egress=%s", li.egressPoints());
         }
 
-        List<Intent> installable = service.getInstallableIntents(intent.id());
+        List<Intent> installable = service.getInstallableIntents(intent.key());
         if (showInstallable && installable != null && !installable.isEmpty()) {
             print("    installable=%s", installable);
         }
@@ -387,7 +401,7 @@ public class IntentsListCommand extends AbstractShellCommand {
                 .put("type", intent.getClass().getSimpleName())
                 .put("appId", intent.appId().name());
 
-        IntentState state = service.getIntentState(intent.id());
+        IntentState state = service.getIntentState(intent.key());
         if (state != null) {
             result.put("state", state.toString());
         }
@@ -438,7 +452,7 @@ public class IntentsListCommand extends AbstractShellCommand {
             result.set("links", LinksListCommand.json(li.links()));
         }
 
-        List<Intent> installable = service.getInstallableIntents(intent.id());
+        List<Intent> installable = service.getInstallableIntents(intent.key());
         if (installable != null && !installable.isEmpty()) {
             result.set("installable", json(service, installable));
         }

@@ -28,48 +28,115 @@
     ];
 
     // references to injected services etc.
-    var $log, ks, zs, gs, ms, ps, tes;
+    var $log, fs, ks, zs, gs, ms, sus, flash, tes, tfs, tps, tis, tss, tts, tos;
 
     // DOM elements
-    var ovtopo, svg, defs, zoomLayer, map;
+    var ovtopo, svg, defs, zoomLayer, mapG, forceG, noDevsLayer;
 
     // Internal state
-    var zoomer, evDispatcher;
-
-    // Note: "exported" state should be properties on 'self' variable
+    var zoomer;
 
     // --- Short Cut Keys ------------------------------------------------
 
-    var keyBindings = {
-        W: [logWarning, '(temp) log a warning'],
-        E: [logError, '(temp) log an error'],
-        R: [resetZoom, 'Reset pan / zoom']
-    };
+    function setUpKeys() {
+        // key bindings need to be made after the services have been injected
+        // thus, deferred to here...
+        ks.keyBindings({
+            O: [tps.toggleSummary, 'Toggle ONOS summary pane'],
+            I: [toggleInstances, 'Toggle ONOS instances pane'],
+            D: [tss.toggleDetails, 'Disable / enable details pane'],
 
-    // -----------------
-    // these functions are necessarily temporary examples....
-    function logWarning() {
-        $log.warn('You have been warned!');
+            H: [tfs.toggleHosts, 'Toggle host visibility'],
+            M: [tfs.toggleOffline, 'Toggle offline visibility'],
+            B: [toggleMap, 'Toggle background map'],
+            //P: togglePorts,
+
+            //X: [toggleNodeLock, 'Lock / unlock node positions'],
+            Z: [tos.toggleOblique, 'Toggle oblique view (Experimental)'],
+            L: [tfs.cycleDeviceLabels, 'Cycle device labels'],
+            U: [tfs.unpin, 'Unpin node (hover mouse over)'],
+            R: [resetZoom, 'Reset pan / zoom'],
+
+            V: [tts.showRelatedIntentsAction, 'Show all related intents'],
+            rightArrow: [tts.showNextIntentAction, 'Show next related intent'],
+            leftArrow: [tts.showPrevIntentAction, 'Show previous related intent'],
+            W: [tts.showSelectedIntentTrafficAction, 'Monitor traffic of selected intent'],
+            A: [tts.showAllTrafficAction, 'Monitor all traffic'],
+            F: [tts.showDeviceLinkFlowsAction, 'Show device link flows'],
+
+            E: [equalizeMasters, 'Equalize mastership roles'],
+
+            esc: handleEscape,
+
+            _helpFormat: [
+                ['O', 'I', 'D', '-', 'H', 'M', 'B', 'P' ],
+                ['X', 'Z', 'L', 'U', 'R' ],
+                ['V', 'rightArrow', 'leftArrow', 'W', 'A', 'F', '-', 'E' ]
+            ]
+        });
+
+        ks.gestureNotes([
+            ['click', 'Select the item and show details'],
+            ['shift-click', 'Toggle selection state'],
+            ['drag', 'Reposition (and pin) device / host'],
+            ['cmd-scroll', 'Zoom in / out'],
+            ['cmd-drag', 'Pan']
+        ]);
     }
-    function logError() {
-        $log.error('You are erroneous!');
+
+    // --- Keystroke functions -------------------------------------------
+
+    // NOTE: this really belongs in the TopoPanelService -- but how to
+    //       cleanly link in the updateDeviceColors() call? To be fixed later.
+    function toggleInstances() {
+        tis.toggle();
+        tfs.updateDeviceColors();
     }
-    // -----------------
+
+    function toggleMap() {
+        sus.visible(mapG, !sus.visible(mapG));
+    }
 
     function resetZoom() {
         zoomer.reset();
     }
 
-    function setUpKeys() {
-        ks.keyBindings(keyBindings);
+    function equalizeMasters() {
+        tes.sendEvent('equalizeMasters');
+        flash.flash('Equalizing master roles');
     }
 
+    function handleEscape() {
+        if (tis.showMaster()) {
+            // if an instance is selected, cancel the affinity mapping
+            tis.cancelAffinity()
+
+        } else if (tss.haveDetails()) {
+            // else if we have node selections, deselect them all
+            tss.deselectAll();
+
+        } else if (tis.isVisible()) {
+            // else if the Instance Panel is visible, hide it
+            tis.hide();
+            tfs.updateDeviceColors();
+
+        } else if (tps.summaryVisible()) {
+            // else if the Summary Panel is visible, hide it
+            tps.hideSummaryPanel();
+
+        } else {
+            // TODO: set hover mode to hoverModeNone
+            // talk to Thomas about this: shouldn't it be done
+            // when we deselect the node (if tss.haveDetails()...)
+        }
+    }
 
     // --- Glyphs, Icons, and the like -----------------------------------
 
     function setUpDefs() {
         defs = svg.append('defs');
         gs.loadDefs(defs);
+        sus.loadGlowDefs(defs);
     }
 
 
@@ -81,12 +148,10 @@
     }
 
     function zoomCallback() {
-        var tr = zoomer.translate(),
-            sc = zoomer.scale();
-        $log.log('ZOOM: translate = ' + tr + ', scale = ' + sc);
+        var sc = zoomer.scale();
 
         // keep the map lines constant width while zooming
-        map.style('stroke-width', (2.0 / sc) + 'px');
+        mapG.style('stroke-width', (2.0 / sc) + 'px');
     }
 
     function setUpZoom() {
@@ -101,86 +166,132 @@
 
 
     // callback invoked when the SVG view has been resized..
-    function svgResized(w, h) {
-        // not used now, but may be required later...
+    function svgResized(s) {
+        tfs.newDim([s.width, s.height]);
     }
 
     // --- Background Map ------------------------------------------------
 
-    function showCallibrationPoints() {
-        // temp code for calibration
-        var points = [
-            [0, 0], [0, 1000], [1000, 0], [1000, 1000]
-        ];
-        map.selectAll('circle')
-            .data(points)
-            .enter()
-            .append('circle')
-            .attr('cx', function (d) { return d[0]; })
-            .attr('cy', function (d) { return d[1]; })
-            .attr('r', 5)
-            .style('fill', 'red');
+    function setUpNoDevs() {
+        var g, box;
+        noDevsLayer = svg.append('g').attr({
+            id: 'topo-noDevsLayer',
+            transform: sus.translate(500,500)
+        });
+        // Note, SVG viewbox is '0 0 1000 1000', defined in topo.html.
+        // We are translating this layer to have its origin at the center
+
+        g = noDevsLayer.append('g');
+        gs.addGlyph(g, 'bird', 100).attr('class', 'noDevsBird');
+        g.append('text').text('No devices are connected')
+            .attr({ x: 120, y: 80});
+
+        box = g.node().getBBox();
+        box.x -= box.width/2;
+        box.y -= box.height/2;
+        g.attr('transform', sus.translate(box.x, box.y));
+
+        showNoDevs(true);
+    }
+
+    function showNoDevs(b) {
+        sus.visible(noDevsLayer, b);
     }
 
     function setUpMap() {
-        map = zoomLayer.append('g').attr('id', 'topo-map');
-        //ms.loadMapInto(map, '*continental_us', {mapFillScale:0.5});
-        ms.loadMapInto(map, '*continental_us');
-        //showCallibrationPoints();
+        mapG = zoomLayer.append('g').attr('id', 'topo-map');
+        // returns a promise for the projection...
+        return ms.loadMapInto(mapG, '*continental_us');
     }
 
+    function opacifyMap(b) {
+        mapG.transition()
+            .duration(1000)
+            .attr('opacity', b ? 1 : 0);
+    }
 
     // --- Controller Definition -----------------------------------------
 
     angular.module('ovTopo', moduleDependencies)
-
         .controller('OvTopoCtrl', [
             '$scope', '$log', '$location', '$timeout',
-            'KeyService', 'ZoomService', 'GlyphService', 'MapService',
-            'PanelService', 'TopoEventService',
+            'FnService', 'MastService', 'KeyService', 'ZoomService',
+            'GlyphService', 'MapService', 'SvgUtilService', 'FlashService',
+            'TopoEventService', 'TopoForceService', 'TopoPanelService',
+            'TopoInstService', 'TopoSelectService', 'TopoTrafficService',
+            'TopoObliqueService',
 
-        function ($scope, _$log_, $loc, $timeout,
-                  _ks_, _zs_, _gs_, _ms_, _ps_, _tes_) {
-            var self = this;
+        function ($scope, _$log_, $loc, $timeout, _fs_, mast,
+                  _ks_, _zs_, _gs_, _ms_, _sus_, _flash_,
+                  _tes_, _tfs_, _tps_, _tis_, _tss_, _tts_, _tos_) {
+            var self = this,
+                projection,
+                dim,
+                uplink = {
+                    // provides function calls back into this space
+                    showNoDevs: showNoDevs,
+                    projection: function () { return projection; },
+                    zoomLayer: function () { return zoomLayer; },
+                    zoomer: function () { return zoomer; },
+                    opacifyMap: opacifyMap,
+                    sendEvent: _tes_.sendEvent
+                };
+
             $log = _$log_;
+            fs = _fs_;
             ks = _ks_;
             zs = _zs_;
             gs = _gs_;
             ms = _ms_;
-            ps = _ps_;
+            sus = _sus_;
+            flash = _flash_;
             tes = _tes_;
+            tfs = _tfs_;
+            // TODO: consider funnelling actions through TopoForceService...
+            //  rather than injecting references to these 'sub-modules',
+            //  just so we can invoke functions on them.
+            tps = _tps_;
+            tis = _tis_;
+            tss = _tss_;
+            tts = _tts_;
+            tos = _tos_;
 
             self.notifyResize = function () {
-                svgResized(svg.style('width'), svg.style('height'));
+                svgResized(fs.windowSize(mast.mastHeight()));
             };
 
             // Cleanup on destroyed scope..
             $scope.$on('$destroy', function () {
                 $log.log('OvTopoCtrl is saying Buh-Bye!');
                 tes.closeSock();
-                ps.destroyPanel('topo-p-summary');
+                tps.destroyPanels();
+                tis.destroyInst();
+                tfs.destroyForce();
             });
 
             // svg layer and initialization of components
             ovtopo = d3.select('#ov-topo');
             svg = ovtopo.select('svg');
-
-            // bind to topo event dispatcher..
-            evDispatcher = tes.bindDispatcher('TODO: topo-DOM-elements-here');
+            // set the svg size to match that of the window, less the masthead
+            svg.attr(fs.windowSize(mast.mastHeight()));
+            dim = [svg.attr('width'), svg.attr('height')];
 
             setUpKeys();
             setUpDefs();
             setUpZoom();
-            setUpMap();
+            setUpNoDevs();
+            setUpMap().then(
+                function (proj) {
+                    projection = proj;
+                    $log.debug('** We installed the projection: ', proj);
+                }
+            );
 
-            // open up a connection to the server...
+            forceG = zoomLayer.append('g').attr('id', 'topo-force');
+            tfs.initForce(svg, forceG, uplink, dim);
+            tis.initInst({ showMastership: tfs.showMastership });
+            tps.initPanels({ sendEvent: tes.sendEvent });
             tes.openSock();
-
-            // TODO: remove this temporary code....
-            var p = ps.createPanel('topo-p-summary');
-            p.append('h1').text('Hello World');
-            p.show();
-            $timeout(function () { p.hide(); }, 2000);
 
             $log.log('OvTopoCtrl has been created');
         }]);

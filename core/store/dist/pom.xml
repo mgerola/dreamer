@@ -43,25 +43,11 @@
             <artifactId>onlab-netty</artifactId>
             <version>${project.version}</version>
         </dependency>
-<!--
-       <dependency>
-            <groupId>net.kuujo.copycat</groupId>
-            <artifactId>copycat</artifactId>
-            <version>${copycat.version}</version>
-        </dependency>
 
         <dependency>
-            <groupId>net.kuujo.copycat</groupId>
-            <artifactId>copycat-chronicle</artifactId>
-            <version>${copycat.version}</version>
+            <groupId>org.onosproject</groupId>
+            <artifactId>onos-core-common</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>net.kuujo.copycat</groupId>
-            <artifactId>copycat-tcp</artifactId>
-            <version>${copycat.version}</version>
-        </dependency>
--->
 
         <dependency>
             <groupId>org.mapdb</groupId>
@@ -101,6 +87,12 @@
         <dependency>
           <groupId>com.hazelcast</groupId>
           <artifactId>hazelcast</artifactId>
+        </dependency>
+        <dependency>
+          <groupId>com.hazelcast</groupId>
+          <artifactId>hazelcast</artifactId>
+          <classifier>tests</classifier>
+          <scope>test</scope>
         </dependency>
 
         <!-- for shaded copycat -->

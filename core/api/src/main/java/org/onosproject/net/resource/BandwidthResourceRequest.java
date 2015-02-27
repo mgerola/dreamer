@@ -34,15 +34,6 @@ public class BandwidthResourceRequest implements ResourceRequest {
     }
 
     /**
-     * Creates a new {@link BandwidthResourceRequest} with bandwidth value.
-     *
-     * @param bandwidth bandwidth value to be requested
-     */
-    public BandwidthResourceRequest(double bandwidth) {
-        this.bandwidth = Bandwidth.valueOf(bandwidth);
-    }
-
-    /**
      * Returns the bandwidth resource.
      *
      * @return the bandwidth resource

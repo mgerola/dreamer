@@ -20,6 +20,8 @@
 (function () {
     'use strict';
 
+    var $window;
+
     function isF(f) {
         return typeof f === 'function' ? f : null;
     }
@@ -43,7 +45,38 @@
 
     // Returns true if all names in the array are defined as functions
     // on the given api object; false otherwise.
+    // Also returns false if there are properties on the api that are NOT
+    //  listed in the array of names.
     function areFunctions(api, fnNames) {
+        var fnLookup = {},
+            extraFound = false;
+
+        if (!isA(fnNames)) {
+            return false;
+        }
+        var n = fnNames.length,
+            i, name;
+        for (i=0; i<n; i++) {
+            name = fnNames[i];
+            if (!isF(api[name])) {
+                return false;
+            }
+            fnLookup[name] = true;
+        }
+
+        // check for properties on the API that are not listed in the array,
+        angular.forEach(api, function (value, key) {
+            if (!fnLookup[key]) {
+                extraFound = true;
+            }
+        });
+        return !extraFound;
+    }
+
+    // Returns true if all names in the array are defined as functions
+    // on the given api object; false otherwise. This is a non-strict version
+    // that does not care about other properties on the api.
+    function areFunctionsNonStrict(api, fnNames) {
         if (!isA(fnNames)) {
             return false;
         }
@@ -58,15 +91,82 @@
         return true;
     }
 
+    // Returns width and height of window inner dimensions.
+    // offH, offW : offset width/height are subtracted, if present
+    function windowSize(offH, offW) {
+        var oh = offH || 0,
+            ow = offW || 0;
+        return {
+            height: $window.innerHeight - oh,
+            width: $window.innerWidth - ow
+        };
+    }
+
+    // search through an array of objects, looking for the one with the
+    // tagged property matching the given key. tag defaults to 'id'.
+    // returns the index of the matching object, or -1 for no match.
+    function find(key, array, tag) {
+        var _tag = tag || 'id',
+            idx, n, d;
+        for (idx = 0, n = array.length; idx < n; idx++) {
+            d = array[idx];
+            if (d[_tag] === key) {
+                return idx;
+            }
+        }
+        return -1;
+    }
+
+    // search through array to find (the first occurrence of) item,
+    // returning its index if found; otherwise returning -1.
+    function inArray(item, array) {
+        var i;
+        if (isA(array)) {
+            for (i=0; i<array.length; i++) {
+                if (array[i] === item) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    // remove (the first occurrence of) the specified item from the given
+    // array, if any. Return true if the removal was made; false otherwise.
+    function removeFromArray(item, array) {
+        var found = false,
+            i = inArray(item, array);
+        if (i >= 0) {
+            array.splice(i, 1);
+            found = true;
+        }
+        return found;
+    }
+
+    // return the given string with the first character capitalized.
+    function cap(s) {
+        return s.replace(/^[a-z]/, function (m) {
+            return m.toUpperCase();
+        });
+    }
+
     angular.module('onosUtil')
-        .factory('FnService', [function () {
+        .factory('FnService', ['$window', function (_$window_) {
+            $window = _$window_;
+
             return {
                 isF: isF,
                 isA: isA,
                 isS: isS,
                 isO: isO,
                 contains: contains,
-                areFunctions: areFunctions
+                areFunctions: areFunctions,
+                areFunctionsNonStrict: areFunctionsNonStrict,
+                windowSize: windowSize,
+                find: find,
+                inArray: inArray,
+                removeFromArray: removeFromArray,
+                cap: cap
             };
     }]);
 

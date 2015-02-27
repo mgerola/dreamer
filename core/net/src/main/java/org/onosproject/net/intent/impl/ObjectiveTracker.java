@@ -29,11 +29,8 @@ import org.onosproject.event.Event;
 import org.onosproject.net.Link;
 import org.onosproject.net.LinkKey;
 import org.onosproject.net.NetworkResource;
-import org.onosproject.net.intent.IntentBatchLeaderEvent;
-import org.onosproject.net.intent.IntentBatchListener;
-import org.onosproject.net.intent.IntentBatchService;
-import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.Key;
 import org.onosproject.net.link.LinkEvent;
 import org.onosproject.net.resource.LinkResourceEvent;
 import org.onosproject.net.resource.LinkResourceListener;
@@ -52,10 +49,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Multimaps.synchronizedSetMultimap;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
+import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.LinkKey.linkKey;
 import static org.onosproject.net.link.LinkEvent.Type.LINK_REMOVED;
 import static org.onosproject.net.link.LinkEvent.Type.LINK_UPDATED;
-import static org.onlab.util.Tools.namedThreads;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -68,8 +65,9 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
 
     private final Logger log = getLogger(getClass());
 
-    private final SetMultimap<LinkKey, IntentId> intentsByLink =
-            synchronizedSetMultimap(HashMultimap.<LinkKey, IntentId>create());
+    private final SetMultimap<LinkKey, Key> intentsByLink =
+            //TODO this could be slow as a point of synchronization
+            synchronizedSetMultimap(HashMultimap.<LinkKey, Key>create());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TopologyService topologyService;
@@ -80,23 +78,18 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
     @Reference(cardinality = ReferenceCardinality.OPTIONAL_UNARY)
     protected IntentService intentService;
 
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected IntentBatchService batchService;
-
     private ExecutorService executorService =
-            newSingleThreadExecutor(namedThreads("onos-flowtracker"));
+            newSingleThreadExecutor(groupedThreads("onos/intent", "flowtracker"));
 
     private TopologyListener listener = new InternalTopologyListener();
     private LinkResourceListener linkResourceListener =
             new InternalLinkResourceListener();
-    private final LeadershipListener leaderListener = new LeadershipListener();
     private TopologyChangeDelegate delegate;
 
     @Activate
     public void activate() {
         topologyService.addListener(listener);
         resourceManager.addListener(linkResourceListener);
-        batchService.addListener(leaderListener);
         log.info("Started");
     }
 
@@ -104,7 +97,6 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
     public void deactivate() {
         topologyService.removeListener(listener);
         resourceManager.removeListener(linkResourceListener);
-        batchService.removeListener(leaderListener);
         log.info("Stopped");
     }
 
@@ -135,21 +127,21 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
     }
 
     @Override
-    public void addTrackedResources(IntentId intentId,
+    public void addTrackedResources(Key intentKey,
                                     Collection<NetworkResource> resources) {
         for (NetworkResource resource : resources) {
             if (resource instanceof Link) {
-                intentsByLink.put(linkKey((Link) resource), intentId);
+                intentsByLink.put(linkKey((Link) resource), intentKey);
             }
         }
     }
 
     @Override
-    public void removeTrackedResources(IntentId intentId,
+    public void removeTrackedResources(Key intentKey,
                                        Collection<NetworkResource> resources) {
         for (NetworkResource resource : resources) {
             if (resource instanceof Link) {
-                intentsByLink.remove(linkKey((Link) resource), intentId);
+                intentsByLink.remove(linkKey((Link) resource), intentKey);
             }
         }
     }
@@ -179,10 +171,10 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
             }
 
             if (event.reasons() == null || event.reasons().isEmpty()) {
-                delegate.triggerCompile(new HashSet<IntentId>(), true);
+                delegate.triggerCompile(new HashSet<Key>(), true);
 
             } else {
-                Set<IntentId> toBeRecompiled = new HashSet<>();
+                Set<Key> toBeRecompiled = new HashSet<>();
                 boolean recompileOnly = true;
 
                 // Scan through the list of reasons and keep accruing all
@@ -195,9 +187,9 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
                                         linkEvent.subject().isDurable())) {
                             final LinkKey linkKey = linkKey(linkEvent.subject());
                             synchronized (intentsByLink) {
-                                Set<IntentId> intentIds = intentsByLink.get(linkKey);
-                                log.debug("recompile triggered by LinkDown {} {}", linkKey, intentIds);
-                                toBeRecompiled.addAll(intentIds);
+                                Set<Key> intentKeys = intentsByLink.get(linkKey);
+                                log.debug("recompile triggered by LinkDown {} {}", linkKey, intentKeys);
+                                toBeRecompiled.addAll(intentKeys);
                             }
                         }
                         recompileOnly = recompileOnly &&
@@ -252,35 +244,17 @@ public class ObjectiveTracker implements ObjectiveTrackerService {
         }
         intentService.getIntents().forEach(intent -> {
             if (intent.appId().equals(appId)) {
-                IntentId id = intent.id();
+                Key key = intent.key();
                 Collection<NetworkResource> resources = Lists.newArrayList();
-                intentService.getInstallableIntents(id).stream()
+                intentService.getInstallableIntents(key).stream()
                         .map(installable -> installable.resources())
                         .forEach(resources::addAll);
                 if (track) {
-                    addTrackedResources(id, resources);
+                    addTrackedResources(key, resources);
                 } else {
-                    removeTrackedResources(id, resources);
+                    removeTrackedResources(key, resources);
                 }
             }
         });
-    }
-
-    private class LeadershipListener implements IntentBatchListener {
-        @Override
-        public void event(IntentBatchLeaderEvent event) {
-            log.debug("leadership event: {}", event);
-            ApplicationId appId = event.subject();
-            switch (event.type()) {
-                case ELECTED:
-                    updateTrackedResources(appId, true);
-                    break;
-                case BOOTED:
-                    updateTrackedResources(appId, false);
-                    break;
-                default:
-                    break;
-            }
-        }
     }
 }

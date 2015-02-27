@@ -17,24 +17,29 @@ package org.onlab.netty;
 
 import java.io.IOException;
 
+import org.onlab.util.ByteArraySizeHashPrinter;
+
+import com.google.common.base.MoreObjects;
+
 /**
  * Internal message representation with additional attributes
  * for supporting, synchronous request/reply behavior.
  */
 public final class InternalMessage implements Message {
 
-    public static final String REPLY_MESSAGE_TYPE = "NETTY_MESSAGING_REQUEST_REPLY";
+    public static final long REPLY_MESSAGE_TYPE =
+            NettyMessagingService.hashToLong("NETTY_MESSAGING_REQUEST_REPLY");
 
     private long id;
     private Endpoint sender;
-    private String type;
+    private long type;
     private byte[] payload;
     private transient NettyMessagingService messagingService;
 
     // Must be created using the Builder.
     private InternalMessage() {}
 
-    InternalMessage(long id, Endpoint sender, String type, byte[] payload) {
+    InternalMessage(long id, Endpoint sender, long type, byte[] payload) {
         this.id = id;
         this.sender = sender;
         this.type = type;
@@ -45,7 +50,7 @@ public final class InternalMessage implements Message {
         return id;
     }
 
-    public String type() {
+    public long type() {
         return type;
     }
 
@@ -73,6 +78,15 @@ public final class InternalMessage implements Message {
         messagingService.sendAsync(sender, message);
     }
 
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("id", id)
+                .add("type", type)
+                .add("sender", sender)
+                .add("payload", ByteArraySizeHashPrinter.of(payload))
+                .toString();
+    }
 
     /**
      * Builder for InternalMessages.
@@ -90,7 +104,7 @@ public final class InternalMessage implements Message {
             return this;
         }
 
-        public Builder withType(String type) {
+        public Builder withType(long type) {
             message.type = type;
             return this;
         }

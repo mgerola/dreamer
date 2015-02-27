@@ -45,6 +45,10 @@
         <module>oecfg</module>
         <module>demo</module>
         <module>election</module>
+        <module>routing</module>
+        <module>routing-api</module>
+        <module>bgprouter</module>
+        <module>intent-perf</module>
         <module>icona</module>
     </modules>
 

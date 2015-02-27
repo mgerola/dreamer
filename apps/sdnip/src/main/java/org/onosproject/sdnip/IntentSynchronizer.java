@@ -15,40 +15,54 @@
  */
 package org.onosproject.sdnip;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.Ip4Address;
+import org.onlab.packet.IpAddress;
+import org.onlab.packet.IpPrefix;
+import org.onlab.packet.MacAddress;
+import org.onlab.packet.VlanId;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.DefaultTrafficTreatment;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.flow.criteria.Criteria.IPCriterion;
+import org.onosproject.net.flow.criteria.Criterion;
+import org.onosproject.net.intent.Intent;
+import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.IntentState;
+import org.onosproject.net.intent.MultiPointToSinglePointIntent;
+import org.onosproject.net.intent.PointToPointIntent;
+import org.onosproject.routing.FibListener;
+import org.onosproject.routing.FibUpdate;
+import org.onosproject.routing.config.BgpPeer;
+import org.onosproject.routing.config.Interface;
+import org.onosproject.routing.config.RoutingConfigurationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 
-import org.apache.commons.lang3.tuple.Pair;
-import org.onlab.packet.IpPrefix;
-import org.onosproject.core.ApplicationId;
-import org.onosproject.net.flow.criteria.Criteria.IPCriterion;
-import org.onosproject.net.flow.criteria.Criterion;
-import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.IntentOperations;
-import org.onosproject.net.intent.IntentService;
-import org.onosproject.net.intent.IntentState;
-import org.onosproject.net.intent.MultiPointToSinglePointIntent;
-import org.onosproject.net.intent.PointToPointIntent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Synchronizes intents between the in-memory intent store and the
  * IntentService.
  */
-public class IntentSynchronizer {
+public class IntentSynchronizer implements FibListener {
     private static final Logger log =
         LoggerFactory.getLogger(IntentSynchronizer.class);
 
@@ -65,17 +79,23 @@ public class IntentSynchronizer {
     private volatile boolean isElectedLeader = false;
     private volatile boolean isActivatedLeader = false;
 
+    private final RoutingConfigurationService configService;
+
     /**
      * Class constructor.
      *
      * @param appId the Application ID
      * @param intentService the intent service
+     * @param configService the SDN-IP configuration service
      */
-    IntentSynchronizer(ApplicationId appId, IntentService intentService) {
+    IntentSynchronizer(ApplicationId appId, IntentService intentService,
+                       RoutingConfigurationService configService) {
         this.appId = appId;
         this.intentService = intentService;
         peerIntents = new ConcurrentHashMap<>();
         routeIntents = new ConcurrentHashMap<>();
+
+        this.configService = configService;
 
         bgpIntentsSynchronizerExecutor = Executors.newSingleThreadExecutor(
                 new ThreadFactoryBuilder()
@@ -231,29 +251,95 @@ public class IntentSynchronizer {
             // Push the intents
             if (isElectedLeader && isActivatedLeader) {
                 log.debug("SDN-IP Submitting all Peer Intents...");
-                IntentOperations.Builder builder = IntentOperations.builder(appId);
                 for (Intent intent : intents) {
-                    builder.addSubmitOperation(intent);
+                    log.trace("SDN-IP Submitting intents: {}", intent);
+                    intentService.submit(intent);
                 }
-                IntentOperations intentOperations = builder.build();
-                log.trace("SDN-IP Submitting intents: {}",
-                          intentOperations.operations());
-                intentService.execute(intentOperations);
             }
         }
     }
 
     /**
-     * Updates multi-point-to-single-point route intents.
+     * Generates a route intent for a prefix, the next hop IP address, and
+     * the next hop MAC address.
+     * <p/>
+     * This method will find the egress interface for the intent.
+     * Intent will match dst IP prefix and rewrite dst MAC address at all other
+     * border switches, then forward packets according to dst MAC address.
      *
-     * @param submitIntents the intents to submit
-     * @param withdrawPrefixes the IPv4 or IPv6 matching prefixes for the
-     * intents to withdraw
+     * @param prefix            IP prefix of the route to add
+     * @param nextHopIpAddress  IP address of the next hop
+     * @param nextHopMacAddress MAC address of the next hop
+     * @return the generated intent, or null if no intent should be submitted
      */
-    void updateRouteIntents(
-                Collection<Pair<IpPrefix, MultiPointToSinglePointIntent>> submitIntents,
-                Collection<IpPrefix> withdrawPrefixes) {
+    private MultiPointToSinglePointIntent generateRouteIntent(
+            IpPrefix prefix,
+            IpAddress nextHopIpAddress,
+            MacAddress nextHopMacAddress) {
 
+        // Find the attachment point (egress interface) of the next hop
+        Interface egressInterface;
+        if (configService.getBgpPeers().containsKey(nextHopIpAddress)) {
+            // Route to a peer
+            log.debug("Route to peer {}", nextHopIpAddress);
+            BgpPeer peer =
+                    configService.getBgpPeers().get(nextHopIpAddress);
+            egressInterface =
+                    configService.getInterface(peer.connectPoint());
+        } else {
+            // Route to non-peer
+            log.debug("Route to non-peer {}", nextHopIpAddress);
+            egressInterface =
+                    configService.getMatchingInterface(nextHopIpAddress);
+            if (egressInterface == null) {
+                log.warn("No outgoing interface found for {}",
+                         nextHopIpAddress);
+                return null;
+            }
+        }
+
+        //
+        // Generate the intent itself
+        //
+        Set<ConnectPoint> ingressPorts = new HashSet<>();
+        ConnectPoint egressPort = egressInterface.connectPoint();
+        log.debug("Generating intent for prefix {}, next hop mac {}",
+                  prefix, nextHopMacAddress);
+
+        for (Interface intf : configService.getInterfaces()) {
+            if (!intf.connectPoint().equals(egressInterface.connectPoint())) {
+                ConnectPoint srcPort = intf.connectPoint();
+                ingressPorts.add(srcPort);
+            }
+        }
+
+        // Match the destination IP prefix at the first hop
+        TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
+        if (prefix.version() == Ip4Address.VERSION) {
+            selector.matchEthType(Ethernet.TYPE_IPV4);
+            selector.matchIPDst(prefix);
+        } else {
+            selector.matchEthType(Ethernet.TYPE_IPV6);
+            selector.matchIPv6Dst(prefix);
+        }
+
+        // Rewrite the destination MAC address
+        TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder()
+                .setEthDst(nextHopMacAddress);
+        if (!egressInterface.vlan().equals(VlanId.NONE)) {
+            treatment.setVlanId(egressInterface.vlan());
+            // If we set VLAN ID, we have to make sure a VLAN tag exists.
+            // TODO support no VLAN -> VLAN routing
+            selector.matchVlanId(VlanId.ANY);
+        }
+
+        return new MultiPointToSinglePointIntent(appId, selector.build(),
+                                                 treatment.build(),
+                                                 ingressPorts, egressPort);
+    }
+
+    @Override
+    public void update(Collection<FibUpdate> updates, Collection<FibUpdate> withdraws) {
         //
         // NOTE: Semantically, we MUST withdraw existing intents before
         // submitting new intents.
@@ -262,14 +348,16 @@ public class IntentSynchronizer {
             MultiPointToSinglePointIntent intent;
 
             log.debug("SDN-IP submitting intents = {} withdrawing = {}",
-                     submitIntents.size(), withdrawPrefixes.size());
+                     updates.size(), withdraws.size());
 
             //
             // Prepare the Intent batch operations for the intents to withdraw
             //
-            IntentOperations.Builder withdrawBuilder =
-                IntentOperations.builder(appId);
-            for (IpPrefix prefix : withdrawPrefixes) {
+            for (FibUpdate withdraw : withdraws) {
+                checkArgument(withdraw.type() == FibUpdate.Type.DELETE,
+                              "FibUpdate with wrong type in withdraws list");
+
+                IpPrefix prefix = withdraw.entry().prefix();
                 intent = routeIntents.remove(prefix);
                 if (intent == null) {
                     log.trace("SDN-IP No intent in routeIntents to delete " +
@@ -278,45 +366,38 @@ public class IntentSynchronizer {
                 }
                 if (isElectedLeader && isActivatedLeader) {
                     log.trace("SDN-IP Withdrawing intent: {}", intent);
-                    withdrawBuilder.addWithdrawOperation(intent.id());
+                    intentService.withdraw(intent);
                 }
             }
 
             //
             // Prepare the Intent batch operations for the intents to submit
             //
-            IntentOperations.Builder submitBuilder =
-                IntentOperations.builder(appId);
-            for (Pair<IpPrefix, MultiPointToSinglePointIntent> pair :
-                     submitIntents) {
-                IpPrefix prefix = pair.getLeft();
-                intent = pair.getRight();
+            for (FibUpdate update : updates) {
+                checkArgument(update.type() == FibUpdate.Type.UPDATE,
+                              "FibUpdate with wrong type in updates list");
+
+                IpPrefix prefix = update.entry().prefix();
+                intent = generateRouteIntent(prefix, update.entry().nextHopIp(),
+                                             update.entry().nextHopMac());
+
+                if (intent == null) {
+                    // This preserves the old semantics - if an intent can't be
+                    // generated, we don't do anything with that prefix. But
+                    // perhaps we should withdraw the old intent anyway?
+                    continue;
+                }
+
                 MultiPointToSinglePointIntent oldIntent =
                     routeIntents.put(prefix, intent);
                 if (isElectedLeader && isActivatedLeader) {
                     if (oldIntent != null) {
                         log.trace("SDN-IP Withdrawing old intent: {}",
                                   oldIntent);
-                        withdrawBuilder.addWithdrawOperation(oldIntent.id());
+                        intentService.withdraw(oldIntent);
                     }
                     log.trace("SDN-IP Submitting intent: {}", intent);
-                    submitBuilder.addSubmitOperation(intent);
-                }
-            }
-
-            //
-            // Submit the Intent operations
-            //
-            if (isElectedLeader && isActivatedLeader) {
-                IntentOperations intentOperations = withdrawBuilder.build();
-                if (!intentOperations.operations().isEmpty()) {
-                    log.debug("SDN-IP Withdrawing intents executed");
-                    intentService.execute(intentOperations);
-                }
-                intentOperations = submitBuilder.build();
-                if (!intentOperations.operations().isEmpty()) {
-                    log.debug("SDN-IP Submitting intents executed");
-                    intentService.execute(intentOperations);
+                    intentService.submit(intent);
                 }
             }
         }
@@ -334,7 +415,6 @@ public class IntentSynchronizer {
             Collection<Intent> storeInMemoryIntents = new LinkedList<>();
             Collection<Intent> addIntents = new LinkedList<>();
             Collection<Intent> deleteIntents = new LinkedList<>();
-            IntentOperations intentOperations;
 
             if (!isElectedLeader) {
                 return;         // Nothing to do: not the leader anymore
@@ -413,9 +493,8 @@ public class IntentSynchronizer {
             }
 
             // Withdraw Intents
-            IntentOperations.Builder builder = IntentOperations.builder(appId);
             for (Intent intent : deleteIntents) {
-                builder.addWithdrawOperation(intent.id());
+                intentService.withdraw(intent);
                 log.trace("SDN-IP Intent Synchronizer: withdrawing intent: {}",
                       intent);
             }
@@ -425,13 +504,10 @@ public class IntentSynchronizer {
                 isActivatedLeader = false;
                 return;
             }
-            intentOperations = builder.build();
-            intentService.execute(intentOperations);
 
             // Add Intents
-            builder = IntentOperations.builder(appId);
             for (Intent intent : addIntents) {
-                builder.addSubmitOperation(intent);
+                intentService.submit(intent);
                 log.trace("SDN-IP Intent Synchronizer: submitting intent: {}",
                           intent);
             }
@@ -441,8 +517,6 @@ public class IntentSynchronizer {
                 isActivatedLeader = false;
                 return;
             }
-            intentOperations = builder.build();
-            intentService.execute(intentOperations);
 
             if (isElectedLeader) {
                 isActivatedLeader = true;       // Allow push of Intents
@@ -504,7 +578,7 @@ public class IntentSynchronizer {
             }
 
             IntentState state =
-                intentService.getIntentState(fetchedIntent.id());
+                intentService.getIntentState(fetchedIntent.key());
             if (state == null ||
                 state == IntentState.WITHDRAWING ||
                 state == IntentState.WITHDRAWN) {
@@ -526,7 +600,7 @@ public class IntentSynchronizer {
             }
 
             IntentState state =
-                intentService.getIntentState(fetchedIntent.id());
+                intentService.getIntentState(fetchedIntent.key());
             if (state == null ||
                 state == IntentState.WITHDRAWING ||
                 state == IntentState.WITHDRAWN) {

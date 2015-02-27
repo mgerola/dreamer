@@ -25,6 +25,7 @@ import org.junit.Test;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.criteria.Criteria;
 import org.onosproject.net.flow.criteria.Criterion;
+import org.onlab.packet.Ip6Address;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
@@ -127,22 +128,36 @@ public class DefaultTrafficSelectorTest {
     public void testCriteriaCreation() {
         TrafficSelector selector;
 
+        final long longValue = 0x12345678;
+        final int intValue = 22;
         final short shortValue = 33;
         final byte byteValue = 44;
+        final byte dscpValue = 0xf;
+        final byte ecnValue = 3;
+        final MacAddress macValue = MacAddress.valueOf("11:22:33:44:55:66");
         final IpPrefix ipPrefixValue = IpPrefix.valueOf("192.168.1.0/24");
         final IpPrefix ipv6PrefixValue = IpPrefix.valueOf("fe80::1/64");
+        final Ip6Address ipv6AddressValue = Ip6Address.valueOf("fe80::1");
 
         selector = DefaultTrafficSelector.builder()
-                .matchInport(PortNumber.portNumber(11)).build();
+                .matchInPort(PortNumber.portNumber(11)).build();
         assertThat(selector, hasCriterionWithType(Type.IN_PORT));
 
         selector = DefaultTrafficSelector.builder()
-                .matchEthSrc(MacAddress.BROADCAST).build();
-        assertThat(selector, hasCriterionWithType(Type.ETH_SRC));
+                .matchInPhyPort(PortNumber.portNumber(11)).build();
+        assertThat(selector, hasCriterionWithType(Type.IN_PHY_PORT));
 
         selector = DefaultTrafficSelector.builder()
-                .matchEthDst(MacAddress.BROADCAST).build();
+                .matchMetadata(longValue).build();
+        assertThat(selector, hasCriterionWithType(Type.METADATA));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchEthDst(macValue).build();
         assertThat(selector, hasCriterionWithType(Type.ETH_DST));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchEthSrc(macValue).build();
+        assertThat(selector, hasCriterionWithType(Type.ETH_SRC));
 
         selector = DefaultTrafficSelector.builder()
                 .matchEthType(shortValue).build();
@@ -155,6 +170,14 @@ public class DefaultTrafficSelectorTest {
         selector = DefaultTrafficSelector.builder()
                 .matchVlanPcp(byteValue).build();
         assertThat(selector, hasCriterionWithType(Type.VLAN_PCP));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPDscp(dscpValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IP_DSCP));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPEcn(ecnValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IP_ECN));
 
         selector = DefaultTrafficSelector.builder()
                 .matchIPProtocol(byteValue).build();
@@ -177,6 +200,30 @@ public class DefaultTrafficSelectorTest {
         assertThat(selector, hasCriterionWithType(Type.TCP_DST));
 
         selector = DefaultTrafficSelector.builder()
+                .matchUdpSrc(shortValue).build();
+        assertThat(selector, hasCriterionWithType(Type.UDP_SRC));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchUdpDst(shortValue).build();
+        assertThat(selector, hasCriterionWithType(Type.UDP_DST));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchSctpSrc(shortValue).build();
+        assertThat(selector, hasCriterionWithType(Type.SCTP_SRC));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchSctpDst(shortValue).build();
+        assertThat(selector, hasCriterionWithType(Type.SCTP_DST));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIcmpType(byteValue).build();
+        assertThat(selector, hasCriterionWithType(Type.ICMPV4_TYPE));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIcmpCode(byteValue).build();
+        assertThat(selector, hasCriterionWithType(Type.ICMPV4_CODE));
+
+        selector = DefaultTrafficSelector.builder()
                 .matchIPv6Src(ipv6PrefixValue).build();
         assertThat(selector, hasCriterionWithType(Type.IPV6_SRC));
 
@@ -185,8 +232,32 @@ public class DefaultTrafficSelectorTest {
         assertThat(selector, hasCriterionWithType(Type.IPV6_DST));
 
         selector = DefaultTrafficSelector.builder()
+                .matchIPv6FlowLabel(intValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IPV6_FLABEL));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIcmpv6Type(byteValue).build();
+        assertThat(selector, hasCriterionWithType(Type.ICMPV6_TYPE));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPv6NDTargetAddress(ipv6AddressValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IPV6_ND_TARGET));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPv6NDSourceLinkLayerAddress(macValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IPV6_ND_SLL));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPv6NDTargetLinkLayerAddress(macValue).build();
+        assertThat(selector, hasCriterionWithType(Type.IPV6_ND_TLL));
+
+        selector = DefaultTrafficSelector.builder()
                 .matchMplsLabel(MplsLabel.mplsLabel(3)).build();
         assertThat(selector, hasCriterionWithType(Type.MPLS_LABEL));
+
+        selector = DefaultTrafficSelector.builder()
+                .matchIPv6ExthdrFlags(Criterion.IPv6ExthdrFlags.NONEXT.getValue()).build();
+        assertThat(selector, hasCriterionWithType(Type.IPV6_EXTHDR));
 
         selector = DefaultTrafficSelector.builder()
                 .matchLambda(shortValue).build();
@@ -195,12 +266,21 @@ public class DefaultTrafficSelectorTest {
         selector = DefaultTrafficSelector.builder()
                 .matchOpticalSignalType(shortValue).build();
         assertThat(selector, hasCriterionWithType(Type.OCH_SIGTYPE));
+    }
+
+    /**
+     * Tests the traffic selector builder.
+     */
+    @Test
+    public void testTrafficSelectorBuilder() {
+        TrafficSelector selector;
+        final short shortValue = 33;
 
         final TrafficSelector baseSelector = DefaultTrafficSelector.builder()
-                .matchOpticalSignalType(shortValue).build();
+                .matchLambda(shortValue).build();
         selector = DefaultTrafficSelector.builder(baseSelector)
                 .build();
-        assertThat(selector, hasCriterionWithType(Type.OCH_SIGTYPE));
+        assertThat(selector, hasCriterionWithType(Type.OCH_SIGID));
 
         final Criterion criterion = Criteria.matchLambda(shortValue);
         selector = DefaultTrafficSelector.builder()

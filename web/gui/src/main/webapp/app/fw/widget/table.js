@@ -20,64 +20,162 @@
 (function () {
     'use strict';
 
-    var $log;
+    var $log, $window, fs, is,
+        currCol = {},
+        prevCol = {},
+        tableIconTdSize = 33,
+        bottomMargin = 200;
 
-    function renderTable(div, config) {
-        var table = div.append('table').attr('fixed-header', ''),
-            thead, tr, numTableCols, i;
-        table.append('thead');
-        table.append('tbody');
+    // Functions for creating a fixed header on a table (Angular Directive)
 
-        thead = table.select('thead');
-        tr = thead.append('tr');
-        numTableCols = config.colIds.length;
+    function setTableWidth(t) {
+        var tHeaders, tdElement, colWidth, numCols,
+            winWidth = fs.windowSize().width;
 
-        for(i = 0; i < numTableCols; i += 1) {
-            tr.append('th').html(config.colText[i]);
-        }
+        tHeaders = t.selectAll('th');
+        numCols = tHeaders[0].length;
+        colWidth = Math.floor(winWidth / numCols);
 
-        return config.colIds;
-    }
+        tHeaders.each(function(thElement, index) {
+            thElement = d3.select(this);
 
-    // I can delete these comments later...
-    // loadTableData needs to know which IDs are used to create the table...
-    // Potentially, there will be some rows in the JSON that the server is
-    // sending back that will be unused. We don't want to create unneeded rows.
-        // For example, in device view, we aren't displaying "role" or
-        // "available" properties, but they would be displayed if we took it
-        // directly from the data being sent in.
-    function loadTableData(data, div, colIds) {
-        // let me know if you have suggestions for this function
+            tdElement = t.select('td:nth-of-type(' + (index + 1) + ')');
 
-        var numTableCols = colIds.length,
-            tbody, tr, i;
-        tbody = div.select('tbody');
-
-        // get the array associated with the first object, such as "devices"
-        // loop through every object in the array, and every colId in config
-        // put the appropriate property in the td of the table
-        (data[Object.keys(data)[0]]).forEach(function (item) {
-            tr = tbody.append('tr');
-            for(i = 0; i < numTableCols; i += 1) {
-                if(item.hasOwnProperty(colIds[i])) {
-                   tr.append('td').html(item[colIds[i]]);
-                }
+            if (tdElement.classed('table-icon')) {
+                thElement.style('width', tableIconTdSize + 'px');
+                tdElement.style('width', tableIconTdSize + 'px');
+            } else {
+                thElement.style('width', colWidth + 'px');
+                tdElement.style('width', colWidth + 'px');
             }
         });
     }
 
-    function renderAndLoadTable(div, config, data) {
-        loadTableData(data, div, (renderTable(div, config)));
+    function setTableHeight(thead, tbody) {
+        var winHeight = fs.windowSize().height;
+
+        thead.style('display', 'block');
+        tbody.style({'display': 'block',
+            'height': ((winHeight - bottomMargin) + 'px'),
+            'overflow': 'auto'
+        });
+    }
+
+    function fixTable(t, th, tb) {
+        setTableWidth(t);
+        setTableHeight(th, tb);
+    }
+
+    // Functions for sorting table rows by header and choosing appropriate icon
+
+    function updateSortingIcons(thElem, api) {
+        var div;
+        currCol.colId = thElem.attr('colId');
+
+        if (currCol.colId === prevCol.colId) {
+            (currCol.icon === 'tableColSortDesc') ?
+                currCol.icon = 'tableColSortAsc' :
+                currCol.icon = 'tableColSortDesc';
+            prevCol.icon = currCol.icon;
+        } else {
+            currCol.icon = 'tableColSortAsc';
+            prevCol.icon = 'tableColSortNone';
+        }
+
+        div = thElem.select('div');
+        api.sortNone(div);
+        div = thElem.append('div');
+
+        if (currCol.icon === 'tableColSortAsc') {
+            api.sortAsc(div);
+        } else {
+            api.sortDesc(div);
+        }
+
+        if (prevCol.colId !== undefined &&
+            prevCol.icon === 'tableColSortNone') {
+            api.sortNone(prevCol.elem.select('div'));
+        }
+
+        prevCol.colId = currCol.colId;
+        prevCol.elem = thElem;
+    }
+
+    function generateQueryParams() {
+        var queryString = '?sortCol=' + currCol.colId + '&sortDir=';
+
+        if(currCol.icon === 'tableColSortAsc') {
+            queryString = queryString + 'asc';
+        } else {
+            queryString = queryString + 'desc';
+        }
+
+        return queryString;
     }
 
     angular.module('onosWidget')
-        .factory('TableService', ['$log', function (_$log_) {
-            $log = _$log_;
+        .directive('onosFixedHeader', ['$window', 'FnService',
+            function (_$window_, _fs_) {
+            return function (scope, element) {
+                $window = _$window_;
+                fs = _fs_;
+                var w = angular.element($window),
+                    table = d3.select(element[0]),
+                    thead = table.select('thead'),
+                    tbody = table.select('tbody'),
+                    canAdjust = false;
 
+                scope.$watch(function () {
+                    return {
+                        h: window.innerHeight,
+                        w: window.innerWidth
+                    };
+                }, function (newVal) {
+                    scope.windowHeight = newVal.h;
+                    scope.windowWidth = newVal.w;
+
+                    scope.$on('LastElement', function () {
+                        // only adjust the table once it's completely loaded
+                        fixTable(table, thead, tbody);
+                        canAdjust = true;
+                    });
+
+                    if (canAdjust) {
+                        fixTable(table, thead, tbody);
+                    }
+                }, true);
+
+                w.bind('onos-fixed-header', function () {
+                    scope.$apply();
+                });
+            };
+        }])
+
+        .directive('onosSortableHeader', ['$log', 'IconService',
+            function (_$log_, _is_) {
             return {
-                renderTable: renderTable,
-                loadTableData: loadTableData,
-                renderAndLoadTable: renderAndLoadTable
+                scope: {
+                    ctrlCallback: '&sortCallback'
+                },
+                link: function (scope, element) {
+                    $log = _$log_;
+                    is = _is_;
+                    var table = d3.select(element[0]),
+                        sortIconAPI = is.createSortIcon();
+
+                    // when a header is clicked, change its icon tag
+                    // and get sorting order to send to the server.
+                    table.selectAll('th').on('click', function () {
+                        var thElem = d3.select(this);
+
+                        if (thElem.attr('sortable') === '') {
+                            updateSortingIcons(thElem, sortIconAPI);
+                            scope.ctrlCallback({
+                                    urlSuffix: generateQueryParams()
+                                });
+                        }
+                    });
+                }
             };
         }]);
 

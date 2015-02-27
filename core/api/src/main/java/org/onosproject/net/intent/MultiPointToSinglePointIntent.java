@@ -64,6 +64,41 @@ public final class MultiPointToSinglePointIntent extends ConnectivityIntent {
      * traffic selector and treatment.
      *
      * @param appId         application identifier
+     * @param key           intent key
+     * @param selector      traffic selector
+     * @param treatment     treatment
+     * @param ingressPoints set of ports from which ingress traffic originates
+     * @param egressPoint   port to which traffic will egress
+     * @param constraints   constraints to apply to the intent
+     * @throws NullPointerException     if {@code ingressPoints} or
+     *                                  {@code egressPoint} is null.
+     * @throws IllegalArgumentException if the size of {@code ingressPoints} is
+     *                                  not more than 1
+     */
+    public MultiPointToSinglePointIntent(ApplicationId appId,
+                                         Key key,
+                                         TrafficSelector selector,
+                                         TrafficTreatment treatment,
+                                         Set<ConnectPoint> ingressPoints,
+                                         ConnectPoint egressPoint,
+                                         List<Constraint> constraints) {
+        super(appId, key, Collections.emptyList(), selector, treatment, constraints);
+
+        checkNotNull(ingressPoints);
+        checkArgument(!ingressPoints.isEmpty(), "Ingress point set cannot be empty");
+        checkNotNull(egressPoint);
+        checkArgument(!ingressPoints.contains(egressPoint),
+                "Set of ingresses should not contain egress (egress: %s)", egressPoint);
+
+        this.ingressPoints = Sets.newHashSet(ingressPoints);
+        this.egressPoint = egressPoint;
+    }
+
+    /**
+     * Creates a new multi-to-single point connectivity intent for the specified
+     * traffic selector and treatment.
+     *
+     * @param appId         application identifier
      * @param selector      traffic selector
      * @param treatment     treatment
      * @param ingressPoints set of ports from which ingress traffic originates
@@ -80,16 +115,7 @@ public final class MultiPointToSinglePointIntent extends ConnectivityIntent {
                                          Set<ConnectPoint> ingressPoints,
                                          ConnectPoint egressPoint,
                                          List<Constraint> constraints) {
-        super(appId, Collections.emptyList(), selector, treatment, constraints);
-
-        checkNotNull(ingressPoints);
-        checkArgument(!ingressPoints.isEmpty(), "Ingress point set cannot be empty");
-        checkNotNull(egressPoint);
-        checkArgument(!ingressPoints.contains(egressPoint),
-                "Set of ingresses should not contain egress (egress: %s)", egressPoint);
-
-        this.ingressPoints = Sets.newHashSet(ingressPoints);
-        this.egressPoint = egressPoint;
+        this(appId, null, selector, treatment, ingressPoints, egressPoint, constraints);
     }
 
     /**
@@ -124,6 +150,7 @@ public final class MultiPointToSinglePointIntent extends ConnectivityIntent {
     public String toString() {
         return MoreObjects.toStringHelper(getClass())
                 .add("id", id())
+                .add("key", key())
                 .add("appId", appId())
                 .add("resources", resources())
                 .add("selector", selector())

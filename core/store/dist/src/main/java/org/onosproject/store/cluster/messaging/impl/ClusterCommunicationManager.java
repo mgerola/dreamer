@@ -15,10 +15,7 @@
  */
 package org.onosproject.store.cluster.messaging.impl;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.io.IOException;
-import java.util.Set;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -31,6 +28,7 @@ import org.onlab.netty.Message;
 import org.onlab.netty.MessageHandler;
 import org.onlab.netty.MessagingService;
 import org.onlab.netty.NettyMessagingService;
+import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
@@ -42,11 +40,14 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.serializers.impl.ClusterMessageSerializer;
 import org.onosproject.store.serializers.impl.MessageSubjectSerializer;
-import org.onlab.util.KryoNamespace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import java.io.IOException;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 @Component(immediate = true)
 @Service
@@ -77,7 +78,7 @@ public class ClusterCommunicationManager
     @Activate
     public void activate() {
         ControllerNode localNode = clusterService.getLocalNode();
-        NettyMessagingService netty = new NettyMessagingService(localNode.ip().toString(), localNode.tcpPort());
+        NettyMessagingService netty = new NettyMessagingService(localNode.ip(), localNode.tcpPort());
         // FIXME: workaround until it becomes a service.
         try {
             netty.activate();
@@ -101,33 +102,36 @@ public class ClusterCommunicationManager
     }
 
     @Override
-    public boolean broadcast(ClusterMessage message) throws IOException {
+    public boolean broadcast(ClusterMessage message) {
         boolean ok = true;
         final ControllerNode localNode = clusterService.getLocalNode();
+        byte[] payload = SERIALIZER.encode(message);
         for (ControllerNode node : clusterService.getNodes()) {
             if (!node.equals(localNode)) {
-                ok = unicastUnchecked(message, node.id()) && ok;
+                ok = unicastUnchecked(message.subject(), payload, node.id()) && ok;
             }
         }
         return ok;
     }
 
     @Override
-    public boolean broadcastIncludeSelf(ClusterMessage message) throws IOException {
+    public boolean broadcastIncludeSelf(ClusterMessage message) {
         boolean ok = true;
+        byte[] payload = SERIALIZER.encode(message);
         for (ControllerNode node : clusterService.getNodes()) {
-            ok = unicastUnchecked(message, node.id()) && ok;
+            ok = unicastUnchecked(message.subject(), payload, node.id()) && ok;
         }
         return ok;
     }
 
     @Override
-    public boolean multicast(ClusterMessage message, Set<NodeId> nodes) throws IOException {
+    public boolean multicast(ClusterMessage message, Set<NodeId> nodes) {
         boolean ok = true;
         final ControllerNode localNode = clusterService.getLocalNode();
+        byte[] payload = SERIALIZER.encode(message);
         for (NodeId nodeId : nodes) {
             if (!nodeId.equals(localNode.id())) {
-                ok = unicastUnchecked(message, nodeId) && ok;
+                ok = unicastUnchecked(message.subject(), payload, nodeId) && ok;
             }
         }
         return ok;
@@ -135,12 +139,15 @@ public class ClusterCommunicationManager
 
     @Override
     public boolean unicast(ClusterMessage message, NodeId toNodeId) throws IOException {
+        return unicast(message.subject(), SERIALIZER.encode(message), toNodeId);
+    }
+
+    private boolean unicast(MessageSubject subject, byte[] payload, NodeId toNodeId) throws IOException {
         ControllerNode node = clusterService.getNode(toNodeId);
         checkArgument(node != null, "Unknown nodeId: %s", toNodeId);
-        Endpoint nodeEp = new Endpoint(node.ip().toString(), node.tcpPort());
+        Endpoint nodeEp = new Endpoint(node.ip(), node.tcpPort());
         try {
-            messagingService.sendAsync(nodeEp,
-                    message.subject().value(), SERIALIZER.encode(message));
+            messagingService.sendAsync(nodeEp, subject.value(), payload);
             return true;
         } catch (IOException e) {
             log.trace("Failed to send cluster message to nodeId: " + toNodeId, e);
@@ -148,9 +155,10 @@ public class ClusterCommunicationManager
         }
     }
 
-    private boolean unicastUnchecked(ClusterMessage message, NodeId toNodeId) throws IOException {
+
+    private boolean unicastUnchecked(MessageSubject subject, byte[] payload, NodeId toNodeId) {
         try {
-            return unicast(message, toNodeId);
+            return unicast(subject, payload, toNodeId);
         } catch (IOException e) {
             return false;
         }
@@ -160,7 +168,7 @@ public class ClusterCommunicationManager
     public ListenableFuture<byte[]> sendAndReceive(ClusterMessage message, NodeId toNodeId) throws IOException {
         ControllerNode node = clusterService.getNode(toNodeId);
         checkArgument(node != null, "Unknown nodeId: %s", toNodeId);
-        Endpoint nodeEp = new Endpoint(node.ip().toString(), node.tcpPort());
+        Endpoint nodeEp = new Endpoint(node.ip(), node.tcpPort());
         try {
             return messagingService.sendAndReceive(nodeEp, message.subject().value(), SERIALIZER.encode(message));
 
@@ -174,6 +182,13 @@ public class ClusterCommunicationManager
     public void addSubscriber(MessageSubject subject,
                               ClusterMessageHandler subscriber) {
         messagingService.registerHandler(subject.value(), new InternalClusterMessageHandler(subscriber));
+    }
+
+    @Override
+    public void addSubscriber(MessageSubject subject,
+                              ClusterMessageHandler subscriber,
+                              ExecutorService executor) {
+        messagingService.registerHandler(subject.value(), new InternalClusterMessageHandler(subscriber), executor);
     }
 
     @Override
@@ -195,7 +210,7 @@ public class ClusterCommunicationManager
             try {
                 clusterMessage = SERIALIZER.decode(message.payload());
             } catch (Exception e) {
-                log.error("Failed decoding ClusterMessage", e);
+                log.error("Failed decoding ClusterMessage {}", message, e);
                 throw e;
             }
             try {

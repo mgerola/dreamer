@@ -15,25 +15,28 @@
  */
 
 /*
- ONOS GUI -- Sample View Module
+ ONOS GUI -- Device View Module
  */
 
 (function () {
     'use strict';
 
     angular.module('ovDevice', [])
-        .controller('OvDeviceCtrl', ['$log', '$location', 'RestService',
-        function ($log, $location, rs) {
+        .controller('OvDeviceCtrl', ['$log', '$scope', '$location', 'RestService',
+        function ($log, $scope, $location, rs) {
             var self = this;
             self.deviceData = [];
 
-            // TODO: remove test code
-            var testCase = $location.search().test;
-            var url = testCase ? 'test/' + testCase : 'device';
-
-            rs.get(url, function (data) {
-                self.deviceData = data.devices;
-            });
+            $scope.sortCallback = function (urlSuffix) {
+                if (!urlSuffix) {
+                    urlSuffix = '';
+                }
+                var url = 'device' + urlSuffix;
+                rs.get(url, function (data) {
+                    self.deviceData = data.devices;
+                });
+            };
+            $scope.sortCallback();
 
             $log.log('OvDeviceCtrl has been created');
         }]);

@@ -24,3 +24,7 @@
 - Remote
     - Login Service
     - Web Socket Service
+
+- Widget
+    - Table Styling Directives
+    - Toolbar Service

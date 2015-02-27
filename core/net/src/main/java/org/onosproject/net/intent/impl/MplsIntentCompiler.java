@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -18,6 +17,7 @@ import org.onosproject.net.Path;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.MplsIntent;
 import org.onosproject.net.intent.MplsPathIntent;
+import org.onosproject.net.intent.impl.compiler.ConnectivityIntentCompiler;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.resource.LinkResourceAllocations;
 
