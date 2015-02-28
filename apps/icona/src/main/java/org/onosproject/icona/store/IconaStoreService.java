@@ -10,14 +10,7 @@ import org.onosproject.net.PortNumber;
 
 public interface IconaStoreService {
 
-    // public PseudoWire getPseudoWire(long srcSw, int srcPort, long dstSw, int
-    // dstPort);
-    //
-    //
-    //
-
     Optional<EndPoint> getEndPoint(DeviceId id, PortNumber port);
-
 
     Collection<EndPoint> getEndPoints(DeviceId id);
 
@@ -56,8 +49,5 @@ public interface IconaStoreService {
     MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
 
     void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
-
-
-//    boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent);
 
 }
