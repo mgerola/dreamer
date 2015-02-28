@@ -125,6 +125,7 @@ public class IconaStoreManager implements IconaStoreService {
                 .deviceId());
         temp.put(endPoint.port(), endPoint);
 
+        clusterNameToCluster.get(endPoint.clusterName()).addEndPoint(endPoint);
     }
 
     @Override
@@ -134,6 +135,8 @@ public class IconaStoreManager implements IconaStoreService {
         if (swPortEndPoint.get(endPoint.deviceId()) != null) {
             swPortEndPoint.get(endPoint.deviceId()).remove(endPoint.port());
         }
+        
+        clusterNameToCluster.get(endPoint.clusterName()).remEndPoint(endPoint);
     }
 
     // InterLinks
