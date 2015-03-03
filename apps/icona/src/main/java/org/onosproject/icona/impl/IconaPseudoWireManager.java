@@ -18,6 +18,7 @@ import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
+import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.MplsIntent;
 import org.slf4j.Logger;
@@ -47,14 +48,16 @@ public class IconaPseudoWireManager implements IconaPseudoWireService {
         log.info("Stopped");
     }
 
-    public void installPseudoWireIntent(ConnectPoint ingress, Optional<MplsLabel> ingressLabel,
+    public IntentId installPseudoWireIntent(ConnectPoint ingress, Optional<MplsLabel> ingressLabel,
                                         ConnectPoint egress, Optional<MplsLabel> egressLabel) {
 
         TrafficSelector selec = DefaultTrafficSelector.builder().build();
         TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
-
-        intentService.submit(new MplsIntent(iconaConfigService.getApplicationId(), selec, treatment,
-                                                    ingress, ingressLabel, egress, egressLabel));
+        MplsIntent intent = new MplsIntent(iconaConfigService.getApplicationId(), selec, treatment,
+                   ingress, ingressLabel, egress, egressLabel);
+        intentService.submit(intent);
+        return intent.id();
+        
     }
     
 }

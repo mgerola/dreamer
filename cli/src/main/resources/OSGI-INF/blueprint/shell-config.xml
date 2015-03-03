@@ -294,6 +294,9 @@
 			<action class="org.onosproject.cli.icona.EndPointsCommand" />
 		</command>
 		<command>
+			<action class="org.onosproject.cli.icona.PseudoWiresCommand" />
+		</command>
+		<command>
 			<action class="org.onosproject.cli.icona.ClusterIdCommand" />
 			<completers>
 			<ref component-id="ClusterIdCompleter"/>

@@ -20,6 +20,7 @@ import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
@@ -40,9 +41,9 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<String, Cluster> clusterNameToCluster;
     private Map<DeviceId, HashMap<PortNumber, InterLink>> swPortInterLink;
     private Map<DeviceId, HashMap<PortNumber, EndPoint>> swPortEndPoint;
+    private Map<String, PseudoWire> pseudoWireMap;
     private Map<String, MasterPseudoWire> masterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
-    private Set<PseudoWire> pseudoWire;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -51,9 +52,9 @@ public class IconaStoreManager implements IconaStoreService {
         clusterNameToCluster = new HashMap<String, Cluster>();
         swPortInterLink = new HashMap<DeviceId, HashMap<PortNumber, InterLink>>();
         swPortEndPoint = new HashMap<DeviceId, HashMap<PortNumber, EndPoint>>();
+        pseudoWireMap = new HashMap<String, PseudoWire>();
         masterPseudoWireMap = new HashMap<String, MasterPseudoWire>();
         mplsLabelMap = new HashMap<ConnectPoint, BitSetIndex>();
-        pseudoWire = new HashSet<PseudoWire>();
     }
 
     @Deactivate
@@ -273,22 +274,55 @@ public class IconaStoreManager implements IconaStoreService {
 
     }
 
+    
     @Override
-    public boolean addMasterPseudoWire(MasterPseudoWire pw) {
+    public void addPseudoWire(PseudoWire pw) {
         // TODO: find a better way to save pseudowire
+        if (pseudoWireMap.containsKey(pw.getPseudoWireId())) {
+            log.warn("Pseudowire alreday exists {}", pw);
+        }
+        
+        pseudoWireMap.put(pw.getPseudoWireId(), pw);
+    }
+    
+    @Override
+    public void addMasterPseudoWire(MasterPseudoWire pw) {
+        // TODO: find a better way to save pseudowire: differnet id or else...
         if (masterPseudoWireMap.containsKey(pw.getPseudoWireId())) {
             log.warn("Pseudowire alreday exists {}", pw);
-            return false;
         }
         masterPseudoWireMap.put(pw.getPseudoWireId(), pw);
-        return true;
-
     }
-
+    
+    @Override
+    public PseudoWire getPseudoWire(String pseudoWireId) {
+        return (PseudoWire) pseudoWireMap.get(pseudoWireId);
+    }
+    
     @Override
     public MasterPseudoWire getMasterPseudoWire(String pseudoWireId) {
         return masterPseudoWireMap.get(pseudoWireId);
     }
+    
+    @Override
+    public void remPseudoWire(String pseudoWireId) {
+        masterPseudoWireMap.remove(pseudoWireId);
+        pseudoWireMap.remove(pseudoWireId);
+        
+    }
+    
+    @Override
+    public Collection<PseudoWire> getPseudoWires() {
+        if(masterPseudoWireMap.isEmpty() && pseudoWireMap.isEmpty()){
+            return Collections.emptyList();
+            }
+        //TODO: find a better way
+        Collection<PseudoWire> merge = new HashSet<PseudoWire>();
+        merge.addAll(pseudoWireMap.values());
+        merge.addAll(masterPseudoWireMap.values());
+        return ImmutableList.copyOf(merge);
+    } 
+
 
     @Override
     public MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint) {
@@ -308,13 +342,26 @@ public class IconaStoreManager implements IconaStoreService {
         mplsLabelMap.get(connectPoint).releaseIndex(mplsLabel.toInt());
     }
 
-    // @Override
-    // public boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent
-    // pwIntent) {
-    // if (pseudoWireMap.get(pw.getPseudoWireId()) != null){
-    // pw.addPseudoWireIntent(pwIntent);
-    // }
-    // return false;
-    // }
+    @Override
+    public void updateMasterPseudoWireStatus(String pseudoWireId,
+                                             PathInstallationStatus pwStatus) {
+       if( masterPseudoWireMap.get(pseudoWireId) != null){
+           masterPseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus); 
+       }else{
+           log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!", pseudoWireId);
+       }
+        
+    }
+
+    @Override
+    public void updatePseudoWireStatus(String pseudoWireId,
+                                       PathInstallationStatus pwStatus) {
+        if(pseudoWireMap.get(pseudoWireId) != null){
+            pseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus); 
+        }else{
+            log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!", pseudoWireId);
+        }
+        
+    }
 
 }
