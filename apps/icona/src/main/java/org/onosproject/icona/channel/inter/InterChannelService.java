@@ -2,11 +2,13 @@ package org.onosproject.icona.channel.inter;
 
 import java.util.Date;
 
-import org.onosproject.icona.InterClusterPath;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.store.EndPoint;
+import org.onosproject.icona.store.MasterPseudoWire;
+import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 
 public interface InterChannelService {
@@ -27,26 +29,22 @@ public interface InterChannelService {
 
     void addCluster(String ClusterName);
     
-    void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst, InterClusterPath path, String clusterName);
-        
-    void remPseudoWireEvent(); 
+    void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst,
+                            String clusterName,
+                            PathInstallationStatus pwStatus,
+                            String pseudoWireId); 
+    
+    void addPseudoWireEvent(PseudoWire pw);  
+    
+    void remPseudoWireEvent(PseudoWire pw); 
     
 
-     IconaPseudoWireIntentEvent addMasterPseudoWireEvent(String clustrLeader, String pseudoWireId,
+     IconaPseudoWireIntentEvent addPseudoWireIntentEvent(String clustrLeader, String pseudoWireId,
                             PseudoWireIntent pseudoWireIntent,
                             IntentRequestType intentRequestType,
                             IntentReplayType intentReplayType);
 
-    void addMasterPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent);
+    void addPseudoWireIntentEvent(IconaPseudoWireIntentEvent intentEvent);
 
     void remIntentEvent(IconaPseudoWireIntentEvent intentEvent);
-   
-
-    // public void addIntentEvent(IconaIntentEvent intentEvent);
-    //
-    // public void remIntentEvent(IconaIntentEvent intentEvent);
-    //
-    // public void addManagementEvent(IconaManagementEvent managementEvent);
-    //
-    // public void remManagementEvent(IconaManagementEvent managementEvent);
 }
