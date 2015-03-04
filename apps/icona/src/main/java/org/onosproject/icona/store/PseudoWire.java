@@ -3,6 +3,7 @@ package org.onosproject.icona.store;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.onosproject.icona.InterClusterPath;
+import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.intent.IntentId;
 
 public class PseudoWire {
@@ -71,7 +72,4 @@ public class PseudoWire {
                 + ", pseudoWireId=" + pseudoWireId + ", pwStatus=" + pwStatus
                 + "]";
     }    
-
-    
-    
 }

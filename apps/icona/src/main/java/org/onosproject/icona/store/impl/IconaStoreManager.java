@@ -363,5 +363,12 @@ public class IconaStoreManager implements IconaStoreService {
         }
         
     }
+    
+    @Override
+    public String getPseudoWireId(ConnectPoint srcCP, ConnectPoint dstCP) {
+        String pseudoWireId = srcCP.deviceId() + "/" + srcCP.port()
+        + "-" + dstCP.deviceId() + "/" + dstCP.port();
+        return pseudoWireId;
+    }
 
 }

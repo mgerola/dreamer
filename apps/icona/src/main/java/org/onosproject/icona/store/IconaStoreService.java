@@ -55,6 +55,8 @@ public interface IconaStoreService {
     
     void remPseudoWire(String pseudoWireId);
 
+    String getPseudoWireId(ConnectPoint srcCP, ConnectPoint dstCP);
+    
     Collection<PseudoWire> getPseudoWires();
     
     void updatePseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);

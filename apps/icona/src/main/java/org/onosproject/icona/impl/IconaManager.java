@@ -31,11 +31,13 @@ import org.onosproject.icona.channel.inter.InterChannelService;
 import org.onosproject.icona.channel.intra.IconaIntraEvent;
 import org.onosproject.icona.channel.intra.IntraChannelService;
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement;
+import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
+import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.mastership.MastershipService;
@@ -393,8 +395,12 @@ public class IconaManager implements IconaService {
 
     @Override
     public void handlePseudoWire(IconaIntraEvent event) {
-
+        
         IntraPseudoWireElement intraPW = event.intraPseudoWireElement();
+        
+        if(event.intraPseudoWireElement().intentUpdateType() == IntentUpdateType.INSTALL) {
+
+        
         EndPoint srcEndPoint = iconaStoreService
                 .getEndPoint(DeviceId.deviceId(intraPW.srcId()),
                              PortNumber.portNumber(intraPW.srcPort()))
@@ -498,6 +504,23 @@ public class IconaManager implements IconaService {
             
 
             pw.setPwStatus(PathInstallationStatus.INITIALIZED);
+        }
+        } else if (event.intraPseudoWireElement().intentUpdateType() == IntentUpdateType.DELETE) {
+            ConnectPoint srcCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
+                    PortNumber.portNumber(intraPW.srcPort()));
+            ConnectPoint dstCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
+                                              PortNumber.portNumber(intraPW.srcPort())); 
+            
+            
+            PseudoWire pw = iconaStoreService.getPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
+            if (pw == null) {
+                pw = iconaStoreService.getMasterPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
+                if (pw == null) { 
+                    log.warn("Pseudowire does not exist: {}");
+                    return;
+                }
+            } 
+            interChannelService.addPseudoWireEvent(pw);
         }
     }
 }
