@@ -26,10 +26,13 @@ public class PseudoWireIntent {
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
 
+    private Boolean isBackup;
+    
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
                             String dstDpid, long dstPort, Integer ingressLabel,
                             Integer egressLabel,
-                            PathInstallationStatus installationStatus, boolean isIngress, boolean isEgress) {
+                            PathInstallationStatus installationStatus, 
+                            boolean isIngress, boolean isEgress, boolean isBackup) {
         this(dstCluster, 
              new ConnectPoint(DeviceId.deviceId(srcDpid),
                                           PortNumber.portNumber(srcPort)),
@@ -37,7 +40,7 @@ public class PseudoWireIntent {
                               PortNumber.portNumber(dstPort)), 
              ingressLabel,
              egressLabel, 
-             installationStatus, isEgress, isIngress);
+             installationStatus, isEgress, isIngress, isBackup);
 
     }
 
@@ -46,7 +49,8 @@ public class PseudoWireIntent {
                             Integer egressLabel,
                             PathInstallationStatus installationStatus,
                             boolean isIngress,
-                            boolean isEgress) {
+                            boolean isEgress,
+                            boolean isBackup) {
         this.dstClusterName = dstClusterName;
         this.src = src;
         this.dst = dst;
@@ -64,7 +68,7 @@ public class PseudoWireIntent {
         this.lastStatusUpdate = new Date();
         this.isEgress = isEgress;
         this.isIngress = isIngress;
-
+        this.isBackup = isBackup;
 
     }
 
@@ -117,6 +121,9 @@ public class PseudoWireIntent {
         return isIngress;
     }
 
+    public Boolean isBackup() {
+    	return isBackup;
+    }
 
     @Override
     public String toString() {

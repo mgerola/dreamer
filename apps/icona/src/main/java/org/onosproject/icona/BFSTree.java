@@ -24,32 +24,42 @@ public class BFSTree {
     // tree)
 
 
-    public BFSTree(Cluster rootCluster, IconaStoreService iconaStoreService) {
+    public BFSTree(Cluster rootCluster, IconaStoreService iconaStoreService, InterLink primaryIL) {
         this.rootCluster = rootCluster;
         this.iconaStoreService = iconaStoreService;
-        calcTree();
+        calcTree(primaryIL);
     }
 
 
-    protected final void calcTree() {
-        clusterQueue.add(rootCluster);
-        clusterSearched.add(rootCluster.getClusterName());
-        while (!clusterQueue.isEmpty()) {
-            Cluster cluster = clusterQueue.poll();
-            for (InterLink interLink : cluster.getInterLinks()) {
-                String reachedCluster = interLink.dstClusterName();
-                if (clusterSearched.contains(reachedCluster)) {
-                    continue;
-                }
-                // if (intents != null &&
-                // intents.getAvailableBandwidth(link) < bandwidth) {
-                // continue;
-                // }
-                clusterQueue.add(iconaStoreService.getCluster(reachedCluster));
-                clusterSearched.add(reachedCluster);
-                upstreamInterLinks.put(reachedCluster, interLink);
-            }
-        }
+	protected final void calcTree(InterLink primaryIL) {
+		clusterQueue.add(rootCluster);
+		clusterSearched.add(rootCluster.getClusterName());
+		while (!clusterQueue.isEmpty()) {
+			Cluster cluster = clusterQueue.poll();
+			for (InterLink interLink : cluster.getInterLinks()) {
+				// If the primary IL is not null, remove from the tree all the
+				// ILs that are using the same
+				// switches
+				if (primaryIL == null
+						|| (!primaryIL.src().deviceId()
+								.equals(interLink.src().deviceId()) && !primaryIL
+								.dst().deviceId()
+								.equals(interLink.dst().deviceId()))) {
+					String reachedCluster = interLink.dstClusterName();
+					if (clusterSearched.contains(reachedCluster)) {
+						continue;
+					}
+					// if (intents != null &&
+					// intents.getAvailableBandwidth(link) < bandwidth) {
+					// continue;
+					// }
+					clusterQueue.add(iconaStoreService
+							.getCluster(reachedCluster));
+					clusterSearched.add(reachedCluster);
+					upstreamInterLinks.put(reachedCluster, interLink);
+				}
+			}
+		}
 
     }
 

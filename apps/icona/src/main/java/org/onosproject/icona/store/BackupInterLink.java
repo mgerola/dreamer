@@ -1,61 +1,42 @@
 package org.onosproject.icona.store;
 
+import org.onosproject.icona.InterClusterPath;
+import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
-public class InterLink {
+public class BackupInterLink {
 
-    private String srcClusterName;
-    private String dstClusterName;
-
+    private InterLink il;
+    InterClusterPath path;
+    BackupMasterPseudoWire pw;
+    
     private ConnectPoint src;
     private ConnectPoint dst;
     
-    private BackupInterLink bil;
+    private String srcClusterName;
+    private String dstClusterName;
 
-    public InterLink(String srcClusterName, String dstClusterName,
-                     String srcDpid, Long srcPort, String dstDpid, Long dstPort) {
-        this.src = new ConnectPoint(DeviceId.deviceId(srcDpid), PortNumber.portNumber(srcPort));
-        this.srcClusterName = srcClusterName;
-
-        this.dst = new ConnectPoint(DeviceId.deviceId(dstDpid), PortNumber.portNumber(dstPort));
-        this.dstClusterName = dstClusterName;
-        
-        this.bil = null;
-    }
-
-    public ConnectPoint src(){
-        return this.src;
-    }
-
-    public ConnectPoint dst(){
-        return this.dst;
-    }
-
-    public String srcClusterName() {
-        return srcClusterName;
-    }
-
-    public String dstClusterName() {
-        return dstClusterName;
-    }
-
-    public BackupInterLink getBIL() {
-    	return bil;
-    }
-    
-	public boolean hasBIL() {
-		if (bil == null)
-			return false;
-		else
-			return true;
+	public BackupInterLink(InterLink il, InterClusterPath path) {
+		this.il = il;
+		this.path = path;
+		this.srcClusterName = il.srcClusterName();
+		this.dstClusterName = il.dstClusterName();
+		
+		this.src = this.path.getInterlinks().get(0).src();
+		this.dst = this.path.getInterlinks().get(this.path.getInterlinks().size()-1).dst();
+		this.pw = new BackupMasterPseudoWire(this.src, this.dst, path, PathInstallationStatus.RECEIVED);
 	}
-    
-    public void setBIL(BackupInterLink bil) {
-    	this.bil = bil;
-    }
-    
+
+	public void setPW(BackupMasterPseudoWire pw) {
+		this.pw = pw;
+	}
+
+	public BackupMasterPseudoWire getPW() {
+		return this.pw;
+	}
+	
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -77,7 +58,7 @@ public class InterLink {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        InterLink other = (InterLink) obj;
+        BackupInterLink other = (BackupInterLink) obj;
         if (dst == null) {
             if (other.dst != null)
                 return false;
@@ -100,7 +81,5 @@ public class InterLink {
             return false;
         return true;
     }
-    
-
 
 }

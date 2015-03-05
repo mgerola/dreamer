@@ -3,6 +3,7 @@ package org.onosproject.icona.store;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Iterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,15 @@ public class Cluster {
 
     public Collection<InterLink> getInterLinks() {
         return interlinks;
+    }
+    
+    public Collection<InterLink> getOutgoingInterLinks() {
+    	Collection<InterLink> outgoingILs = new HashSet<InterLink>();
+    	for (InterLink il : interlinks) {
+    		if (il.srcClusterName().equals(clusterName))
+    			outgoingILs.add(il);
+    	}
+        return outgoingILs;
     }
 
     public void remEndPoint(EndPoint endPoint) {

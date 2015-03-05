@@ -209,7 +209,7 @@ public class IconaManager implements IconaService {
                             PortNumber localPort, DeviceId remoteId,
                             PortNumber remotePort) {
 
-        log.info("Received ELLDP from cluster {}: local switch DPID {} and port {} "
+        log.debug("Received ELLDP from cluster {}: local switch DPID {} and port {} "
                          + "and remote switch DPID {} and port {}",
                  remoteclusterName, localId, localPort, remoteId, remotePort);
         // Publish a new "IL add" and if an EPs exits, an "EP remove" is
@@ -421,7 +421,7 @@ public class IconaManager implements IconaService {
             BFSTree geoTree = new BFSTree(
                                           iconaStoreService.getCluster(srcEndPoint
                                                   .clusterName()),
-                                          iconaStoreService);
+                                          iconaStoreService, null);
       
             Cluster dstCluster = iconaStoreService.getCluster(dstEndPoint
                     .clusterName());
@@ -435,7 +435,7 @@ public class IconaManager implements IconaService {
                 pw.addPseudoWireIntent(srcEndPoint, dstEndPoint,
                                        srcEndPoint.clusterName(),
                                        null, null,
-                                       PathInstallationStatus.RECEIVED, true, true);
+                                       PathInstallationStatus.RECEIVED, true, true, false);
 
                 // Installation procedure...
             } else {
@@ -450,13 +450,13 @@ public class IconaManager implements IconaService {
                                                .src(), srcEndPoint
                                                .clusterName(),
                                                null, null,
-                                       PathInstallationStatus.RECEIVED, true, false);
+                                       PathInstallationStatus.RECEIVED, true, false, false);
 
                 // DstEndPoint to first interlink
                 pw.addPseudoWireIntent(interLinks.get(0).dst(), dstEndPoint,
                                        dstEndPoint.clusterName(),
                                        null, null,
-                                       PathInstallationStatus.RECEIVED, false, true);
+                                       PathInstallationStatus.RECEIVED, false, true, false);
 
                 // Interlinks in the middle
                 for (int i = interLinks.size() - 1; i > 0; i--) {
@@ -464,7 +464,7 @@ public class IconaManager implements IconaService {
                             .get(i - 1).src(), interLinks.get(i)
                             .dstClusterName(), 
                             null, null, 
-                            PathInstallationStatus.RECEIVED, false, false);
+                            PathInstallationStatus.RECEIVED, false, false, false);
 
                 }
             }

@@ -5,43 +5,27 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.onosproject.icona.InterClusterPath;
+import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-public class MasterPseudoWire extends PseudoWire {
+public class BackupMasterPseudoWire extends BackupPseudoWire {
     private PathInstallationStatus pwStatus;
     private Map<String, PseudoWireIntent> clusterIntentMap;
-
-    private TrafficSelector selector;
-    private TrafficTreatment treatment;
 
     // private InterClusterPath interClusterPath;
     // TODO: ingressLabel and egressLabel
 
-    public enum PathInstallationStatus {
-        RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
-
-    }
-
-    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
-                    TrafficSelector trafficSelector, TrafficTreatment treatment) {
+    public BackupMasterPseudoWire(ConnectPoint srcEndPoint, ConnectPoint dstEndPoint) {
         
-        this(srcEndPoint, dstEndPoint, trafficSelector, treatment, null,
+        this(srcEndPoint, dstEndPoint, null,
              PathInstallationStatus.RECEIVED);
 
     }
 
-    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
-                      TrafficSelector selector, TrafficTreatment treatment, InterClusterPath path,
+    public BackupMasterPseudoWire(ConnectPoint srcEndPoint, ConnectPoint dstEndPoint,
+                      InterClusterPath path,
                       PathInstallationStatus pwStatus) {
         super(srcEndPoint, dstEndPoint, path);
-        checkNotNull(selector);
-        checkNotNull(treatment);
-        this.selector = selector;
-        this.treatment = treatment;
         this.pwStatus = pwStatus;
         this.clusterIntentMap = new HashMap<String, PseudoWireIntent>();
     }
@@ -88,20 +72,11 @@ public class MasterPseudoWire extends PseudoWire {
         return clusterIntentMap.get(clusterName);
     }
 
-    public TrafficSelector getTrafficSelector() {
-        return selector;
-    }
-
-    public TrafficTreatment getTrafficTreatment() {
-        return treatment;
-    }
-
     @Override
     public String toString() {
         return "MasterPseudoWire [srcEndPoint=" + super.getSrcEndPoint() + ", dstEndPoint="
                 + super.getDstEndPoint() + ", pseudoWireId=" + super.getPseudoWireId() + "pwStatus=" + pwStatus + ", clusterIntentMap="
-                + clusterIntentMap + ", path=" + super.getInterClusterPath() + ", selector="
-                + selector + ", treatment=" + treatment + "]";
+                + clusterIntentMap + ", path=" + super.getInterClusterPath() + "]";
     }
 
     

@@ -23,6 +23,7 @@ public interface InterChannelService {
 
     void helloManagement(Date date, String clusterName);
 
+    
     void remCluster(String ClusterName);
 
     void addCluster(String ClusterName);

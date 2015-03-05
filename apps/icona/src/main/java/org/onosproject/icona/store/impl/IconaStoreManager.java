@@ -14,6 +14,7 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.MplsLabel;
+import org.onosproject.icona.store.BackupMasterPseudoWire;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
@@ -41,6 +42,7 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<DeviceId, HashMap<PortNumber, InterLink>> swPortInterLink;
     private Map<DeviceId, HashMap<PortNumber, EndPoint>> swPortEndPoint;
     private Map<String, MasterPseudoWire> masterPseudoWireMap;
+    private Map<String, BackupMasterPseudoWire> backupMasterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
     private Set<PseudoWire> pseudoWire;
 
@@ -278,6 +280,18 @@ public class IconaStoreManager implements IconaStoreService {
             return false;
         }
         masterPseudoWireMap.put(pw.getPseudoWireId(), pw);
+        return true;
+
+    }
+    
+    @Override
+    public boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw) {
+        // TODO: find a better way to save pseudowire
+        if (backupMasterPseudoWireMap.containsKey(pw.getPseudoWireId())) {
+            log.warn("Pseudowire alreday exists {}", pw);
+            return false;
+        }
+        backupMasterPseudoWireMap.put(pw.getPseudoWireId(), pw);
         return true;
 
     }

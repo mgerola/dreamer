@@ -57,6 +57,8 @@ public interface IconaStoreService {
 
     void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
 
+	boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw);
+
 
 //    boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent);
 
