@@ -7,6 +7,8 @@ import java.util.HashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
+
 public class Cluster {
 
     private static final Logger log = LoggerFactory.getLogger(Cluster.class);
@@ -51,11 +53,11 @@ public class Cluster {
     }
 
     public Collection<InterLink> getInterLinks() {
-        return interlinks;
+        return ImmutableList.copyOf(interlinks);
     }
 
     public void remEndPoint(EndPoint endPoint) {
-        if (!endPoints.remove(endPoints)) {
+        if (!endPoints.remove(endPoint)) {
             log.warn("EndPoint {} is not present in this cluster {}", endPoint,
                      getClusterName());
         }
@@ -66,7 +68,7 @@ public class Cluster {
     }
 
     public Collection<EndPoint> getEndPoints() {
-        return endPoints;
+        return ImmutableList.copyOf(endPoints);
 
     }
 

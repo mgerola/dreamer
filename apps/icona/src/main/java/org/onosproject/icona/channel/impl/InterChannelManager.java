@@ -30,7 +30,10 @@ import org.onosproject.icona.impl.IconaManager;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
+import org.onosproject.icona.store.MasterPseudoWire;
+import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
@@ -107,12 +110,24 @@ public class InterChannelManager implements InterChannelService {
         interHazelcastInstance = Hazelcast
                 .getOrCreateHazelcastInstance(interHazelcastConfig);
 
+        this.mgmtChannel = interHazelcastInstance
+                .getMap(ICONA_MGMT_CHANNEL_NAME);
+        this.mgmtChannel
+                .addEntryListener(new IconaMgmtListener(iconaStoreService),
+                                  true);
+        InterChannelManager.mgmtEventCounter = new BitSetIndex(
+                                                               IndexType.MGMT_CHANNEL);
+        
+        loadMgmt();
+        
+        
         InterChannelManager.topologyChannel = interHazelcastInstance
                 .getMap(ICONA_TOPOLOGY_CHANNEL_NAME);
         InterChannelManager.topologyChannel
-                .addEntryListener(new IconaTopologyListener(iconaStoreService),
+                .addEntryListener(new IconaTopologyListener(iconaStoreService, iconaConfigService),
                                   true);
-
+        loadTopology();
+        
         InterChannelManager.pseudoWireChannel = interHazelcastInstance
                 .getMap(ICONA_INTENT_CHANNEL_NAME);
         InterChannelManager.pseudoWireChannel
@@ -126,16 +141,6 @@ public class InterChannelManager implements InterChannelService {
                                                                     pathService),
                                   true);
 
-        this.mgmtChannel = interHazelcastInstance
-                .getMap(ICONA_MGMT_CHANNEL_NAME);
-        this.mgmtChannel
-                .addEntryListener(new IconaMgmtListener(iconaStoreService),
-                                  true);
-        InterChannelManager.mgmtEventCounter = new BitSetIndex(
-                                                               IndexType.MGMT_CHANNEL);
-
-        loadMgmt();
-        loadTopology();
 
     }
 
@@ -271,22 +276,40 @@ public class InterChannelManager implements InterChannelService {
     }
     
     @Override
-    public void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst,
-                                   InterClusterPath path, String clusterName) {
-        IconaTopologyEvent event = new IconaTopologyEvent(new InterPseudoWireElement(src,dst), clusterName);
+    public void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst, String clusterName, PathInstallationStatus pwStatus, String pseudoWireId) {
+        IconaTopologyEvent event = new IconaTopologyEvent(new InterPseudoWireElement(src,dst, pwStatus, pseudoWireId), clusterName);
         topologyChannel.put(event.getID(), event);
         
     }
-
-    //TODO: implement!
+    
     @Override
-    public void remPseudoWireEvent() {
-        // TODO Auto-generated method stub
+    public void addPseudoWireEvent(PseudoWire pw) {
+        IconaTopologyEvent event = new IconaTopologyEvent(
+                                                          new InterPseudoWireElement(
+                                                                                     pw.getSrcEndPoint(),
+                                                                                     pw.getDstEndPoint(),
+                                                                                     pw.getPwStatus(),
+                                                                                     pw.getPseudoWireId()),
+                                                          pw.getClusterMaster());
+        topologyChannel.put(event.getID(), event);
+    }
+
+    // TODO: implement!
+    @Override
+    public void remPseudoWireEvent(PseudoWire pw) {
+        IconaTopologyEvent event = new IconaTopologyEvent(
+                                                          new InterPseudoWireElement(
+                                                                                     pw.getSrcEndPoint(),
+                                                                                     pw.getDstEndPoint(),
+                                                                                     pw.getPwStatus(),
+                                                                                     pw.getPseudoWireId()),
+                                                          pw.getClusterMaster());
+        topologyChannel.remove(event.getID());
         
     }
 
     @Override
-    public IconaPseudoWireIntentEvent addMasterPseudoWireEvent(String clustrLeader,
+    public IconaPseudoWireIntentEvent addPseudoWireIntentEvent(String clustrLeader,
                                                          String pseudoWireId,
                                                          PseudoWireIntent pseudoWireIntent,
                                                          IntentRequestType intentRequestType,
@@ -304,7 +327,7 @@ public class InterChannelManager implements InterChannelService {
     }
 
     @Override
-    public void addMasterPseudoWireEvent(IconaPseudoWireIntentEvent intentEvent) {
+    public void addPseudoWireIntentEvent(IconaPseudoWireIntentEvent intentEvent) {
         pseudoWireChannel.put(intentEvent.getID(), intentEvent);
 
     }

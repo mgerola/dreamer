@@ -4,20 +4,14 @@ import java.util.Collection;
 import java.util.Optional;
 
 import org.onlab.packet.MplsLabel;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 
 public interface IconaStoreService {
 
-    // public PseudoWire getPseudoWire(long srcSw, int srcPort, long dstSw, int
-    // dstPort);
-    //
-    //
-    //
-
     Optional<EndPoint> getEndPoint(DeviceId id, PortNumber port);
-
 
     Collection<EndPoint> getEndPoints(DeviceId id);
 
@@ -49,15 +43,26 @@ public interface IconaStoreService {
 
     void remCluster(String clusterName);
 
-    boolean addMasterPseudoWire(MasterPseudoWire pw);
-
+    void addPseudoWire(PseudoWire pw);
+    
+    void addMasterPseudoWire(MasterPseudoWire pw);
+    
     MasterPseudoWire getMasterPseudoWire(String pseudoWireId);
+    
+    void updateMasterPseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);
 
+    PseudoWire getPseudoWire(String pseudoWireId);
+    
+    void remPseudoWire(String pseudoWireId);
+
+    Collection<PseudoWire> getPseudoWires();
+    
+    void updatePseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);
+    
     MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
 
     void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
 
 
-//    boolean addPseudoWireIntent(PseudoWire pw, PseudoWireIntent pwIntent);
 
 }
