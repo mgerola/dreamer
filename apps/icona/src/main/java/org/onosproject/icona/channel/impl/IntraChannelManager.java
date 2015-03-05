@@ -78,11 +78,11 @@ public class IntraChannelManager implements IntraChannelService {
         }
 
     @Override
-    public void intraPseudoWire(ConnectPoint src, ConnectPoint dst, IntentUpdateType type, TrafficSelector selector,
+    public void intraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
                                    TrafficTreatment treatment, IntentUpdateType intentUpdateType) {
         
         //TODO manage trat and selec
-        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, type);
+        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, intentUpdateType);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());
         intraEventChannel.put(intraEvent.getID(), intraEvent);
     }

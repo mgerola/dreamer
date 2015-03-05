@@ -81,6 +81,14 @@ public class InterLink {
             return false;
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "InterLink [srcClusterName=" + srcClusterName
+                + ", dstClusterName=" + dstClusterName + ", src=" + src
+                + ", dst=" + dst + "]";
+    }
+    
     
 
 

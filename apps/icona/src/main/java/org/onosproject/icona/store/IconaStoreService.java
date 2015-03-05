@@ -2,12 +2,14 @@ package org.onosproject.icona.store;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.intent.IntentId;
 
 public interface IconaStoreService {
 
@@ -64,7 +66,11 @@ public interface IconaStoreService {
     MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
 
     void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
+    
+//    void updateLocalIntent(IntentId oldIntentId, IntentId newIntentId, ConnectPoint src, ConnectPoint dst);
 
+    void addLocalIntent(String pseudoWireId, PseudoWireIntent localIntent);
 
+    Collection<PseudoWireIntent> getLocalIntents(ConnectPoint src);
 
 }

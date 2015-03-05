@@ -3,6 +3,7 @@ package org.onosproject.icona.impl;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -332,7 +333,7 @@ public class IconaManager implements IconaService {
                 case PORT_REMOVED:
                     // If it was a IL or an EP, an "IL or EP remove" is
                     // published.
-
+                    
                     iconaStoreService
                             .getInterLink(id, event.port().number())
                             .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -354,6 +355,12 @@ public class IconaManager implements IconaService {
                     // If the port is not up and an IL exists, an "IL remove" is
                     // published.
                     if (!event.port().isEnabled()) {
+                        
+                        Collection<PseudoWireIntent> localIntents = iconaStoreService.getLocalIntents(new ConnectPoint(id, event.port().number()));
+                        if(localIntents != null) {
+                            log.info("We need to reroute all the intents!");
+                        }
+                        
                         iconaStoreService
                                 .getInterLink(id, event.port().number())
                                 .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -446,6 +453,12 @@ public class IconaManager implements IconaService {
                     .clusterName());
             InterClusterPath interClusterPath = geoTree.getPath(dstCluster);
             checkNotNull(interClusterPath.getInterlinks());
+            String ils = "";
+            for (InterLink il : interClusterPath.getInterlinks()){
+            
+                ils = ils + " " + il.toString();
+            }
+            log.info("ILs PATH: {}", ils);
             pw.setInterClusterPath(interClusterPath);
 
 
@@ -464,7 +477,6 @@ public class IconaManager implements IconaService {
                 // order: from destination to source.
                 List<InterLink> interLinks = interClusterPath.getInterlinks();
 
-                // SrcEndPoint to last interLink
                 pw.addPseudoWireIntent(srcEndPoint,
                                        interLinks.get(interLinks.size() - 1)
                                                .src(), srcEndPoint
@@ -472,7 +484,6 @@ public class IconaManager implements IconaService {
                                        PathInstallationStatus.RECEIVED, true,
                                        false);
 
-                // DstEndPoint to first interlink
                 pw.addPseudoWireIntent(interLinks.get(0).dst(), dstEndPoint,
                                        dstEndPoint.clusterName(), null, null,
                                        PathInstallationStatus.RECEIVED, false,

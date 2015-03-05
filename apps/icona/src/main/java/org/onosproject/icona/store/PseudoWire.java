@@ -2,17 +2,13 @@ package org.onosproject.icona.store;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.onosproject.icona.InterClusterPath;
-import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.intent.IntentId;
-
 public class PseudoWire {
 
     private EndPoint srcEndPoint;
     private EndPoint dstEndPoint;
     private String clusterMaster;
     private String pseudoWireId;
-    private IntentId intentId;
+    private PseudoWireIntent localIntent;
     private PathInstallationStatus pwStatus;
     
     public enum PathInstallationStatus {
@@ -45,12 +41,12 @@ public class PseudoWire {
         return pseudoWireId;
     }
     
-    public void setIntentId(IntentId intentId){
-        this.intentId = intentId;
+    public void setLocalIntent(PseudoWireIntent localIntent){
+        this.localIntent = localIntent;
     }
     
-    public IntentId getIntentId() {
-        return intentId;
+    public PseudoWireIntent getLocalIntent() {
+        return localIntent;
     }
 
     public PathInstallationStatus getPwStatus() {

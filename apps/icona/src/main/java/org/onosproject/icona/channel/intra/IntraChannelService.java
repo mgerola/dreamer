@@ -12,9 +12,8 @@ public interface IntraChannelService {
     public void remIntraPseudoWire(IconaIntraEvent event);
 
     void intraPseudoWire(ConnectPoint src, ConnectPoint dst,
-                         IntentUpdateType type, TrafficSelector selector,
-                         TrafficTreatment treatment,
-                         IntentUpdateType intentUpdateType);
+                         TrafficSelector selector,
+                         TrafficTreatment treatment, IntentUpdateType type);
 
 
 }

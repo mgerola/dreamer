@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import net.jcip.annotations.Immutable;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -21,11 +23,13 @@ import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.intent.IntentId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +48,7 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<String, PseudoWire> pseudoWireMap;
     private Map<String, MasterPseudoWire> masterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
+    private Map<ConnectPoint, Set<PseudoWireIntent>> localIntentMap;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -55,30 +60,13 @@ public class IconaStoreManager implements IconaStoreService {
         pseudoWireMap = new HashMap<String, PseudoWire>();
         masterPseudoWireMap = new HashMap<String, MasterPseudoWire>();
         mplsLabelMap = new HashMap<ConnectPoint, BitSetIndex>();
+        localIntentMap = new HashMap<ConnectPoint, Set<PseudoWireIntent>>();
     }
 
     @Deactivate
     public void deactivate() {
         log.info("Stopped");
     }
-
-    // PseudoWire
-    // @Override
-    // public PseudoWire getPseudoWire(long srcSw, int srcPort, long dstSw, int
-    // dstPort) {
-    // return pseudoWireMap
-    // .get(srcSw + "/" + srcPort + "-" + dstSw + "/" + dstPort);
-    // }
-    //
-    // @Override
-    // public PseudoWire getPseudoWire(String pseudoWireId) {
-    // return pseudoWireMap.get(pseudoWireId);
-    // }
-    //
-    // @Override
-    // public void addPseudoWire(PseudoWire pseudoWire) {
-    // pseudoWireMap.put(pseudoWire.getPseudoWireId(), pseudoWire);
-    // }
 
     // EndPoints
     @Override
@@ -136,7 +124,7 @@ public class IconaStoreManager implements IconaStoreService {
         if (swPortEndPoint.get(endPoint.deviceId()) != null) {
             swPortEndPoint.get(endPoint.deviceId()).remove(endPoint.port());
         }
-        
+
         clusterNameToCluster.get(endPoint.clusterName()).remEndPoint(endPoint);
     }
 
@@ -237,10 +225,10 @@ public class IconaStoreManager implements IconaStoreService {
         return clusterNameToCluster.put(cluster.getClusterName(), cluster);
     }
 
-//    public PseudoWire addPseudoWire() {
-//        
-//    }
-    
+    // public PseudoWire addPseudoWire() {
+    //
+    // }
+
     @Override
     public Collection<Cluster> getClusters() {
         Collection<Cluster> temp = new HashSet<Cluster>();
@@ -274,17 +262,16 @@ public class IconaStoreManager implements IconaStoreService {
 
     }
 
-    
     @Override
     public void addPseudoWire(PseudoWire pw) {
         // TODO: find a better way to save pseudowire
         if (pseudoWireMap.containsKey(pw.getPseudoWireId())) {
             log.warn("Pseudowire alreday exists {}", pw);
         }
-        
+
         pseudoWireMap.put(pw.getPseudoWireId(), pw);
     }
-    
+
     @Override
     public void addMasterPseudoWire(MasterPseudoWire pw) {
         // TODO: find a better way to save pseudowire: differnet id or else...
@@ -293,36 +280,35 @@ public class IconaStoreManager implements IconaStoreService {
         }
         masterPseudoWireMap.put(pw.getPseudoWireId(), pw);
     }
-    
+
     @Override
     public PseudoWire getPseudoWire(String pseudoWireId) {
         return (PseudoWire) pseudoWireMap.get(pseudoWireId);
     }
-    
+
     @Override
     public MasterPseudoWire getMasterPseudoWire(String pseudoWireId) {
         return masterPseudoWireMap.get(pseudoWireId);
     }
-    
+
     @Override
     public void remPseudoWire(String pseudoWireId) {
         masterPseudoWireMap.remove(pseudoWireId);
         pseudoWireMap.remove(pseudoWireId);
-        
+
     }
-    
+
     @Override
     public Collection<PseudoWire> getPseudoWires() {
-        if(masterPseudoWireMap.isEmpty() && pseudoWireMap.isEmpty()){
+        if (masterPseudoWireMap.isEmpty() && pseudoWireMap.isEmpty()) {
             return Collections.emptyList();
-            }
-        //TODO: find a better way
+        }
+        // TODO: find a better way
         Collection<PseudoWire> merge = new HashSet<PseudoWire>();
         merge.addAll(pseudoWireMap.values());
         merge.addAll(masterPseudoWireMap.values());
         return ImmutableList.copyOf(merge);
-    } 
-
+    }
 
     @Override
     public MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint) {
@@ -345,29 +331,66 @@ public class IconaStoreManager implements IconaStoreService {
     @Override
     public void updateMasterPseudoWireStatus(String pseudoWireId,
                                              PathInstallationStatus pwStatus) {
-       if( masterPseudoWireMap.get(pseudoWireId) != null){
-           masterPseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus); 
-       }else{
-           log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!", pseudoWireId);
-       }
-        
+        if (masterPseudoWireMap.get(pseudoWireId) != null) {
+            masterPseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus);
+        } else {
+            log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!",
+                      pseudoWireId);
+        }
+
     }
 
     @Override
     public void updatePseudoWireStatus(String pseudoWireId,
                                        PathInstallationStatus pwStatus) {
-        if(pseudoWireMap.get(pseudoWireId) != null){
-            pseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus); 
-        }else{
-            log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!", pseudoWireId);
+        if (pseudoWireMap.get(pseudoWireId) != null) {
+            pseudoWireMap.get(pseudoWireId).setPwStatus(pwStatus);
+        } else {
+            log.error("Impossible to update MasterPseudoWire with ID {}: does not exist!",
+                      pseudoWireId);
         }
-        
+
     }
-    
+
+    @Override
+    public void addLocalIntent(String pseudoWireId, PseudoWireIntent localIntent) {
+        if (getMasterPseudoWire(pseudoWireId) != null) {
+            getMasterPseudoWire(pseudoWireId).setLocalIntent(localIntent);
+        } else if (getPseudoWire(pseudoWireId) != null) {
+            getPseudoWire(pseudoWireId).setLocalIntent(localIntent);
+        }
+
+        if (!localIntent.isIngress()) {
+            if (localIntentMap.get(localIntent.src()) == null) {
+                localIntentMap.put(localIntent.src(),
+                                   new HashSet<PseudoWireIntent>());
+            }
+            localIntentMap.get(localIntent.src()).add(localIntent);
+        }
+        if (!localIntent.isEgress()) {
+            if (localIntentMap.get(localIntent.dst()) == null) {
+                localIntentMap.put(localIntent.dst(),
+                                   new HashSet<PseudoWireIntent>());
+            }
+            localIntentMap.get(localIntent.dst()).add(localIntent);
+        }
+        log.info("localIntentMap {}", localIntentMap);
+    }
+
+    @Override
+    public Collection<PseudoWireIntent> getLocalIntents(ConnectPoint cp) {
+        log.info("Local intents {} and get {}", localIntentMap, localIntentMap.get(cp));
+        //TODO: not secure!
+        if(localIntentMap.get(cp) == null) {
+            return Collections.emptyList();
+        }
+        return ImmutableList.copyOf(localIntentMap.get(cp));
+    }
+
     @Override
     public String getPseudoWireId(ConnectPoint srcCP, ConnectPoint dstCP) {
-        String pseudoWireId = srcCP.deviceId() + "/" + srcCP.port()
-        + "-" + dstCP.deviceId() + "/" + dstCP.port();
+        String pseudoWireId = srcCP.deviceId() + "/" + srcCP.port() + "-"
+                + dstCP.deviceId() + "/" + dstCP.port();
         return pseudoWireId;
     }
 

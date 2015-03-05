@@ -8,6 +8,7 @@ import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.intent.IntentId;
 
 public class PseudoWireIntent {
 
@@ -25,6 +26,8 @@ public class PseudoWireIntent {
 
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
+    
+    private IntentId intentId;
 
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
                             String dstDpid, long dstPort, Integer ingressLabel,
@@ -37,7 +40,7 @@ public class PseudoWireIntent {
                               PortNumber.portNumber(dstPort)), 
              ingressLabel,
              egressLabel, 
-             installationStatus, isEgress, isIngress);
+             installationStatus, isIngress, isEgress);
 
     }
 
@@ -50,7 +53,7 @@ public class PseudoWireIntent {
         this.dstClusterName = dstClusterName;
         this.src = src;
         this.dst = dst;
-        if(ingressLabel !=null){
+        if(ingressLabel != null){
         this.ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(ingressLabel));
         }else{
             this.ingressLabel = Optional.empty();
@@ -100,9 +103,17 @@ public class PseudoWireIntent {
     public void ingressLabel(MplsLabel ingressLabel) {
         this.ingressLabel = Optional.ofNullable(ingressLabel);
     }
+    
+    public void ingressLabel(Optional<MplsLabel> ingressLabel) {
+        this.ingressLabel = ingressLabel;
+    }
 
     public Optional<MplsLabel> egressLabel() {
         return egressLabel;
+    }
+    
+    public void egressLabel(Optional<MplsLabel> egressLabel) {
+        this.egressLabel = egressLabel;
     }
 
     public void egressLabel(MplsLabel egressLabel) {
@@ -117,15 +128,25 @@ public class PseudoWireIntent {
         return isIngress;
     }
 
+    public IntentId intentId() {
+        return intentId;
+    }
+    
+    public void intentId(IntentId intentId){
+        this.intentId = intentId;
+    }
 
     @Override
     public String toString() {
         return "PseudoWireIntent [dstClusterName=" + dstClusterName + ", src="
                 + src + ", dst=" + dst + ", ingressLabel=" + ingressLabel
-                + ", egressLabel=" + egressLabel + ", installationStatus="
+                + ", egressLabel=" + egressLabel + ", isEgress=" + isEgress
+                + ", isIngress=" + isIngress + ", installationStatus="
                 + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate
-                + "]";
+                + ", intentId=" + intentId + "]";
     }
+
+
 
 
 }
