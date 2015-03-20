@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -15,15 +14,14 @@ import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DefaultPath;
 import org.onosproject.net.Link;
 import org.onosproject.net.Path;
+import org.onosproject.net.intent.IngressMplsBackupIntent;
+import org.onosproject.net.intent.IngressMplsBackupPathIntent;
 import org.onosproject.net.intent.Intent;
-import org.onosproject.net.intent.MplsIntent;
-import org.onosproject.net.intent.MplsPathIntent;
 import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.resource.LinkResourceAllocations;
 
-
 @Component(immediate = true)
-public class MplsIntentCompiler extends ConnectivityIntentCompiler<MplsIntent> {
+public class IngressMplsBackupCompiler extends ConnectivityIntentCompiler<IngressMplsBackupIntent> {
 
     // TODO: use off-the-shell core provider ID
     private static final ProviderId PID =
@@ -34,16 +32,16 @@ public class MplsIntentCompiler extends ConnectivityIntentCompiler<MplsIntent> {
 
     @Activate
     public void activate() {
-        intentManager.registerCompiler(MplsIntent.class, this);
+        intentManager.registerCompiler(IngressMplsBackupIntent.class, this);
     }
 
     @Deactivate
     public void deactivate() {
-        intentManager.unregisterCompiler(MplsIntent.class);
+        intentManager.unregisterCompiler(IngressMplsBackupIntent.class);
     }
 
     @Override
-    public List<Intent> compile(MplsIntent intent, List<Intent> installable,
+    public List<Intent> compile(IngressMplsBackupIntent intent, List<Intent> installable,
                                 Set<LinkResourceAllocations> resources) {
         ConnectPoint ingressPoint = intent.ingressPoint();
         ConnectPoint egressPoint = intent.egressPoint();
@@ -74,13 +72,12 @@ public class MplsIntentCompiler extends ConnectivityIntentCompiler<MplsIntent> {
      * @param intent original intent
      */
     private Intent createPathIntent(Path path,
-                                    MplsIntent intent) {
-        return new MplsPathIntent(intent.appId(),
+                                    IngressMplsBackupIntent intent) {
+        return new IngressMplsBackupPathIntent(intent.appId(),
                               intent.selector(), intent.treatment(), path,
                               intent.ingressLabel(), intent.egressLabel(),
-                              intent.constraints(),
-                              intent.priority());
+                              intent.backupLabel(),
+                              intent.constraints(), intent.priority());
     }
-
 
 }

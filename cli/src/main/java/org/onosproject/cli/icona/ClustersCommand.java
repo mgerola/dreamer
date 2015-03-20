@@ -4,6 +4,7 @@ import static com.google.common.collect.Lists.newArrayList;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.karaf.shell.commands.Command;
@@ -32,7 +33,6 @@ public class ClustersCommand extends AbstractShellCommand {
     @Override
     protected void execute() {
         IconaStoreService service = get(IconaStoreService.class);
-
         if (outputJson()) {
             print("%s", json(service, getSortedClusters(service)));
         } else {
@@ -281,10 +281,11 @@ public class ClustersCommand extends AbstractShellCommand {
      * @return sorted device list
      */
     public static List<PseudoWire> getSortedPseudoWire(IconaStoreService service) {
-        List<PseudoWire> pws = newArrayList(service.getPseudoWires());
+        //List<PseudoWire> pws = newArrayList(service.getPseudoWires());
         //TODO: implement
 //        Collections.sort(endpoints, Comparators.ELEMENT_COMPARATOR);
-        return pws;
+        //return pws;
+        return Collections.emptyList();
     }
 
     /**
@@ -300,8 +301,9 @@ public class ClustersCommand extends AbstractShellCommand {
                   pw.getSrcEndPoint().deviceId().toString(),
                   pw.getSrcEndPoint().port().toLong(), 
                   pw.getDstEndPoint().deviceId().toString(), 
-                  pw.getDstEndPoint().port().toLong(), 
-                  pw.getPwStatus().toString());
+                  pw.getDstEndPoint().port().toLong(),
+                  pw.getPwStatus().toString()
+                  );
         }
     }
 }

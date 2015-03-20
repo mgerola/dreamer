@@ -3,8 +3,8 @@ package org.onosproject.icona.utils;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.BitSet;
+import java.lang.Math;
 
-import org.onlab.packet.MplsLabel;
 import org.slf4j.Logger;
 
 public class BitSetIndex {
@@ -16,8 +16,8 @@ public class BitSetIndex {
 
     public enum IndexType {
 
-        MGMT_CHANNEL((int) Math.pow(2, 5)), INTENT_ID((int) Math.pow(2, 64)),
-        MPLS_LABEL((int) Math.pow(2, 20));
+        MGMT_CHANNEL(32),
+        MPLS_LABEL((int) 0xFFFFF);
         // PSEUDOWIRE_CHANNEL((int) Math.pow(2, 64));
 
         protected Integer value;

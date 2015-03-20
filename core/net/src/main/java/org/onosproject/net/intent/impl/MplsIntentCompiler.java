@@ -78,7 +78,7 @@ public class MplsIntentCompiler  extends ConnectivityIntentCompiler<MplsIntent> 
         return new MplsPathIntent(intent.appId(),
                               intent.selector(), intent.treatment(), path,
                               intent.ingressLabel(), intent.egressLabel(),
-                              intent.constraints());
+                              intent.constraints(), intent.priority());
     }
 
 

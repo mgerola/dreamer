@@ -44,7 +44,6 @@
         <module>routing-api</module>
         <module>bgprouter</module>
         <module>test</module>
-        <module>intent-perf</module>
         <module>icona</module>
     </modules>
 
