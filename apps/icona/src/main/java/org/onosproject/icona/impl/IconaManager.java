@@ -170,8 +170,8 @@ public class IconaManager implements IconaService {
 
     @Activate
     public void activate() {
+        log.info("Starting ICONA manager: Cluster {}", iconaConfigService.getClusterName());
         loadStartUp();
-        log.info("Starting icona manager");
         deviceService.addListener(new ManageDevices());
         linkService.addListener(new ManageLinks());
         mgmtThread = new MgmtHandler();

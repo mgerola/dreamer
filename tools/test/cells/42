@@ -1,0 +1,12 @@
+# Default ONOS Controller VM instances 1,2
+export OC1="10.216.160.42"
+
+# for node clustering
+export ONOS_NIC="172.16.0.*"
+
+export ONOS_APPS="icona,openflow"
+
+export ONOS_CHANNEL=$ONOS_ROOT/apps/icona/src/main/resources/hazelcast-42.xml
+export ICONA_INTER=$ONOS_ROOT/apps/icona/src/main/resources/hazelcast-icona-inter.xml
+export ICONA_INTRA=$ONOS_ROOT/apps/icona/src/main/resources/hazelcast-icona-intra-42.xml
+export ICONA_CLUSTER=$ONOS_ROOT/apps/icona/src/main/resources/config-cluster-42.json

@@ -29,7 +29,7 @@
         <password>rocks</password>
     </group>
     <network>
-        <port auto-increment="true" port-count="100">5901</port>
+        <port auto-increment="true" port-count="100">6001</port>
         <outbound-ports>
             <!--
             Allowed port range when connecting to other nodes.
@@ -39,7 +39,7 @@
         </outbound-ports>
         <join>
             <multicast enabled="true">
-                <multicast-group>224.2.2.3</multicast-group>
+                <multicast-group>224.2.2.42</multicast-group>
                 <multicast-port>54327</multicast-port>
             </multicast>
             <tcp-ip enabled="false">
@@ -47,7 +47,7 @@
             </tcp-ip>
         </join>
         <interfaces enabled="true">
-            <interface>172.16.0.*</interface>
+            <interface>10.216.160.*</interface>
         </interfaces>
         <ssl enabled="false"/>
         <socket-interceptor enabled="false"/>

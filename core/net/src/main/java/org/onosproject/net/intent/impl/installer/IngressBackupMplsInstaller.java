@@ -1,4 +1,4 @@
-package org.onosproject.net.intent.impl;
+package org.onosproject.net.intent.impl.installer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.slf4j.LoggerFactory.getLogger;
