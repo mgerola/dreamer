@@ -10,12 +10,8 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.LeadershipService;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaPseudoWireService;
-import org.onosproject.icona.IconaService;
-import org.onosproject.icona.InterClusterPath;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.channel.inter.IconaManagementEvent;
@@ -26,11 +22,9 @@ import org.onosproject.icona.channel.inter.InterEndPointElement;
 import org.onosproject.icona.channel.inter.InterLinkElement;
 import org.onosproject.icona.channel.inter.IconaManagementEvent.MessageType;
 import org.onosproject.icona.channel.inter.InterPseudoWireElement;
-import org.onosproject.icona.impl.IconaManager;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
-import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
@@ -42,7 +36,6 @@ import org.slf4j.Logger;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.config.FileSystemXmlConfig;
-import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.IMap;
@@ -73,17 +66,11 @@ public class InterChannelManager implements InterChannelService {
     protected IconaStoreService iconaStoreService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected LeadershipService leadershipService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected ClusterService clusterService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaConfigService iconaConfigService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaPseudoWireService iconaPseudoWireService;
-    
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PathService pathService;
 
@@ -117,27 +104,25 @@ public class InterChannelManager implements InterChannelService {
                                   true);
         InterChannelManager.mgmtEventCounter = new BitSetIndex(
                                                                IndexType.MGMT_CHANNEL);
-        
+
         loadMgmt();
-        
-        
+
+
         InterChannelManager.topologyChannel = interHazelcastInstance
                 .getMap(ICONA_TOPOLOGY_CHANNEL_NAME);
         InterChannelManager.topologyChannel
                 .addEntryListener(new IconaTopologyListener(iconaStoreService, iconaConfigService),
                                   true);
         loadTopology();
-        
+
         InterChannelManager.pseudoWireChannel = interHazelcastInstance
                 .getMap(ICONA_INTENT_CHANNEL_NAME);
         InterChannelManager.pseudoWireChannel
                 .addEntryListener(new IconaPseudoWireIntentListener(
-                                                                    leadershipService,
-                                                                    clusterService,
                                                                     iconaConfigService,
                                                                     iconaStoreService,
                                                                     this,
-                                                                    iconaPseudoWireService, 
+                                                                    iconaPseudoWireService,
                                                                     pathService),
                                   true);
 
@@ -183,7 +168,7 @@ public class InterChannelManager implements InterChannelService {
         //Add my cluster
         iconaStoreService.addCluster(new Cluster(iconaConfigService
                                                  .getClusterName(), new Date()));
-        
+
         if (mgmtChannel.values() != null) {
             for (IconaManagementEvent event : mgmtChannel.values()) {
                 if (iconaStoreService.getCluster(event.getClusterName()) != null) {
@@ -274,14 +259,14 @@ public class InterChannelManager implements InterChannelService {
         IconaTopologyEvent clusterEvent = new IconaTopologyEvent(ClusterName);
         topologyChannel.remove(clusterEvent.getID());
     }
-    
+
     @Override
     public void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst, String clusterName, PathInstallationStatus pwStatus, String pseudoWireId) {
         IconaTopologyEvent event = new IconaTopologyEvent(new InterPseudoWireElement(src,dst, pwStatus, pseudoWireId), clusterName);
         topologyChannel.put(event.getID(), event);
-        
+
     }
-    
+
     @Override
     public void addPseudoWireEvent(PseudoWire pw) {
         IconaTopologyEvent event = new IconaTopologyEvent(
@@ -305,7 +290,7 @@ public class InterChannelManager implements InterChannelService {
                                                                                      pw.getPseudoWireId()),
                                                           pw.getClusterMaster());
         topologyChannel.remove(event.getID());
-        
+
     }
 
     @Override

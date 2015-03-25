@@ -43,7 +43,7 @@ public class IconaTopologyEvent implements Serializable {
         this.topologyElement = new InterClusterElement(clusterName);
         this.clusterName = clusterName;
     }
-    
+
     public IconaTopologyEvent(InterPseudoWireElement interPseudoWireElement,
                               String clusterName) {
         super();
@@ -75,7 +75,7 @@ public class IconaTopologyEvent implements Serializable {
         InterClusterElement interLinkElement = (InterClusterElement) this.topologyElement;
         return interLinkElement;
     }
-    
+
     public InterPseudoWireElement getInterPseudoWireElement() {
         if (this.elementType != ElementType.PSEUDOWIRE) {
             return null;
@@ -102,7 +102,7 @@ public class IconaTopologyEvent implements Serializable {
 
     public ByteBuffer getIDasByteBuffer() {
         ByteBuffer element = null;
-       
+
         element = topologyElement.getIDasByteBuffer();
 
         byte[] cluster = ("@" + clusterName).getBytes(StandardCharsets.UTF_8);

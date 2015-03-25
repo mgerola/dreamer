@@ -4,8 +4,6 @@ import java.util.Iterator;
 import java.util.Optional;
 
 import org.onlab.packet.MplsLabel;
-import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.LeadershipService;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaPseudoWireService;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent;
@@ -15,13 +13,11 @@ import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequ
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
-import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
-import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.topology.PathService;
 import org.slf4j.Logger;
@@ -36,9 +32,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class IconaPseudoWireIntentListener
         implements EntryListener<byte[], IconaPseudoWireIntentEvent> {
 
-    protected LeadershipService leadershipService;
 
-    protected ClusterService clusterService;
 
     protected IconaConfigService iconaConfigService;
 
@@ -50,15 +44,12 @@ public class IconaPseudoWireIntentListener
 
     protected PathService pathService;
 
-    public IconaPseudoWireIntentListener(LeadershipService leadershipService,
-                                         ClusterService clusterService,
+    public IconaPseudoWireIntentListener(
                                          IconaConfigService iconaConfigService,
                                          IconaStoreService iconaStoreService,
                                          InterChannelService interChannelService,
                                          IconaPseudoWireService iconaPseudoWireService,
                                          PathService pathService) {
-        this.leadershipService = leadershipService;
-        this.clusterService = clusterService;
         this.iconaConfigService = iconaConfigService;
         this.iconaStoreService = iconaStoreService;
         this.interChannelService = interChannelService;
@@ -84,14 +75,7 @@ public class IconaPseudoWireIntentListener
                 break;
             case INSTALL:
 
-                if (leadershipService.getLeader(iconaConfigService
-                        .getIconaLeaderPath()) != null
-                        && clusterService
-                                .getLocalNode()
-                                .id()
-                                .equals(leadershipService
-                                                .getLeader(iconaConfigService
-                                                        .getIconaLeaderPath()))) {
+                if (iconaConfigService.isLeader()) {
                     log.info("Replica: intentEvent {} srcDpid {} dstDpid {}",
                              intentEvent.intentRequestType(),
                              intentEvent.srcId(), intentEvent.dstId());
@@ -159,14 +143,7 @@ public class IconaPseudoWireIntentListener
             case RESERVE:
                 // TODO: all instances of the cluster should save the intent
 
-                if (leadershipService.getLeader(iconaConfigService
-                        .getIconaLeaderPath()) != null
-                        && clusterService
-                                .getLocalNode()
-                                .id()
-                                .equals(leadershipService
-                                                .getLeader(iconaConfigService
-                                                        .getIconaLeaderPath()))) {
+                if(iconaConfigService.isLeader()) {
                     log.info("Replica: intentEvent {} srcDpid {} dstDpid {}",
                              intentEvent.intentRequestType(),
                              intentEvent.srcId(), intentEvent.dstId());
@@ -217,7 +194,7 @@ public class IconaPseudoWireIntentListener
 
                         intentEvent.intentReplayType(IntentReplayType.ACK);
                     } else {
-                        
+
                         intentEvent.intentReplayType(IntentReplayType.NACK);
                     }
 
@@ -267,14 +244,7 @@ public class IconaPseudoWireIntentListener
                              intentEvent.intentReplayType(),
                              intentEvent.srcId(), intentEvent.dstId());
 
-                    if (leadershipService.getLeader(iconaConfigService
-                            .getIconaLeaderPath()) != null
-                            && clusterService
-                                    .getLocalNode()
-                                    .id()
-                                    .equals(leadershipService
-                                                    .getLeader(iconaConfigService
-                                                            .getIconaLeaderPath()))) {
+                    if (iconaConfigService.isLeader()) {
                         interChannelService
                                 .addPseudoWireEvent(iconaStoreService
                                         .getMasterPseudoWire(intentEvent
@@ -304,14 +274,7 @@ public class IconaPseudoWireIntentListener
                             .egressLabel(MplsLabel.mplsLabel(intentEvent
                                                  .egressLabel()));
 
-                    if (leadershipService.getLeader(iconaConfigService
-                            .getIconaLeaderPath()) != null
-                            && clusterService
-                                    .getLocalNode()
-                                    .id()
-                                    .equals(leadershipService
-                                                    .getLeader(iconaConfigService
-                                                            .getIconaLeaderPath()))) {
+                    if (iconaConfigService.isLeader()) {
 
                         interChannelService.remIntentEvent(intentEvent);
                         checkIntentReserved(intentEvent);

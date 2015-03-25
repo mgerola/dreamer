@@ -2,14 +2,11 @@ package org.onosproject.icona.store;
 
 import java.util.Collection;
 import java.util.Optional;
-import java.util.Set;
-
 import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
-import org.onosproject.net.intent.IntentId;
 
 public interface IconaStoreService {
 
@@ -46,29 +43,29 @@ public interface IconaStoreService {
     void remCluster(String clusterName);
 
     void addPseudoWire(PseudoWire pw);
-    
+
     void addMasterPseudoWire(MasterPseudoWire pw);
-    
+
     boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw);
-    
+
     MasterPseudoWire getMasterPseudoWire(String pseudoWireId);
-    
+
     void updateMasterPseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);
 
     PseudoWire getPseudoWire(String pseudoWireId);
-    
+
     void remPseudoWire(String pseudoWireId);
 
     String getPseudoWireId(ConnectPoint srcCP, ConnectPoint dstCP);
-    
+
     Collection<PseudoWire> getPseudoWires();
-    
+
     void updatePseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);
-    
+
     MplsLabel reserveAvailableMplsLabel(ConnectPoint connectPoint);
 
     void releaseMplsLabel(ConnectPoint connectPoint, MplsLabel mplsLabel);
-    
+
 //    void updateLocalIntent(IntentId oldIntentId, IntentId newIntentId, ConnectPoint src, ConnectPoint dst);
 
     void addLocalIntent(String pseudoWireId, PseudoWireIntent localIntent);

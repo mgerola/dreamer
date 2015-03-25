@@ -2,7 +2,6 @@ package org.onosproject.icona.channel.impl;
 
 import java.util.Optional;
 
-import com.esotericsoftware.minlog.Log;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.core.EntryListener;
 import com.hazelcast.core.MapEvent;
@@ -12,12 +11,9 @@ import org.onosproject.icona.channel.inter.IconaTopologyEvent;
 import org.onosproject.icona.channel.inter.InterEndPointElement;
 import org.onosproject.icona.channel.inter.InterLinkElement;
 import org.onosproject.icona.channel.inter.InterPseudoWireElement;
-import org.onosproject.icona.impl.IconaConfigLoader;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
-import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
-import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 

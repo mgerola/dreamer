@@ -16,7 +16,7 @@ public class BackupMasterPseudoWire extends BackupPseudoWire {
     // TODO: ingressLabel and egressLabel
 
     public BackupMasterPseudoWire(ConnectPoint srcEndPoint, ConnectPoint dstEndPoint) {
-        
+
         this(srcEndPoint, dstEndPoint, null,
              PathInstallationStatus.RECEIVED);
 
@@ -66,7 +66,7 @@ public class BackupMasterPseudoWire extends BackupPseudoWire {
     public Collection<PseudoWireIntent> getIntents() {
         return clusterIntentMap.values();
     }
-    
+
     public PseudoWireIntent getIntent(String clusterName){
         return clusterIntentMap.get(clusterName);
     }
@@ -78,6 +78,6 @@ public class BackupMasterPseudoWire extends BackupPseudoWire {
                 + clusterIntentMap + ", path=" + super.getInterClusterPath() + "]";
     }
 
-    
+
 
 }

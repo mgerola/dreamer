@@ -10,17 +10,17 @@ public class PseudoWire {
     private String pseudoWireId;
     private PseudoWireIntent localIntent;
     private PathInstallationStatus pwStatus;
-    
+
     public enum PathInstallationStatus {
         RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
 
     }
 
-    
+
     public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, String clusterMaster, PathInstallationStatus pwStatus) {
     checkNotNull(srcEndPoint);
     checkNotNull(dstEndPoint);
-    
+
     this.dstEndPoint = dstEndPoint;
     this.srcEndPoint = srcEndPoint;
     this.clusterMaster = clusterMaster;
@@ -28,7 +28,7 @@ public class PseudoWire {
             + "-" + dstEndPoint.deviceId() + "/" + dstEndPoint.port();
     this.pwStatus = pwStatus;
     }
-    
+
     public EndPoint getSrcEndPoint() {
         return srcEndPoint;
     }
@@ -40,11 +40,11 @@ public class PseudoWire {
     public String getPseudoWireId() {
         return pseudoWireId;
     }
-    
+
     public void setLocalIntent(PseudoWireIntent localIntent){
         this.localIntent = localIntent;
     }
-    
+
     public PseudoWireIntent getLocalIntent() {
         return localIntent;
     }
@@ -56,7 +56,7 @@ public class PseudoWire {
     public void setPwStatus(PathInstallationStatus pwStatus) {
         this.pwStatus = pwStatus;
     }
-    
+
     public String getClusterMaster() {
         return clusterMaster;
     }
@@ -67,5 +67,5 @@ public class PseudoWire {
                 + dstEndPoint + ", clusterMaster=" + clusterMaster
                 + ", pseudoWireId=" + pseudoWireId + ", pwStatus=" + pwStatus
                 + "]";
-    }    
+    }
 }

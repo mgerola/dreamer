@@ -16,7 +16,7 @@ public class InterPseudoWireElement
 
     private PathInstallationStatus pwStatus;
     private String pseudoWireId;
-    
+
     public InterPseudoWireElement() {
     }
 
@@ -49,7 +49,7 @@ public class InterPseudoWireElement
 
      public PathInstallationStatus pseudoWireInstallationStatus() {
      return pwStatus;
-     }   
+     }
 
     public String getPseudoWireId() {
         return pseudoWireId;

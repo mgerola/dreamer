@@ -3,7 +3,6 @@ package org.onosproject.icona.channel.inter;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
-import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWireIntent;
 
 public class IconaPseudoWireIntentEvent implements Serializable {
@@ -28,7 +27,7 @@ public class IconaPseudoWireIntentEvent implements Serializable {
 
     private IntentRequestType intentRequestType;
     private IntentReplayType intentReplayType;
-    
+
     private Boolean isEgress;
     private Boolean isIngress;
 
@@ -151,11 +150,11 @@ public class IconaPseudoWireIntentEvent implements Serializable {
     public void egressLabel(int egressLabel) {
         this.egressLabel = egressLabel;
     }
-    
+
     public boolean isEgress(){
         return isEgress;
     }
-    
+
     public boolean isIngress(){
         return isIngress;
     }

@@ -3,8 +3,6 @@ package org.onosproject.icona.channel.impl;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.FileNotFoundException;
-import java.util.Optional;
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
@@ -42,7 +40,7 @@ public class IntraChannelManager implements IntraChannelService {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterService clusterService;
-    
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaService iconaService;
 
@@ -63,7 +61,7 @@ public class IntraChannelManager implements IntraChannelService {
         }
         intraHazelcastConfig.setInstanceName("ICONA-INTRA");
 
-        
+
         // TODO: check why it is needed...
         ClassLoader classLoader = this.getClass().getClassLoader();
         this.intraHazelcastConfig.setClassLoader(classLoader);
@@ -80,7 +78,7 @@ public class IntraChannelManager implements IntraChannelService {
     @Override
     public void intraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
                                    TrafficTreatment treatment, IntentUpdateType intentUpdateType) {
-        
+
         //TODO manage trat and selec
         IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, intentUpdateType);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());

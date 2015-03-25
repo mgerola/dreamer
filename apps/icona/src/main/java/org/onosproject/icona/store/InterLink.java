@@ -11,7 +11,7 @@ public class InterLink {
 
     private ConnectPoint src;
     private ConnectPoint dst;
-    
+
     private BackupInterLink bil;
 
 
@@ -22,7 +22,7 @@ public class InterLink {
 
         this.dst = new ConnectPoint(DeviceId.deviceId(dstDpid), PortNumber.portNumber(dstPort));
         this.dstClusterName = dstClusterName;
-        
+
         this.bil = null;
     }
 
@@ -45,14 +45,14 @@ public class InterLink {
     public BackupInterLink getBIL() {
     	return bil;
     }
-    
+
 	public boolean hasBIL() {
 		if (bil == null)
 			return false;
 		else
 			return true;
 	}
-    
+
     public void setBIL(BackupInterLink bil) {
     	this.bil = bil;
     }
@@ -108,7 +108,7 @@ public class InterLink {
                 + ", dst=" + dst + "]";
     }
 
-    
+
 
 
 }

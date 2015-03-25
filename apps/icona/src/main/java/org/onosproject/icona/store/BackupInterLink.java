@@ -9,10 +9,10 @@ public class BackupInterLink {
     private InterLink il;
     InterClusterPath path;
     BackupMasterPseudoWire pw;
-    
+
     private ConnectPoint src;
     private ConnectPoint dst;
-    
+
     private String srcClusterName;
     private String dstClusterName;
 
@@ -21,7 +21,7 @@ public class BackupInterLink {
 		this.path = path;
 		this.srcClusterName = il.srcClusterName();
 		this.dstClusterName = il.dstClusterName();
-		
+
 		this.src = this.path.getInterlinks().get(0).src();
 		this.dst = this.path.getInterlinks().get(this.path.getInterlinks().size()-1).dst();
 		this.pw = new BackupMasterPseudoWire(this.src, this.dst, path, PathInstallationStatus.RECEIVED);
@@ -34,7 +34,7 @@ public class BackupInterLink {
 	public BackupMasterPseudoWire getPW() {
 		return this.pw;
 	}
-	
+
     @Override
     public int hashCode() {
         final int prime = 31;

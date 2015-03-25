@@ -10,20 +10,20 @@ public class BackupPseudoWire {
     private ConnectPoint srcEndPoint;
     private ConnectPoint dstEndPoint;
     private String pseudoWireId;
-    
+
     private InterClusterPath path;
-    
+
     public BackupPseudoWire(ConnectPoint srcEndPoint, ConnectPoint dstEndPoint, InterClusterPath path) {
     checkNotNull(srcEndPoint);
     checkNotNull(dstEndPoint);
-    
+
     this.dstEndPoint = dstEndPoint;
     this.srcEndPoint = srcEndPoint;
     this.pseudoWireId = srcEndPoint.deviceId() + "/" + srcEndPoint.port()
             + "-" + dstEndPoint.deviceId() + "/" + dstEndPoint.port();
     this.path = path;
     }
-    
+
     public ConnectPoint getSrcEndPoint() {
         return srcEndPoint;
     }
@@ -35,11 +35,11 @@ public class BackupPseudoWire {
     public String getPseudoWireId() {
         return pseudoWireId;
     }
-    
+
     public InterClusterPath getInterClusterPath() {
         return path;
     }
-    
+
     public void setInterClusterPath(InterClusterPath path){
         this.path = path;
     }
@@ -50,6 +50,6 @@ public class BackupPseudoWire {
                 + dstEndPoint + ", pseudoWireId=" + pseudoWireId + ", path="
                 + path + "]";
     }
-    
-    
+
+
 }

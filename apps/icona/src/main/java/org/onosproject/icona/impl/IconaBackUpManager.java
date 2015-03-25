@@ -21,11 +21,6 @@ import org.onosproject.icona.store.BackupInterLink;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
-import org.onosproject.icona.store.MasterPseudoWire;
-import org.onosproject.icona.store.impl.IconaStoreManager;
-import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.flow.DefaultTrafficSelector;
-import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.slf4j.Logger;
 
 @Component(immediate = true)
@@ -33,23 +28,23 @@ public class IconaBackUpManager {
 	private final Logger log = getLogger(getClass());
     private final Short STARTUP_DELAY = 25;
     private final Short NUM_THREADS = 1;
-    
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
    protected IconaStoreService iconaStoreService;
-    
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
    protected InterChannelService interChannelService;
-    
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
    protected IconaConfigService iconaConfigService;
-   
+
    @Activate
    public void activate() {
        log.info("Starting Inter Link Backup Service");
        final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(NUM_THREADS);
        executor.schedule(() -> computeBackups(), STARTUP_DELAY, TimeUnit.SECONDS);
    }
-   
+
 @Deactivate
    public void deactivate() {
        log.info("Stopping Inter Link Backup Service");
@@ -75,11 +70,11 @@ public class IconaBackUpManager {
 				log.info(">>>>>> " + pippo.src().deviceId().toString() +"  "+ pippo.dst().deviceId().toString());
 			}
 			checkNotNull(interClusterPath.getInterlinks());
-			
+
 			il.setBIL(new BackupInterLink(il, interClusterPath));
 			checkArgument(iconaStoreService.addBackupMasterPseudoWire(il.getBIL().getPW()));
 			//install BIL in the dataplane
-			
+
 		}
 	}
 }

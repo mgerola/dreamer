@@ -3,12 +3,8 @@ package org.onosproject.icona.impl;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
-import java.util.function.Supplier;
-
 import org.slf4j.Logger;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -16,16 +12,10 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
-import org.onosproject.net.intent.IntentService;
-import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.LeadershipService;
-import org.onosproject.core.ApplicationId;
-import org.onosproject.core.CoreService;
 import org.onosproject.icona.BFSTree;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaService;
 import org.onosproject.icona.InterClusterPath;
-import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.channel.inter.InterChannelService;
@@ -53,15 +43,11 @@ import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.TrafficTreatment;
-import org.onosproject.net.intent.PointToPointIntent;
 import org.onosproject.net.link.LinkEvent;
 import org.onosproject.net.link.LinkListener;
 import org.onosproject.net.link.LinkService;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkArgument;
 
 @Component(immediate = true)
 @Service
@@ -88,12 +74,6 @@ public class IconaManager implements IconaService {
     protected MastershipService mastershipService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected LeadershipService leadershipService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected ClusterService clusterService;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected LinkService linkService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -116,16 +96,7 @@ public class IconaManager implements IconaService {
 
             try {
                 while (!isInterrupted()) {
-                    // log.info("IconaLeader {}",
-                    // leadershipService.getLeader(iconaLeaderPath));
-                    if (leadershipService.getLeader(iconaConfigService
-                            .getIconaLeaderPath()) != null
-                            && clusterService
-                                    .getLocalNode()
-                                    .id()
-                                    .equals(leadershipService
-                                                    .getLeader(iconaConfigService
-                                                            .getIconaLeaderPath()))) {
+                    if (iconaConfigService.isLeader()) {
 
                         // log.info("Sono icona-leader");
                         interChannelService
@@ -177,8 +148,7 @@ public class IconaManager implements IconaService {
         mgmtThread = new MgmtHandler();
         mgmtThread.start();
 
-        leadershipService.runForLeadership(iconaConfigService
-                .getIconaLeaderPath());
+
 
     }
 
@@ -333,7 +303,7 @@ public class IconaManager implements IconaService {
                 case PORT_REMOVED:
                     // If it was a IL or an EP, an "IL or EP remove" is
                     // published.
-                    
+
                     iconaStoreService
                             .getInterLink(id, event.port().number())
                             .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -355,12 +325,12 @@ public class IconaManager implements IconaService {
                     // If the port is not up and an IL exists, an "IL remove" is
                     // published.
                     if (!event.port().isEnabled()) {
-                        
+
                         Collection<PseudoWireIntent> localIntents = iconaStoreService.getLocalIntents(new ConnectPoint(id, event.port().number()));
                         if(localIntents != null) {
                             log.info("We need to reroute all the intents!");
                         }
-                        
+
                         iconaStoreService
                                 .getInterLink(id, event.port().number())
                                 .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -402,12 +372,12 @@ public class IconaManager implements IconaService {
 
     @Override
     public void handlePseudoWire(IconaIntraEvent event) {
-        
+
         IntraPseudoWireElement intraPW = event.intraPseudoWireElement();
-        
+
         if(event.intraPseudoWireElement().intentUpdateType() == IntentUpdateType.INSTALL) {
 
-        
+
         EndPoint srcEndPoint = iconaStoreService
                 .getEndPoint(DeviceId.deviceId(intraPW.srcId()),
                              PortNumber.portNumber(intraPW.srcPort()))
@@ -430,13 +400,7 @@ public class IconaManager implements IconaService {
                                                            .builder().build());
         iconaStoreService.addMasterPseudoWire(pw);
 
-        if (leadershipService
-                .getLeader(iconaConfigService.getIconaLeaderPath()) != null
-                && clusterService
-                        .getLocalNode()
-                        .id()
-                        .equals(leadershipService.getLeader(iconaConfigService
-                                        .getIconaLeaderPath()))) {
+        if (iconaConfigService.isLeader()) {
 
             // Publishing PW on the interchannel
             interChannelService
@@ -455,7 +419,7 @@ public class IconaManager implements IconaService {
             checkNotNull(interClusterPath.getInterlinks());
             String ils = "";
             for (InterLink il : interClusterPath.getInterlinks()){
-            
+
                 ils = ils + " " + il.toString();
             }
             log.info("ILs PATH: {}", ils);
@@ -512,7 +476,7 @@ public class IconaManager implements IconaService {
                                                   IntentReplayType.EMPTY);
 
             }
-            
+
 
             pw.setPwStatus(PathInstallationStatus.INITIALIZED);
         }
@@ -520,17 +484,17 @@ public class IconaManager implements IconaService {
             ConnectPoint srcCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
                     PortNumber.portNumber(intraPW.srcPort()));
             ConnectPoint dstCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
-                                              PortNumber.portNumber(intraPW.srcPort())); 
-            
-            
+                                              PortNumber.portNumber(intraPW.srcPort()));
+
+
             PseudoWire pw = iconaStoreService.getPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
             if (pw == null) {
                 pw = iconaStoreService.getMasterPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
-                if (pw == null) { 
+                if (pw == null) {
                     log.warn("Pseudowire does not exist: {}");
                     return;
                 }
-            } 
+            }
             interChannelService.addPseudoWireEvent(pw);
         }
     }

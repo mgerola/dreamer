@@ -24,7 +24,7 @@ public class MasterPseudoWire extends PseudoWire {
 
     public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, String clusterMaster,
                     TrafficSelector trafficSelector, TrafficTreatment treatment) {
-        
+
         this(srcEndPoint, dstEndPoint, clusterMaster, trafficSelector, treatment, new InterClusterPath(), PathInstallationStatus.RECEIVED);
 
     }
@@ -69,7 +69,7 @@ public class MasterPseudoWire extends PseudoWire {
     public Collection<PseudoWireIntent> getIntents() {
         return clusterIntentMap.values();
     }
-    
+
     public PseudoWireIntent getIntent(String clusterName){
         return clusterIntentMap.get(clusterName);
     }
@@ -85,7 +85,7 @@ public class MasterPseudoWire extends PseudoWire {
     public InterClusterPath getInterClusterPath() {
         return path;
     }
-    
+
     public void setInterClusterPath(InterClusterPath path){
         this.path = path;
     }
@@ -95,6 +95,6 @@ public class MasterPseudoWire extends PseudoWire {
         return "MasterPseudoWire [" + super.toString() + "pwStatus=" + pwStatus + ", clusterIntentMap="
                 + clusterIntentMap + "]";
     }
-    
+
 
 }

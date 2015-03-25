@@ -20,26 +20,26 @@ public class PseudoWireIntent {
 
     private Optional<MplsLabel> ingressLabel;
     private Optional<MplsLabel> egressLabel;
-    
+
     private boolean isEgress;
     private boolean isIngress;
 
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
-    
+
     private IntentId intentId;
 
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
                             String dstDpid, long dstPort, Integer ingressLabel,
                             Integer egressLabel,
                             PathInstallationStatus installationStatus, boolean isIngress, boolean isEgress) {
-        this(dstCluster, 
+        this(dstCluster,
              new ConnectPoint(DeviceId.deviceId(srcDpid),
                                           PortNumber.portNumber(srcPort)),
              new ConnectPoint(DeviceId.deviceId(dstDpid),
-                              PortNumber.portNumber(dstPort)), 
+                              PortNumber.portNumber(dstPort)),
              ingressLabel,
-             egressLabel, 
+             egressLabel,
              installationStatus, isIngress, isEgress);
 
     }
@@ -103,7 +103,7 @@ public class PseudoWireIntent {
     public void ingressLabel(MplsLabel ingressLabel) {
         this.ingressLabel = Optional.ofNullable(ingressLabel);
     }
-    
+
     public void ingressLabel(Optional<MplsLabel> ingressLabel) {
         this.ingressLabel = ingressLabel;
     }
@@ -111,7 +111,7 @@ public class PseudoWireIntent {
     public Optional<MplsLabel> egressLabel() {
         return egressLabel;
     }
-    
+
     public void egressLabel(Optional<MplsLabel> egressLabel) {
         this.egressLabel = egressLabel;
     }
@@ -119,11 +119,11 @@ public class PseudoWireIntent {
     public void egressLabel(MplsLabel egressLabel) {
         this.egressLabel = Optional.ofNullable(egressLabel);
     }
-    
+
     public boolean isEgress() {
         return isEgress;
     }
-    
+
     public Boolean isIngress() {
         return isIngress;
     }
@@ -131,7 +131,7 @@ public class PseudoWireIntent {
     public IntentId intentId() {
         return intentId;
     }
-    
+
     public void intentId(IntentId intentId){
         this.intentId = intentId;
     }

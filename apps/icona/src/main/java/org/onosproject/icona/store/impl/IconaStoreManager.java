@@ -9,8 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import net.jcip.annotations.Immutable;
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -30,7 +28,6 @@ import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
-import org.onosproject.net.intent.IntentId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +112,7 @@ public class IconaStoreManager implements IconaStoreService {
         HashMap<PortNumber, EndPoint> temp = swPortEndPoint.get(endPoint
                 .deviceId());
         temp.put(endPoint.port(), endPoint);
-        
+
         if(clusterNameToCluster.get(endPoint.clusterName()) == null){
             addCluster(new Cluster(clusterName, new Date()));
         }
@@ -181,13 +178,13 @@ public class IconaStoreManager implements IconaStoreService {
         HashMap<PortNumber, InterLink> temp = swPortInterLink.get(interLink
                 .src().deviceId());
         temp.put(interLink.src().port(), interLink);
-        
+
         if(clusterNameToCluster.get(interLink.srcClusterName()) == null){
             addCluster(new Cluster(interLink.srcClusterName(), new Date()));
         }
         clusterNameToCluster.get(interLink.srcClusterName())
                 .addInterLink(interLink);
-        
+
         if(clusterNameToCluster.get(interLink.dstClusterName()) == null){
             addCluster(new Cluster(interLink.dstClusterName(), new Date()));
         }
@@ -294,7 +291,7 @@ public class IconaStoreManager implements IconaStoreService {
 
     @Override
     public PseudoWire getPseudoWire(String pseudoWireId) {
-        return (PseudoWire) pseudoWireMap.get(pseudoWireId);
+        return pseudoWireMap.get(pseudoWireId);
     }
 
     @Override

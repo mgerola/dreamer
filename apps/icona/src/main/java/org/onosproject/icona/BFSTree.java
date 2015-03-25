@@ -7,8 +7,6 @@ import java.util.LinkedList;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 public class BFSTree {

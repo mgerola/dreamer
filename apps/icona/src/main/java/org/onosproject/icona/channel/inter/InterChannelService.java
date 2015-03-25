@@ -5,7 +5,6 @@ import java.util.Date;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentReplayType;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent.IntentRequestType;
 import org.onosproject.icona.store.EndPoint;
-import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
@@ -28,16 +27,16 @@ public interface InterChannelService {
     void remCluster(String ClusterName);
 
     void addCluster(String ClusterName);
-    
+
     void addPseudoWireEvent(ConnectPoint src, ConnectPoint dst,
                             String clusterName,
                             PathInstallationStatus pwStatus,
-                            String pseudoWireId); 
-    
-    void addPseudoWireEvent(PseudoWire pw);  
-    
-    void remPseudoWireEvent(PseudoWire pw); 
-    
+                            String pseudoWireId);
+
+    void addPseudoWireEvent(PseudoWire pw);
+
+    void remPseudoWireEvent(PseudoWire pw);
+
 
      IconaPseudoWireIntentEvent addPseudoWireIntentEvent(String clustrLeader, String pseudoWireId,
                             PseudoWireIntent pseudoWireIntent,

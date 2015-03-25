@@ -1,8 +1,6 @@
 package org.onosproject.icona.channel.intra;
 
 import java.nio.ByteBuffer;
-import java.util.Optional;
-
 import org.onosproject.net.ConnectPoint;
 
 public class IntraPseudoWireElement extends IconaIntraElement<IntraPseudoWireElement> {
