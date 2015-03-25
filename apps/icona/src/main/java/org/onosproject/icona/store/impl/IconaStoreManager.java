@@ -113,7 +113,10 @@ public class IconaStoreManager implements IconaStoreService {
         HashMap<PortNumber, EndPoint> temp = swPortEndPoint.get(endPoint
                 .deviceId());
         temp.put(endPoint.port(), endPoint);
-
+        
+        if(clusterNameToCluster.get(endPoint.clusterName()) == null){
+            addCluster(new Cluster(clusterName, new Date()));
+        }
         clusterNameToCluster.get(endPoint.clusterName()).addEndPoint(endPoint);
     }
 
@@ -176,10 +179,16 @@ public class IconaStoreManager implements IconaStoreService {
         HashMap<PortNumber, InterLink> temp = swPortInterLink.get(interLink
                 .src().deviceId());
         temp.put(interLink.src().port(), interLink);
-
+        
+        if(clusterNameToCluster.get(interLink.srcClusterName()) == null){
+            addCluster(new Cluster(interLink.srcClusterName(), new Date()));
+        }
         clusterNameToCluster.get(interLink.srcClusterName())
                 .addInterLink(interLink);
-
+        
+        if(clusterNameToCluster.get(interLink.dstClusterName()) == null){
+            addCluster(new Cluster(interLink.dstClusterName(), new Date()));
+        }
         clusterNameToCluster.get(interLink.dstClusterName())
                 .addInterLink(interLink);
         log.info("New interLink added {}", interLink);

@@ -72,4 +72,12 @@ public class Cluster {
 
     }
 
+    @Override
+    public String toString() {
+        return "Cluster [clusterName=" + clusterName + ", lastSeenTimestamp=" + lastSeenTimestamp + ", interlinks="
+                + interlinks + ", endPoints=" + endPoints + "]";
+    }
+    
+    
+
 }

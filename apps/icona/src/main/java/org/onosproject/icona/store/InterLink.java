@@ -84,8 +84,7 @@ public class InterLink {
 
     @Override
     public String toString() {
-        return "InterLink [srcClusterName=" + srcClusterName
-                + ", dstClusterName=" + dstClusterName + ", src=" + src
+        return "InterLink [srcClusterName=" + srcClusterName + ", dstClusterName=" + dstClusterName + ", src=" + src
                 + ", dst=" + dst + "]";
     }
     

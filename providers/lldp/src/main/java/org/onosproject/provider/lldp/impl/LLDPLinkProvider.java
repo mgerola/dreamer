@@ -102,7 +102,8 @@ public class LLDPLinkProvider extends AbstractProvider implements LinkProvider {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
 
     protected ComponentConfigService cfgService;
-
+    
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected IconaService iconaService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)

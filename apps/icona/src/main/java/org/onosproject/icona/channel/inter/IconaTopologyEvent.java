@@ -102,7 +102,7 @@ public class IconaTopologyEvent implements Serializable {
 
     public ByteBuffer getIDasByteBuffer() {
         ByteBuffer element = null;
-
+       
         element = topologyElement.getIDasByteBuffer();
 
         byte[] cluster = ("@" + clusterName).getBytes(StandardCharsets.UTF_8);
