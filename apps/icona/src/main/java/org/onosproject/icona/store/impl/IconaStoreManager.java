@@ -9,40 +9,28 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-<<<<<<< HEAD
-=======
 import net.jcip.annotations.Immutable;
 
->>>>>>> upstream/icona
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.MplsLabel;
-<<<<<<< HEAD
 import org.onosproject.icona.store.BackupMasterPseudoWire;
-=======
->>>>>>> upstream/icona
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
 import org.onosproject.icona.store.PseudoWire;
-<<<<<<< HEAD
-=======
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.icona.store.PseudoWireIntent;
->>>>>>> upstream/icona
 import org.onosproject.icona.utils.BitSetIndex;
 import org.onosproject.icona.utils.BitSetIndex.IndexType;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
-<<<<<<< HEAD
-=======
 import org.onosproject.net.intent.IntentId;
->>>>>>> upstream/icona
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,12 +46,11 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<String, Cluster> clusterNameToCluster;
     private Map<DeviceId, HashMap<PortNumber, InterLink>> swPortInterLink;
     private Map<DeviceId, HashMap<PortNumber, EndPoint>> swPortEndPoint;
-
     private Map<String, PseudoWire> pseudoWireMap;
-    private Map<String, BackupMasterPseudoWire> backupMasterPseudoWireMap;
     private Map<String, MasterPseudoWire> masterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
     private Map<ConnectPoint, Set<PseudoWireIntent>> localIntentMap;
+    private Map<String, BackupMasterPseudoWire> backupMasterPseudoWireMap;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -142,6 +129,7 @@ public class IconaStoreManager implements IconaStoreService {
         if (swPortEndPoint.get(endPoint.deviceId()) != null) {
             swPortEndPoint.get(endPoint.deviceId()).remove(endPoint.port());
         }
+
         clusterNameToCluster.get(endPoint.clusterName()).remEndPoint(endPoint);
     }
 
@@ -203,7 +191,6 @@ public class IconaStoreManager implements IconaStoreService {
         if(clusterNameToCluster.get(interLink.dstClusterName()) == null){
             addCluster(new Cluster(interLink.dstClusterName(), new Date()));
         }
-
         clusterNameToCluster.get(interLink.dstClusterName())
                 .addInterLink(interLink);
         log.info("New interLink added {}", interLink);
@@ -285,16 +272,6 @@ public class IconaStoreManager implements IconaStoreService {
         clusterNameToCluster.remove(clusterName);
 
     }
-
-    @Override
-    public boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw) {
-        // TODO: find a better way to save pseudowire
-        if (backupMasterPseudoWireMap.containsKey(pw.getPseudoWireId())) {
-            log.warn("Pseudowire alreday exists {}", pw);
-            return false;
-        }
-        backupMasterPseudoWireMap.put(pw.getPseudoWireId(), pw);
-        return true;
 
     @Override
     public void addPseudoWire(PseudoWire pw) {
@@ -427,4 +404,11 @@ public class IconaStoreManager implements IconaStoreService {
                 + dstCP.deviceId() + "/" + dstCP.port();
         return pseudoWireId;
     }
+
+	@Override
+	public boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }

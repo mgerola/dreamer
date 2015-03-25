@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.onosproject.icona.InterClusterPath;
-import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 
 public class BackupMasterPseudoWire extends BackupPseudoWire {
@@ -59,8 +59,7 @@ public class BackupMasterPseudoWire extends BackupPseudoWire {
                                                          egressLabel,
                                                          installationStatus,
                                                          isIngress,
-                                                         isEgress,
-                                                         isBackup);
+                                                         isEgress);
         clusterIntentMap.put(pwIntent.dstClusterName(), pwIntent);
     }
 

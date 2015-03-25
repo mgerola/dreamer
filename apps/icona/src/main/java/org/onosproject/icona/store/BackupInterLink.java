@@ -1,10 +1,8 @@
 package org.onosproject.icona.store;
 
 import org.onosproject.icona.InterClusterPath;
-import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
-import org.onosproject.net.DeviceId;
-import org.onosproject.net.PortNumber;
 
 public class BackupInterLink {
 
