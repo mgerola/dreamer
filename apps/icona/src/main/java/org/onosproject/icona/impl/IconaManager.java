@@ -447,7 +447,7 @@ public class IconaManager implements IconaService {
             BFSTree geoTree = new BFSTree(
                                           iconaStoreService.getCluster(srcEndPoint
                                                   .clusterName()),
-                                          iconaStoreService);
+                                          iconaStoreService, null);
 
             Cluster dstCluster = iconaStoreService.getCluster(dstEndPoint
                     .clusterName());

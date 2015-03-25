@@ -21,6 +21,7 @@ public class InterClusterPath implements Serializable {
 
     public List<InterLink> getInterlinks() {
         return ImmutableList.copyOf(interlinks);
+
     }
 
     public void addInterlinks(InterLink interlink) {

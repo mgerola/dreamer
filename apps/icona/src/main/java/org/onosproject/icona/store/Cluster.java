@@ -69,15 +69,22 @@ public class Cluster {
 
     public Collection<EndPoint> getEndPoints() {
         return ImmutableList.copyOf(endPoints);
-
     }
+
 
     @Override
     public String toString() {
         return "Cluster [clusterName=" + clusterName + ", lastSeenTimestamp=" + lastSeenTimestamp + ", interlinks="
                 + interlinks + ", endPoints=" + endPoints + "]";
     }
-    
-    
+
+	public Collection<InterLink> getOutgoingInterLinks() {
+		Collection<InterLink> outILs = new HashSet<InterLink>();
+		for (InterLink il : interlinks) {
+			if (il.srcClusterName().equals(this.clusterName))
+				outILs.add(il);
+		}
+		return outILs;
+	}
 
 }

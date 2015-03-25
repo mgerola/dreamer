@@ -16,6 +16,7 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.MplsLabel;
+import org.onosproject.icona.store.BackupMasterPseudoWire;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
@@ -49,6 +50,7 @@ public class IconaStoreManager implements IconaStoreService {
     private Map<String, MasterPseudoWire> masterPseudoWireMap;
     private Map<ConnectPoint, BitSetIndex> mplsLabelMap;
     private Map<ConnectPoint, Set<PseudoWireIntent>> localIntentMap;
+    private Map<String, BackupMasterPseudoWire> backupMasterPseudoWireMap;
 
     // TODO: save EPs and ILs to the Cluster
     @Activate
@@ -402,5 +404,11 @@ public class IconaStoreManager implements IconaStoreService {
                 + dstCP.deviceId() + "/" + dstCP.port();
         return pseudoWireId;
     }
+
+	@Override
+	public boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 
 }

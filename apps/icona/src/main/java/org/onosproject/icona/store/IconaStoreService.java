@@ -49,6 +49,8 @@ public interface IconaStoreService {
     
     void addMasterPseudoWire(MasterPseudoWire pw);
     
+    boolean addBackupMasterPseudoWire(BackupMasterPseudoWire pw);
+    
     MasterPseudoWire getMasterPseudoWire(String pseudoWireId);
     
     void updateMasterPseudoWireStatus(String pseudoWireId, PathInstallationStatus pwStatus);
