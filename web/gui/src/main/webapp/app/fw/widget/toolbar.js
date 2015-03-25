@@ -17,12 +17,18 @@
 /*
  ONOS GUI -- Widget -- Toolbar Service
  */
+// TODO: Augment service to allow toolbars to exist on right edge of screen
+
+
 (function () {
     'use strict';
 
+    // injected refs
     var $log, fs, ps, bns, is;
 
-    var ids = [],
+    // configuration
+    var arrowSize = 10,
+        sepWidth = 6,
         defaultSettings = {
             edge: 'left',
             width: 20,
@@ -31,122 +37,142 @@
             top: '80%',
             fade: false,
             shown: false
-        },
-        settings,
-        arrowSize = 10,
-        btnPadding = 4,
-        tbarId,
-        tbarPanel,
-        tbarDiv,
-        tbarArrowDiv;
+        };
 
-    // this function is only used in testing
-    function init() {
-        ids = [];
-    }
+    // internal state
+    var tbars = {};
+
 
     // === Helper functions --------------------------------------
 
-    function validId(id, caller) {
-        if (fs.inArray(id, ids) !== -1) {
-            $log.warn(caller + ': ID already exists');
-            return false;
-        }
-        return true;
-    }
-
-    // TODO: Allow toolbar to be on right edge of screen
     // translate uses 50 because the svg viewbox is 50
-    function rotateArrowLeft() {
-        tbarArrowDiv.select('g')
+    function rotateArrowLeft(adiv) {
+        adiv.select('g')
             .attr('transform', 'translate(0 50) rotate(-90)');
     }
-    function rotateArrowRight() {
-        tbarArrowDiv.select('g')
+    function rotateArrowRight(adiv) {
+        adiv.select('g')
             .attr('transform', 'translate(50 0) rotate(90)');
     }
-    function createArrow() {
-        tbarArrowDiv = tbarDiv.append('div')
+
+    function createArrow(panel) {
+        var arrowDiv = panel.append('div')
             .classed('tbarArrow', true)
-            .style({'position': 'absolute',
+            .style({
+                'position': 'absolute',
                 'top': '53%',
                 'left': '96%',
                 'margin-right': '-4%',
                 'transform': 'translate(-50%, -50%)',
-                'cursor': 'pointer'});
-        is.loadEmbeddedIcon(tbarArrowDiv, 'tableColSortAsc', arrowSize);
-
-        tbarArrowDiv.on('click', toggleTools);
+                'cursor': 'pointer'
+            });
+        is.loadIcon(arrowDiv, 'triangleUp', arrowSize, true);
+        return arrowDiv;
     }
 
-    // === Adding to toolbar functions ----------------------------
-
-    // TODO: these add functions look very similar -- combine them somehow?
-    function addButton(id, gid, cb, tooltip) {
-        var btnId = tbarId + '-' + id,
-            button;
-        if (!validId(btnId, 'addButton')) { return null; }
-        ids.push(btnId);
-        button =  bns.button(tbarDiv, btnId, gid, cb, tooltip);
-        if (button) { addToWidth(bns.width()); }
-        displayTools();
-        return button;
+    function warn(msg, id) {
+        $log.warn('createToolbar: ' + msg + ': [' + id + ']');
+        return null;
     }
 
-    function addToggle(id, gid, initState, cb, tooltip) {
-        var togId = tbarId + '-' + id,
-            toggle;
-        if (!validId(togId, 'addToggle')) { return null; }
-        ids.push(togId);
-        toggle =  bns.toggle(tbarDiv, togId, gid, initState, cb, tooltip);
-        if (toggle) { addToWidth(bns.width()); }
-        displayTools();
-        return toggle;
-    }
 
-    function addRadioSet(id, rset) {
-        var radId = tbarId + '-' + id,
-            radios;
-        if (!validId(radId, 'addRadioSet')) { return null; }
-        ids.push(radId);
-        radios = bns.radioSet(tbarDiv, radId, rset);
-        if (radios) { addToWidth(radios.width); }
-        displayTools();
-        return radios;
-    }
-
-    function addSeparator() {
-        if (!tbarDiv) {
-            $log.warn('Separator cannot append to div');
-            return null;
-        }
-        addToWidth(2);
-        displayTools();
-        return tbarDiv.append('div')
-            .classed('separator', true)
-            .style({'height': '23px',
-                    'width': '0px'});
-    }
-
-    // === Main toolbar API functions ----------------------------
+    // ==================================
 
     function createToolbar(id, opts) {
-        if (!id) {
-            $log.warn('createToolbar: no ID given');
-            return null;
-        }
-        tbarId = 'tbar-' + id;
-        settings = angular.extend({}, defaultSettings, fs.isO(opts));
+        if (!id) return warn('no ID given');
+        if (tbars[id]) return warn('duplicate ID given', id);
 
-        if (!validId(tbarId, 'createToolbar')) { return null; }
-        ids.push(tbarId);
+        var settings = angular.extend({}, defaultSettings, fs.isO(opts)),
+            items = {},
+            tbid = 'toolbar-' + id,
+            panel = ps.createPanel(tbid, settings),
+            arrowDiv = createArrow(panel),
+            tbWidth = arrowSize + 2;    // empty toolbar width
 
-        tbarPanel = ps.createPanel(tbarId, settings);
-        tbarDiv = tbarPanel.classed('toolbar', true)
+
+        arrowDiv.on('click', toggle);
+
+        // add a descriptor for this toolbar
+        tbars[id] = {
+            settings: settings,
+            items: items,
+            panel: panel,
+            panelId: tbid
+        };
+
+        panel.classed('toolbar', true)
             .style('top', settings.top);
 
-        createArrow();
-        displayTools();
+
+        function dupId(id, caller) {
+            if (items[id]) {
+                $log.warn(caller + ': duplicate ID:', id);
+                return true;
+            }
+            return false;
+        }
+
+        // API functions
+
+        function addButton(id, gid, cb, tooltip) {
+            if (dupId(id, 'addButton')) return null;
+
+            var bid = tbid + '-' + id,
+                btn = bns.button(panel, bid, gid, cb, tooltip);
+
+            items[id] = btn;
+            tbWidth += btn.width();
+            panel.width(tbWidth);
+            return btn;
+        }
+
+        function addToggle(id, gid, initState, cb, tooltip) {
+            if (dupId(id, 'addToggle')) return null;
+
+            var tid = tbid + '-' + id,
+                tog = bns.toggle(panel, tid, gid, initState, cb, tooltip);
+
+            items[id] = tog;
+            tbWidth += tog.width();
+            panel.width(tbWidth);
+            return tog;
+        }
+
+        function addRadioSet(id, rset) {
+            if (dupId(id, 'addRadioSet')) return null;
+
+            var rid = tbid + '-' + id,
+                rad = bns.radioSet(panel, rid, rset);
+
+            items[id] = rad;
+            tbWidth += rad.width();
+            panel.width(tbWidth);
+            return rad;
+        }
+
+        function addSeparator() {
+            panel.append('div')
+                .classed('separator', true);
+            tbWidth += sepWidth;
+        }
+
+        function show(cb) {
+            rotateArrowLeft(arrowDiv);
+            panel.show(cb);
+        }
+
+        function hide(cb) {
+            rotateArrowRight(arrowDiv);
+            panel.hide(cb);
+        }
+
+        function toggle(cb) {
+            if (panel.isVisible()) {
+                hide(cb);
+            } else {
+                show(cb);
+            }
+        }
 
         return {
             addButton: addButton,
@@ -156,58 +182,41 @@
 
             show: show,
             hide: hide,
-            toggleTools: toggleTools,
-
-            width: width
-        }
+            toggle: toggle
+        };
     }
+
     function destroyToolbar(id) {
-        ps.destroyPanel(id);
-        tbarDiv = null;
-    }
+        var tb = tbars[id];
+        delete tbars[id];
 
-    function show(cb) {
-        tbarPanel.show(cb);
-        rotateArrowLeft();
-    }
-    function hide(cb) {
-        tbarPanel.hide(cb);
-        rotateArrowRight();
-    }
-    function toggleTools(cb) {
-        if (tbarPanel.isVisible()) { hide(cb); }
-        else { show(cb) }
-    }
-    function displayTools() {
-        if (settings.shown) { show(); }
-        else { hide(); }
-    }
-
-    function width(w) {
-        if (w) { tbarPanel.width(w); }
-        return tbarPanel.width();
-    }
-    function addToWidth(size) {
-        if (!(settings.width > (fs.windowSize(0, 500).width))) {
-            settings.width = width() + size + btnPadding;
-            tbarPanel.width(settings.width);
+        if (tb) {
+            ps.destroyPanel(tb.panelId);
         }
     }
+
+    // === Module Definition ===
 
     angular.module('onosWidget')
-        .factory('ToolbarService', ['$log', 'FnService',
-            'PanelService', 'ButtonService', 'IconService',
-            function (_$log_, _fs_, _ps_, _bns_, _is_) {
-                $log = _$log_;
-                fs = _fs_;
-                ps = _ps_;
-                bns = _bns_;
-                is = _is_;
+    .factory('ToolbarService',
+        ['$log', 'FnService', 'PanelService', 'ButtonService', 'IconService',
 
-                return {
-                    init: init,
-                    createToolbar: createToolbar,
-                    destroyToolbar: destroyToolbar
-                };
-            }]);
+        function (_$log_, _fs_, _ps_, _bns_, _is_) {
+            $log = _$log_;
+            fs = _fs_;
+            ps = _ps_;
+            bns = _bns_;
+            is = _is_;
+
+            // this function is only used in testing
+            function init() {
+                tbars = {};
+            }
+
+            return {
+                init: init,
+                createToolbar: createToolbar,
+                destroyToolbar: destroyToolbar
+            };
+        }]);
 }());

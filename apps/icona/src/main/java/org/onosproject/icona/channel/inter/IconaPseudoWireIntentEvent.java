@@ -31,8 +31,6 @@ public class IconaPseudoWireIntentEvent implements Serializable {
     
     private Boolean isEgress;
     private Boolean isIngress;
-    
-    private Boolean isBackup;
 
     public enum IntentRequestType {
         RESERVE, INSTALL, DELETE,
@@ -72,7 +70,6 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         this.intentReplayType = intentReplayType;
         this.isEgress = intent.isEgress();
         this.isIngress = intent.isIngress();
-        this.isBackup = intent.isBackup();
     }
 
     public String dstCluster() {
@@ -161,10 +158,6 @@ public class IconaPseudoWireIntentEvent implements Serializable {
     
     public boolean isIngress(){
         return isIngress;
-    }
-    
-    public boolean isBackup(){
-        return isBackup;
     }
 
     public byte[] getID() {

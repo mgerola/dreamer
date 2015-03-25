@@ -18,6 +18,7 @@ package org.onosproject.store.serializers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import org.onlab.packet.ChassisId;
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
@@ -81,6 +82,8 @@ import org.onosproject.net.host.DefaultHostDescription;
 import org.onosproject.net.host.HostDescription;
 import org.onosproject.net.intent.ConnectivityIntent;
 import org.onosproject.net.intent.HostToHostIntent;
+import org.onosproject.net.intent.IngressMplsBackupIntent;
+import org.onosproject.net.intent.IngressMplsBackupPathIntent;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentOperation;
@@ -341,6 +344,8 @@ public final class KryoNamespaces {
                     MplsLabel.class,
                     org.onlab.packet.MplsLabel.class
                     )
+             .register(IngressMplsBackupIntent.class,
+                       IngressMplsBackupPathIntent.class)
 
             .build();
 

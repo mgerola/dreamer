@@ -37,6 +37,9 @@ import org.onlab.packet.IpAddress;
 import org.onlab.packet.VlanId;
 import org.onlab.packet.ndp.NeighborAdvertisement;
 import org.onlab.packet.ndp.NeighborSolicitation;
+import org.onlab.packet.ndp.RouterAdvertisement;
+import org.onlab.packet.ndp.RouterSolicitation;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.net.ConnectPoint;
@@ -93,6 +96,9 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected DeviceService deviceService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService cfgService;
+
     private HostProviderService providerService;
 
     private final InternalHostProvider processor = new InternalHostProvider();
@@ -118,8 +124,8 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
 
     @Activate
     public void activate(ComponentContext context) {
-        appId =
-            coreService.registerApplication("org.onosproject.provider.host");
+        cfgService.registerProperties(getClass());
+        appId = coreService.registerApplication("org.onosproject.provider.host");
         readComponentConfiguration(context);
 
         providerService = providerRegistry.register(this);
@@ -155,6 +161,7 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
 
     @Deactivate
     public void deactivate() {
+        cfgService.unregisterProperties(getClass(), false);
         providerRegistry.unregister(this);
         packetService.removeProcessor(processor);
         deviceService.removeListener(deviceListener);
@@ -265,27 +272,33 @@ public class HostLocationProvider extends AbstractProvider implements HostProvid
                     new DefaultHostDescription(eth.getSourceMAC(), vlan, hloc);
                 providerService.hostDetected(hid, hdescr);
 
-                //
-                // NeighborAdvertisement and NeighborSolicitation: possible
-                // new hosts, update both location and IP.
-                //
-                // IPv6: update location only
+            //
+            // NeighborAdvertisement and NeighborSolicitation: possible
+            // new hosts, update both location and IP.
+            //
+            // IPv6: update location only
             } else if (eth.getEtherType() == Ethernet.TYPE_IPV6) {
                 IpAddress ip = null;
                 IPv6 ipv6 = (IPv6) eth.getPayload();
 
                 IPacket iPkt = ipv6;
                 while (iPkt != null) {
+                    // Ignore Router Solicitation and Advertisement
+                    if (iPkt instanceof RouterAdvertisement ||
+                        iPkt instanceof RouterSolicitation) {
+                        return;
+                    }
                     if (iPkt instanceof NeighborAdvertisement ||
                         iPkt instanceof NeighborSolicitation) {
                         IpAddress sourceAddress =
                             IpAddress.valueOf(IpAddress.Version.INET6,
                                               ipv6.getSourceAddress());
                         // Ignore DAD packets, in which source address is zero
-                        if (!sourceAddress.isZero()) {
-                            ip = sourceAddress;
-                            break;
+                        if (sourceAddress.isZero()) {
+                            return;
                         }
+                        ip = sourceAddress;
+                        break;
                     }
                     iPkt = iPkt.getPayload();
                 }

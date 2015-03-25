@@ -20,7 +20,7 @@
 describe('factory: view/topo/topoEvent.js', function() {
     var $log, fs, tes;
 
-    beforeEach(module('ovTopo', 'onosUtil', 'onosLayer'));
+    beforeEach(module('ovTopo', 'onosNav', 'onosUtil', 'onosLayer', 'ngRoute'));
 
     beforeEach(inject(function (_$log_, FnService, TopoEventService) {
         $log = _$log_;
@@ -34,7 +34,7 @@ describe('factory: view/topo/topoEvent.js', function() {
 
     it('should define api functions', function () {
         expect(fs.areFunctions(tes, [
-            'openSock', 'closeSock', 'sendEvent'
+            'start', 'stop'
         ])).toBeTruthy();
     });
 

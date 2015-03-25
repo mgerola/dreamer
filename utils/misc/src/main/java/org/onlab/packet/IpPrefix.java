@@ -57,6 +57,24 @@ public class IpPrefix {
     }
 
     /**
+     * Tests whether the IP version of this prefix is IPv4.
+     *
+     * @return true if the IP version of this prefix is IPv4, otherwise false.
+     */
+    public boolean isIp4() {
+        return address.isIp4();
+    }
+
+    /**
+     * Tests whether the IP version of this prefix is IPv6.
+     *
+     * @return true if the IP version of this prefix is IPv6, otherwise false.
+     */
+    public boolean isIp6() {
+        return address.isIp6();
+    }
+
+    /**
      * Returns the IP address value of the prefix.
      *
      * @return the IP address value of the prefix
@@ -81,7 +99,7 @@ public class IpPrefix {
      * otherwise null
      */
     public Ip4Prefix getIp4Prefix() {
-        if (version() != Ip4Prefix.VERSION) {
+        if (!isIp4()) {
             return null;
         }
 
@@ -99,7 +117,7 @@ public class IpPrefix {
      * otherwise null
      */
     public Ip6Prefix getIp6Prefix() {
-        if (version() != Ip6Prefix.VERSION) {
+        if (!isIp6()) {
             return null;
         }
 
@@ -160,7 +178,7 @@ public class IpPrefix {
     public static IpPrefix valueOf(String address) {
         final String[] parts = address.split("/");
         if (parts.length != 2) {
-            String msg = "Malformed IP prefix string: " + address + "." +
+            String msg = "Malformed IP prefix string: " + address + ". " +
                 "Address must take form \"x.x.x.x/y\" or " +
                 "\"xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx/y\"";
             throw new IllegalArgumentException(msg);

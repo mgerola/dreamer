@@ -77,6 +77,7 @@ import static org.onosproject.net.link.LinkEvent.Type.LINK_ADDED;
 /**
  * Web socket capable of interacting with the GUI topology view.
  */
+@Deprecated
 public class TopologyViewWebSocket
         extends TopologyViewMessages
         implements WebSocket.OnTextMessage, WebSocket.OnControl {
@@ -349,8 +350,8 @@ public class TopologyViewWebSocket
 
         HostToHostIntent intent =
                 new HostToHostIntent(appId, one, two,
-                                     DefaultTrafficSelector.builder().build(),
-                                     DefaultTrafficTreatment.builder().build());
+                                     DefaultTrafficSelector.emptySelector(),
+                                     DefaultTrafficTreatment.emptyTreatment());
 
         intentService.submit(intent);
         startMonitoringIntent(event, intent);
@@ -370,7 +371,7 @@ public class TopologyViewWebSocket
         // FIXME: clearly, this is not enough
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthDst(dstHost.mac()).build();
-        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
+        TrafficTreatment treatment = DefaultTrafficTreatment.emptyTreatment();
 
         MultiPointToSinglePointIntent intent =
                 new MultiPointToSinglePointIntent(appId, selector, treatment,

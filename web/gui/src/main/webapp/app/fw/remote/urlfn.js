@@ -22,7 +22,7 @@
 
     var uiContext = '/onos/ui/',
         rsSuffix = uiContext + 'rs/',
-        wsSuffix = uiContext + 'ws/';
+        wsSuffix = uiContext + 'websock/';
 
     angular.module('onosRemote')
         .factory('UrlFnService', ['$location', function ($loc) {
@@ -33,25 +33,25 @@
                 return secure ? protocol + 's' : protocol;
             }
 
-            function urlBase(protocol, port) {
+            function urlBase(protocol, port, host) {
                 return matchSecure(protocol) + '://' +
-                    $loc.host() + ':' + (port || $loc.port());
+                    (host || $loc.host()) + ':' + (port || $loc.port());
             }
 
             function httpPrefix(suffix) {
                 return urlBase('http') + suffix;
             }
 
-            function wsPrefix(suffix, wsport) {
-                return urlBase('ws', wsport) + suffix;
+            function wsPrefix(suffix, wsport, host) {
+                return urlBase('ws', wsport, host) + suffix;
             }
 
             function rsUrl(path) {
                 return httpPrefix(rsSuffix) + path;
             }
 
-            function wsUrl(path, wsport) {
-                return wsPrefix(wsSuffix, wsport) + path;
+            function wsUrl(path, wsport, host) {
+                return wsPrefix(wsSuffix, wsport, host) + path;
             }
 
             return {

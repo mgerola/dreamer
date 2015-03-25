@@ -15,7 +15,22 @@
  */
 package org.onosproject.net.topology.impl;
 
-import com.google.common.collect.ImmutableList;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.onlab.util.Tools.get;
+import static org.onlab.util.Tools.groupedThreads;
+import static org.onosproject.core.CoreService.CORE_PROVIDER_ID;
+import static org.onosproject.net.device.DeviceEvent.Type.DEVICE_ADDED;
+import static org.onosproject.net.device.DeviceEvent.Type.DEVICE_AVAILABILITY_CHANGED;
+import static org.onosproject.net.device.DeviceEvent.Type.DEVICE_REMOVED;
+import static org.slf4j.LoggerFactory.getLogger;
+
+import java.util.Collections;
+import java.util.Dictionary;
+import java.util.List;
+import java.util.Timer;
+import java.util.concurrent.ExecutorService;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -26,6 +41,7 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.util.AbstractAccumulator;
 import org.onlab.util.Accumulator;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.event.Event;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
@@ -42,18 +58,7 @@ import org.onosproject.net.topology.TopologyProviderService;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
-import java.util.Collections;
-import java.util.Dictionary;
-import java.util.List;
-import java.util.Timer;
-import java.util.concurrent.ExecutorService;
-
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.onlab.util.Tools.groupedThreads;
-import static org.onosproject.core.CoreService.CORE_PROVIDER_ID;
-import static org.onosproject.net.device.DeviceEvent.Type.*;
-import static org.slf4j.LoggerFactory.getLogger;
+import com.google.common.collect.ImmutableList;
 
 /**
  * Default implementation of a network topology provider that feeds off
@@ -97,11 +102,14 @@ public class DefaultTopologyProvider extends AbstractProvider
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected LinkService linkService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService cfgService;
+
     private volatile boolean isStarted = false;
 
     private TopologyProviderService providerService;
-    private DeviceListener deviceListener = new InternalDeviceListener();
-    private LinkListener linkListener = new InternalLinkListener();
+    private final DeviceListener deviceListener = new InternalDeviceListener();
+    private final LinkListener linkListener = new InternalLinkListener();
 
     private Accumulator<Event> accumulator;
     private ExecutorService executor;
@@ -115,6 +123,7 @@ public class DefaultTopologyProvider extends AbstractProvider
 
     @Activate
     public synchronized void activate(ComponentContext context) {
+        cfgService.registerProperties(DefaultTopologyProvider.class);
         executor = newFixedThreadPool(MAX_THREADS, groupedThreads("onos/topo", "build-%d"));
         accumulator = new TopologyChangeAccumulator();
         logConfig("Configured");
@@ -132,6 +141,7 @@ public class DefaultTopologyProvider extends AbstractProvider
 
     @Deactivate
     public synchronized void deactivate(ComponentContext context) {
+        cfgService.unregisterProperties(DefaultTopologyProvider.class, false);
         isStarted = false;
 
         deviceService.removeListener(deviceListener);
@@ -153,16 +163,16 @@ public class DefaultTopologyProvider extends AbstractProvider
             return;
         }
 
-        Dictionary properties = context.getProperties();
+        Dictionary<?, ?> properties = context.getProperties();
         int newMaxEvents, newMaxBatchMs, newMaxIdleMs;
         try {
-            String s = (String) properties.get("maxEvents");
+            String s = get(properties, "maxEvents");
             newMaxEvents = isNullOrEmpty(s) ? maxEvents : Integer.parseInt(s.trim());
 
-            s = (String) properties.get("maxBatchMs");
+            s = get(properties, "maxBatchMs");
             newMaxBatchMs = isNullOrEmpty(s) ? maxBatchMs : Integer.parseInt(s.trim());
 
-            s = (String) properties.get("maxIdleMs");
+            s = get(properties, "maxIdleMs");
             newMaxIdleMs = isNullOrEmpty(s) ? maxIdleMs : Integer.parseInt(s.trim());
 
         } catch (NumberFormatException | ClassCastException e) {
@@ -209,6 +219,7 @@ public class DefaultTopologyProvider extends AbstractProvider
         if (isStarted) {
             GraphDescription desc =
                     new DefaultGraphDescription(System.nanoTime(),
+                                                System.currentTimeMillis(),
                                                 deviceService.getAvailableDevices(),
                                                 linkService.getActiveLinks());
             providerService.topologyChanged(desc, reasons);

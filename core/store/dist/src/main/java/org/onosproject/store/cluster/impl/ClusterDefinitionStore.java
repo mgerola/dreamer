@@ -15,23 +15,12 @@
  */
 package org.onosproject.store.cluster.impl;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.onosproject.cluster.DefaultControllerNode;
-import org.onosproject.cluster.NodeId;
-import org.onlab.packet.IpAddress;
+import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
 
-//Not used right now
 /**
  * Allows for reading and writing cluster definition as a JSON file.
  */
@@ -41,51 +30,32 @@ public class ClusterDefinitionStore {
 
     /**
      * Creates a reader/writer of the cluster definition file.
-     *
      * @param filePath location of the definition file
      */
     public ClusterDefinitionStore(String filePath) {
         file = new File(filePath);
     }
 
-    /*
-     * Returns set of the controller nodes, including self.
-     *
-     * @return set of controller nodes
+    /**
+     * Returns the cluster definition.
+     * @return cluster definition
+     * @throws IOException when I/O exception of some sort has occurred
      */
-    public Set<DefaultControllerNode> read() throws IOException {
-        Set<DefaultControllerNode> nodes = new HashSet<>();
+    public ClusterDefinition read() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
-        ObjectNode clusterNodeDef = (ObjectNode) mapper.readTree(file);
-        Iterator<JsonNode> it = ((ArrayNode) clusterNodeDef.get("nodes")).elements();
-        while (it.hasNext()) {
-            ObjectNode nodeDef = (ObjectNode) it.next();
-            nodes.add(new DefaultControllerNode(new NodeId(nodeDef.get("id").asText()),
-                                                IpAddress.valueOf(nodeDef.get("ip").asText()),
-                                                nodeDef.get("tcpPort").asInt(9876)));
-        }
-        return nodes;
+        ClusterDefinition definition = mapper.readValue(file, ClusterDefinition.class);
+        return definition;
     }
 
-    /*
-     * Writes the given set of the controller nodes.
-     *
-     * @param nodes set of controller nodes
+    /**
+     * Writes the specified cluster definition to file.
+     * @param definition cluster definition
+     * @throws IOException when I/O exception of some sort has occurred
      */
-    public void write(Set<DefaultControllerNode> nodes) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode clusterNodeDef = mapper.createObjectNode();
-        ArrayNode nodeDefs = mapper.createArrayNode();
-        clusterNodeDef.set("nodes", nodeDefs);
-        for (DefaultControllerNode node : nodes) {
-            ObjectNode nodeDef = mapper.createObjectNode();
-            nodeDef.put("id", node.id().toString())
-                    .put("ip", node.ip().toString())
-                    .put("tcpPort", node.tcpPort());
-            nodeDefs.add(nodeDef);
-        }
-        mapper.writeTree(new JsonFactory().createGenerator(file, JsonEncoding.UTF8),
-                         clusterNodeDef);
+    public void write(ClusterDefinition definition) throws IOException {
+        checkNotNull(definition);
+        // write back to file
+        final ObjectMapper mapper = new ObjectMapper();
+        mapper.writeValue(file, definition);
     }
-
 }

@@ -2,25 +2,31 @@ package org.onosproject.icona.store;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import org.onosproject.icona.InterClusterPath;
-
 public class PseudoWire {
 
     private EndPoint srcEndPoint;
     private EndPoint dstEndPoint;
+    private String clusterMaster;
     private String pseudoWireId;
+    private PseudoWireIntent localIntent;
+    private PathInstallationStatus pwStatus;
     
-    private InterClusterPath path;
+    public enum PathInstallationStatus {
+        RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
+
+    }
+
     
-    public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, InterClusterPath path) {
+    public PseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, String clusterMaster, PathInstallationStatus pwStatus) {
     checkNotNull(srcEndPoint);
     checkNotNull(dstEndPoint);
     
     this.dstEndPoint = dstEndPoint;
     this.srcEndPoint = srcEndPoint;
+    this.clusterMaster = clusterMaster;
     this.pseudoWireId = srcEndPoint.deviceId() + "/" + srcEndPoint.port()
             + "-" + dstEndPoint.deviceId() + "/" + dstEndPoint.port();
-    this.path = path;
+    this.pwStatus = pwStatus;
     }
     
     public EndPoint getSrcEndPoint() {
@@ -35,20 +41,31 @@ public class PseudoWire {
         return pseudoWireId;
     }
     
-    public InterClusterPath getInterClusterPath() {
-        return path;
+    public void setLocalIntent(PseudoWireIntent localIntent){
+        this.localIntent = localIntent;
     }
     
-    public void setInterClusterPath(InterClusterPath path){
-        this.path = path;
+    public PseudoWireIntent getLocalIntent() {
+        return localIntent;
+    }
+
+    public PathInstallationStatus getPwStatus() {
+        return pwStatus;
+    }
+
+    public void setPwStatus(PathInstallationStatus pwStatus) {
+        this.pwStatus = pwStatus;
+    }
+    
+    public String getClusterMaster() {
+        return clusterMaster;
     }
 
     @Override
     public String toString() {
         return "PseudoWire [srcEndPoint=" + srcEndPoint + ", dstEndPoint="
-                + dstEndPoint + ", pseudoWireId=" + pseudoWireId + ", path="
-                + path + "]";
-    }
-    
-    
+                + dstEndPoint + ", clusterMaster=" + clusterMaster
+                + ", pseudoWireId=" + pseudoWireId + ", pwStatus=" + pwStatus
+                + "]";
+    }    
 }

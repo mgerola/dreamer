@@ -60,7 +60,6 @@ public class BFSTree {
 				}
 			}
 		}
-
     }
 
     public InterClusterPath getPath(Cluster leafCluster) {

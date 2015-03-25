@@ -15,21 +15,8 @@
  */
 package org.onosproject.net.intent;
 
-import static org.onosproject.net.NetTestTools.createPath;
-import static org.onosproject.net.NetTestTools.did;
-import static org.onosproject.net.NetTestTools.link;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableSet;
 import org.onosproject.core.DefaultGroupId;
 import org.onosproject.core.GroupId;
 import org.onosproject.net.DeviceId;
@@ -45,13 +32,18 @@ import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.criteria.Criterion.Type;
 import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.flow.instructions.Instructions;
 import org.onosproject.net.resource.Bandwidth;
 import org.onosproject.net.resource.BandwidthResourceRequest;
+import org.onosproject.net.resource.Lambda;
+import org.onosproject.net.resource.LambdaResourceAllocation;
 import org.onosproject.net.resource.LambdaResourceRequest;
 import org.onosproject.net.resource.LinkResourceAllocations;
 import org.onosproject.net.resource.LinkResourceListener;
 import org.onosproject.net.resource.LinkResourceRequest;
 import org.onosproject.net.resource.LinkResourceService;
+import org.onosproject.net.resource.MplsLabel;
+import org.onosproject.net.resource.MplsLabelResourceAllocation;
 import org.onosproject.net.resource.ResourceAllocation;
 import org.onosproject.net.resource.ResourceRequest;
 import org.onosproject.net.resource.ResourceType;
@@ -62,7 +54,20 @@ import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyVertex;
 import org.onosproject.store.Timestamp;
 
-import com.google.common.base.MoreObjects;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.onosproject.net.NetTestTools.createPath;
+import static org.onosproject.net.NetTestTools.did;
+import static org.onosproject.net.NetTestTools.link;
 
 /**
  * Common mocks used by the intent framework tests.
@@ -90,6 +95,31 @@ public class IntentTestsMocks {
         @Override
         public List<Instruction> instructions() {
             return new ArrayList<>();
+        }
+
+        @Override
+        public List<Instruction> deferred() {
+            return null;
+        }
+
+        @Override
+        public List<Instruction> immediate() {
+            return null;
+        }
+
+        @Override
+        public List<Instruction> allInstructions() {
+            return null;
+        }
+
+        @Override
+        public Instructions.TableTypeTransition tableTransition() {
+            return null;
+        }
+
+        @Override
+        public Boolean clearedDeferred() {
+            return null;
         }
     }
 
@@ -152,7 +182,9 @@ public class IntentTestsMocks {
     public static class MockLinkResourceAllocations implements LinkResourceAllocations {
         @Override
         public Set<ResourceAllocation> getResourceAllocation(Link link) {
-            return null;
+            return ImmutableSet.of(
+                    new LambdaResourceAllocation(Lambda.valueOf(77)),
+                    new MplsLabelResourceAllocation(MplsLabel.valueOf(10)));
         }
 
         @Override
@@ -254,17 +286,19 @@ public class IntentTestsMocks {
 
         @Override
         public Iterable<LinkResourceAllocations> getAllocations() {
-            return null;
+            return ImmutableSet.of(
+                    new IntentTestsMocks.MockLinkResourceAllocations());
         }
 
         @Override
         public Iterable<LinkResourceAllocations> getAllocations(Link link) {
-            return null;
+            return ImmutableSet.of(
+                    new IntentTestsMocks.MockLinkResourceAllocations());
         }
 
         @Override
         public LinkResourceAllocations getAllocations(IntentId intentId) {
-            return null;
+            return new IntentTestsMocks.MockLinkResourceAllocations();
         }
 
         @Override

@@ -23,8 +23,9 @@
     'use strict';
 
     // injected refs
-    var $log, fs, sus, is, ts, flash, tis, tms, td3, tss, tts, tos, fltr, tls,
-        icfg, uplink;
+    var $log, fs, sus, is, ts, flash, wss,
+        tis, tms, td3, tss, tts, tos, fltr, tls,
+        icfg, uplink, svg;
 
     // configuration
     var linkConfig = {
@@ -52,8 +53,8 @@
             lookup: {},
             revLinkToKey: {}
         },
-        lu = network.lookup,    // shorthand
-        rlk = network.revLinkToKey,
+        lu,                     // shorthand for lookup
+        rlk,                    // shorthand for revLinktoKey
         showHosts = false,      // whether hosts are displayed
         showOffline = true,     // whether offline devices are displayed
         nodeLock = false,       // whether nodes can be dragged or not (locked)
@@ -374,7 +375,7 @@
             metaUi = {x: d.x, y: d.y, lng: ll[0], lat: ll[1]};
         }
         d.metaUi = metaUi;
-        uplink.sendEvent('updateMeta', {
+        wss.sendEvent('updateMeta', {
             id: d.id,
             'class': d.class,
             memento: metaUi
@@ -595,9 +596,10 @@
     };
 
     function tick() {
-        node.attr(tickStuff.nodeAttr);
-        link.attr(tickStuff.linkAttr);
-        linkLabel.attr(tickStuff.linkLabelAttr);
+        // guard against null (which can happen when our view pages out)...
+        if (node) node.attr(tickStuff.nodeAttr);
+        if (link) link.attr(tickStuff.linkAttr);
+        if (linkLabel) linkLabel.attr(tickStuff.linkLabelAttr);
     }
 
 
@@ -690,8 +692,7 @@
         return {
             node: function () { return node; },
             zoomingOrPanning: zoomingOrPanning,
-            updateDeviceColors: td3.updateDeviceColors,
-            sendEvent: uplink.sendEvent
+            updateDeviceColors: td3.updateDeviceColors
         };
     }
 
@@ -703,8 +704,7 @@
             findLinkById: tms.findLinkById,
             hovered: tss.hovered,
             validateSelectionContext: tss.validateSelectionContext,
-            selectOrder: tss.selectOrder,
-            sendEvent: uplink.sendEvent
+            selectOrder: tss.selectOrder
         }
     }
 
@@ -735,10 +735,9 @@
         };
     }
 
-    function mkLinkApi(svg, forceG, uplink) {
+    function mkLinkApi(svg, uplink) {
         return {
             svg: svg,
-            forceG: forceG,
             zoomer: uplink.zoomer(),
             network: network,
             portLabelG: function () { return portLabelG; },
@@ -749,11 +748,12 @@
     angular.module('ovTopo')
     .factory('TopoForceService',
         ['$log', 'FnService', 'SvgUtilService', 'IconService', 'ThemeService',
-            'FlashService', 'TopoInstService', 'TopoModelService',
+            'FlashService', 'WebSocketService',
+            'TopoInstService', 'TopoModelService',
             'TopoD3Service', 'TopoSelectService', 'TopoTrafficService',
             'TopoObliqueService', 'TopoFilterService', 'TopoLinkService',
 
-        function (_$log_, _fs_, _sus_, _is_, _ts_, _flash_,
+        function (_$log_, _fs_, _sus_, _is_, _ts_, _flash_, _wss_,
                   _tis_, _tms_, _td3_, _tss_, _tts_, _tos_, _fltr_, _tls_) {
             $log = _$log_;
             fs = _fs_;
@@ -761,6 +761,7 @@
             is = _is_;
             ts = _ts_;
             flash = _flash_;
+            wss = _wss_;
             tis = _tis_;
             tms = _tms_;
             td3 = _td3_;
@@ -781,9 +782,13 @@
             // uplink is the api from the main topo source file
             // dim is the initial dimensions of the SVG as [w,h]
             // opts are, well, optional :)
-            function initForce(svg, forceG, _uplink_, _dim_, opts) {
+            function initForce(_svg_, forceG, _uplink_, _dim_, opts) {
                 uplink = _uplink_;
                 dim = _dim_;
+                svg = _svg_;
+
+                lu = network.lookup;
+                rlk = network.revLinkToKey;
 
                 $log.debug('initForce().. dim = ' + dim);
 
@@ -793,7 +798,7 @@
                 tts.initTraffic(mkTrafficApi(uplink));
                 tos.initOblique(mkObliqueApi(uplink, fltr));
                 fltr.initFilter(mkFilterApi(uplink), d3.select('#mast-right'));
-                tls.initLink(mkLinkApi(svg, forceG, uplink), td3);
+                tls.initLink(mkLinkApi(svg, uplink), td3);
 
                 settings = angular.extend({}, defaultSettings, opts);
 
@@ -825,10 +830,11 @@
                 dim = _dim_;
                 force.size(dim);
                 tms.newDim(dim);
-                // Review -- do we need to nudge the layout ?
             }
 
             function destroyForce() {
+                force.stop();
+
                 tls.destroyLink();
                 fltr.destroyFilter();
                 tos.destroyOblique();
@@ -838,6 +844,20 @@
                 tms.destroyModel();
                 ts.removeListener(themeListener);
                 themeListener = null;
+
+                // clean up the DOM
+                svg.selectAll('g').remove();
+                svg.selectAll('defs').remove();
+
+                // clean up internal state
+                network.nodes = [];
+                network.links = [];
+                network.lookup = {};
+                network.revLinkToKey = {};
+
+                linkG = linkLabelG = nodeG = portLabelG = null;
+                link = linkLabel = node = null;
+                force = drag = null;
             }
 
             return {
@@ -847,6 +867,7 @@
 
                 updateDeviceColors: td3.updateDeviceColors,
                 toggleHosts: toggleHosts,
+                togglePorts: tls.togglePorts,
                 toggleOffline: toggleOffline,
                 cycleDeviceLabels: cycleDeviceLabels,
                 unpin: unpin,

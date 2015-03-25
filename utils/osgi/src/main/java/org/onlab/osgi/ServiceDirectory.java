@@ -23,8 +23,9 @@ public interface ServiceDirectory {
 
     /**
      * Returns implementation of the specified service class.
+     *
      * @param serviceClass service class
-     * @param <T> type of service
+     * @param <T>          type of service
      * @return implementation class
      * @throws ServiceNotFoundException if no implementation found
      */

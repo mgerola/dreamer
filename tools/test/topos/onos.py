@@ -62,7 +62,7 @@ class ONOS( Controller ):
    
     def start( self ):
         if self.inNamespace:
-            instanceOpts = ( '-furl mvn:org.onosproject/onos-features/1.1.0-SNAPSHOT/xml/features '
+            instanceOpts = ( '-furl mvn:org.onosproject/onos-features/1.2.0-SNAPSHOT/xml/features '
                              '-s 8101' )
             if self.ip is not None:
                 instanceOpts += (' -a %s' % self.IP() )
@@ -97,13 +97,17 @@ class ONOS( Controller ):
         self.terminate()
 
     def updateHazelcast( self ):
+        hz = '192.168.123.*'
+        if self.ip is not None:
+            hz = '.'.join(self.ip.split('.')[:-1]) + '.*'
+
         readfile = self.karafDir + 'etc/hazelcast.xml'
         writefile = self.instanceDir + 'etc/hazelcast.xml'
         with open( readfile, 'r' ) as r:
             with open( writefile, 'w' ) as w:
                 for line in r.readlines():
                     if '<interface>' in line:
-                        line = '<interface>' + '192.168.123.*' + '</interface>\n'
+                        line = '<interface>' + hz + '</interface>\n'
                     w.write( line )
 
     def updateFeatures( self ):

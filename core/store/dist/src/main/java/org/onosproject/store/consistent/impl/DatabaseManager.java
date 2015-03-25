@@ -31,8 +31,7 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onosproject.cluster.ClusterService;
-import org.onosproject.cluster.ControllerNode;
-import org.onosproject.cluster.DefaultControllerNode;
+import org.onosproject.store.cluster.impl.NodeInfo;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.PartitionInfo;
 import org.onosproject.store.service.Serializer;
@@ -66,11 +65,13 @@ public class DatabaseManager implements StorageService, StorageAdminService {
     private static final String PARTITION_DEFINITION_FILE = "tablets.json";
     private static final int DATABASE_STARTUP_TIMEOUT_SEC = 60;
 
+    private final PartitionedDatabaseConfig databaseConfig = new PartitionedDatabaseConfig();
+
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ClusterService clusterService;
 
-    protected String nodeToUri(ControllerNode node) {
-        return String.format("tcp://%s:%d", node.ip(), COPYCAT_TCP_PORT);
+    protected String nodeToUri(NodeInfo node) {
+        return String.format("tcp://%s:%d", node.getIp(), COPYCAT_TCP_PORT);
     }
 
     @Activate
@@ -82,12 +83,11 @@ public class DatabaseManager implements StorageService, StorageAdminService {
         File file = new File(CONFIG_DIR, PARTITION_DEFINITION_FILE);
         log.info("Loading database definition: {}", file.getAbsolutePath());
 
-        DatabaseDefinitionStore databaseDef = new DatabaseDefinitionStore(file);
-        Map<String, Set<DefaultControllerNode>> partitionMap;
+        Map<String, Set<NodeInfo>> partitionMap;
         try {
-            partitionMap = databaseDef.read();
+            DatabaseDefinitionStore databaseDef = new DatabaseDefinitionStore(file);
+            partitionMap = databaseDef.read().getPartitions();
         } catch (IOException e) {
-            log.error("Failed to load database config {}", file);
             throw new IllegalStateException("Failed to load database config", e);
         }
 
@@ -99,7 +99,7 @@ public class DatabaseManager implements StorageService, StorageAdminService {
                     .map(this::nodeToUri)
                     .toArray(String[]::new);
 
-        String localNodeUri = nodeToUri(clusterService.getLocalNode());
+        String localNodeUri = nodeToUri(NodeInfo.of(clusterService.getLocalNode()));
 
         ClusterConfig clusterConfig = new ClusterConfig()
             .withProtocol(new NettyTcpProtocol()
@@ -115,8 +115,6 @@ public class DatabaseManager implements StorageService, StorageAdminService {
             .withHeartbeatInterval(1500)
             .withMembers(activeNodeUris)
             .withLocalMember(localNodeUri);
-
-        PartitionedDatabaseConfig databaseConfig = new PartitionedDatabaseConfig();
 
         partitionMap.forEach((name, nodes) -> {
             Set<String> replicas = nodes.stream().map(this::nodeToUri).collect(Collectors.toSet());
@@ -147,7 +145,7 @@ public class DatabaseManager implements StorageService, StorageAdminService {
         });
         try {
             if (!latch.await(DATABASE_STARTUP_TIMEOUT_SEC, TimeUnit.SECONDS)) {
-                log.warn("Timeed out watiing for database to initialize.");
+                log.warn("Timed out waiting for database to initialize.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -183,7 +181,7 @@ public class DatabaseManager implements StorageService, StorageAdminService {
         return partitionedDatabase.getRegisteredPartitions()
                 .values()
                 .stream()
-                .map(DatabaseManager::toPartitionInfo)
+                .map(db -> toPartitionInfo(db, databaseConfig.partitions().get(db.name())))
                 .collect(Collectors.toList());
     }
 
@@ -193,11 +191,12 @@ public class DatabaseManager implements StorageService, StorageAdminService {
      * @param database database containing input data
      * @return PartitionInfo object
      */
-    private static PartitionInfo toPartitionInfo(Database database) {
+    private static PartitionInfo toPartitionInfo(Database database, DatabaseConfig dbConfig) {
         return new PartitionInfo(database.name(),
                           database.cluster().term(),
                           database.cluster().members().stream()
                                   .map(Member::uri)
+                                  .filter(uri -> dbConfig.getReplicas().contains(uri))
                                   .collect(Collectors.toList()),
                           database.cluster().leader() != null ?
                                   database.cluster().leader().uri() : null);

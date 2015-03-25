@@ -42,8 +42,8 @@ import org.onosproject.net.provider.AbstractProvider;
 import org.onosproject.net.provider.ProviderId;
 import org.slf4j.Logger;
 
-import static org.slf4j.LoggerFactory.getLogger;
 import static org.onlab.util.Tools.toHex;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Null provider to advertise fake hosts.
@@ -111,7 +111,7 @@ public class NullHostProvider extends AbstractProvider implements HostProvider {
     public void triggerProbe(Host host) {}
 
     private void addHosts(Device device) {
-        String nhash = toHex(nodeService.getLocalNode().hashCode());
+        String nhash = toHex(nodeService.getLocalNode().id().hashCode());
         String dhash = device.id().toString();
         // make sure this instance owns the device.
         if (!nhash.substring(nhash.length() - 3)

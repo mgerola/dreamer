@@ -4,6 +4,7 @@ import static com.google.common.collect.Lists.newArrayList;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.karaf.shell.commands.Command;
@@ -12,6 +13,8 @@ import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
+import org.onosproject.icona.store.PseudoWire;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -25,11 +28,11 @@ public class ClustersCommand extends AbstractShellCommand {
     private static final String INTERLINK = "srcCluster=%s, dstCluster=%s, "
             + "srcSwId=%s, srcPort=%s, dstSwId=%s, dstPort=%s";
     private static final String ENDPOINT = "Cluster=%s, SwId=%s, Port=%s";
+    private static final String PSEUDOWIRE = "ClusterMaster=%s, srcSwId=%s, srcPort=%s, dstSwId=%s, dstPort=%s, Status=%s";
 
     @Override
     protected void execute() {
         IconaStoreService service = get(IconaStoreService.class);
-
         if (outputJson()) {
             print("%s", json(service, getSortedClusters(service)));
         } else {
@@ -150,6 +153,7 @@ public class ClustersCommand extends AbstractShellCommand {
      */
     public static List<InterLink> getSortedInterLinks(IconaStoreService service) {
         List<InterLink> interlinks = newArrayList(service.getInterLinks());
+        //TODO: implement
         // Collections.sort(interlinks, Comparators.ELEMENT_COMPARATOR);
         return interlinks;
     }
@@ -213,7 +217,8 @@ public class ClustersCommand extends AbstractShellCommand {
      */
     public static List<EndPoint> getSortedEndPoint(IconaStoreService service) {
         List<EndPoint> endpoints = newArrayList(service.getEndPoints());
-        // Collections.sort(endpoints, Comparators.ELEMENT_COMPARATOR);
+        //TODO: implement
+//        Collections.sort(endpoints, Comparators.ELEMENT_COMPARATOR);
         return endpoints;
     }
 
@@ -227,6 +232,78 @@ public class ClustersCommand extends AbstractShellCommand {
         if (endpoint != null) {
             print(ENDPOINT, endpoint.clusterName(), endpoint.deviceId(),
                   endpoint.port());
+        }
+    }
+    
+    /**
+     * Returns JSON node representing the specified devices.
+     *
+     * @param service device service
+     * @param devices collection of devices
+     * @return JSON node
+     */
+    public static JsonNode jsonPW(IconaStoreService service,
+                                  Iterable<PseudoWire> pseudoWires) {
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode result = mapper.createArrayNode();
+        for (PseudoWire pw : pseudoWires) {
+            result.add(jsonPW(service, mapper, pw));
+        }
+        return result;
+    }
+
+    /**
+     * Returns JSON node representing the specified device.
+     *
+     * @param service device service
+     * @param mapper object mapper
+     * @param device infrastructure device
+     * @return JSON node
+     */
+    public static ObjectNode jsonPW(IconaStoreService service,
+                                    ObjectMapper mapper, PseudoWire pw) {
+        ObjectNode result = mapper.createObjectNode();
+        if (pw != null) {
+              result.put("clusterMaster", pw.getClusterMaster())
+                    .put("srcSwId", pw.getSrcEndPoint().deviceId().toString())
+                    .put("srcPort", pw.getSrcEndPoint().port().toLong())
+                    .put("dstSwId",  pw.getDstEndPoint().deviceId().toString())
+                    .put("dstPort", pw.getDstEndPoint().port().toLong())
+                    .put("Status", pw.getPwStatus().toString());
+        }
+        return result;
+    }
+
+    /**
+     * Returns the list of devices sorted using the device ID URIs.
+     *
+     * @param service device service
+     * @return sorted device list
+     */
+    public static List<PseudoWire> getSortedPseudoWire(IconaStoreService service) {
+        //List<PseudoWire> pws = newArrayList(service.getPseudoWires());
+        //TODO: implement
+//        Collections.sort(endpoints, Comparators.ELEMENT_COMPARATOR);
+        //return pws;
+        return Collections.emptyList();
+    }
+
+    /**
+     * Prints information about the specified device.
+     *
+     * @param service device service
+     * @param device infrastructure device
+     */
+    protected void printPseudoWire(PseudoWire pw) {
+        if (pw != null) {
+            print(PSEUDOWIRE, 
+                  pw.getClusterMaster(), 
+                  pw.getSrcEndPoint().deviceId().toString(),
+                  pw.getSrcEndPoint().port().toLong(), 
+                  pw.getDstEndPoint().deviceId().toString(), 
+                  pw.getDstEndPoint().port().toLong(),
+                  pw.getPwStatus().toString()
+                  );
         }
     }
 }

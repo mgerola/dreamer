@@ -35,6 +35,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Dictionary;
 import java.util.List;
 import java.util.concurrent.ThreadFactory;
 
@@ -63,8 +64,8 @@ public abstract class Tools {
     public static ThreadFactory namedThreads(String pattern) {
         return new ThreadFactoryBuilder()
                 .setNameFormat(pattern)
-                        // FIXME remove UncaughtExceptionHandler before release
-                .setUncaughtExceptionHandler((t, e) -> log.error("Uncaught exception on {}", t.getName(), e)).build();
+                .setUncaughtExceptionHandler((t, e) -> log.error("Uncaught exception on " + t.getName(), e))
+                .build();
     }
 
     /**
@@ -83,8 +84,8 @@ public abstract class Tools {
         return new ThreadFactoryBuilder()
                 .setThreadFactory(groupedThreadFactory(groupName))
                 .setNameFormat(groupName.replace(GroupedThreadFactory.DELIMITER, "-") + "-" + pattern)
-                        // FIXME remove UncaughtExceptionHandler before release
-                .setUncaughtExceptionHandler((t, e) -> log.error("Uncaught exception on {}", t.getName(), e)).build();
+                .setUncaughtExceptionHandler((t, e) -> log.error("Uncaught exception on " + t.getName(), e))
+                .build();
     }
 
     /**
@@ -139,6 +140,20 @@ public abstract class Tools {
      */
     public static String toHex(long value, int width) {
         return Strings.padStart(UnsignedLongs.toString(value, 16), width, '0');
+    }
+
+    /**
+     * Get property as a string value.
+     *
+     * @param properties   properties to be looked up
+     * @param propertyName the name of the property to look up
+     * @return value when the propertyName is defined or return null
+     */
+    public static String get(Dictionary<?, ?> properties, String propertyName) {
+        Object v = properties.get(propertyName);
+        String s = (v instanceof String) ? (String) v :
+                v != null ? v.toString() : null;
+        return Strings.isNullOrEmpty(s) ? null : s.trim();
     }
 
     /**
@@ -239,6 +254,30 @@ public abstract class Tools {
         }
     }
 
+    /**
+     * Returns a human friendly time ago string for a specified system time.
+     *
+     * @param unixTime system time in millis
+     * @return human friendly time ago
+     */
+    public static String timeAgo(long unixTime) {
+        long deltaMillis = System.currentTimeMillis() - unixTime;
+        long secondsSince = (long) (deltaMillis / 1000.0);
+        long minsSince = (long) (deltaMillis / (1000.0 * 60));
+        long hoursSince = (long) (deltaMillis / (1000.0 * 60 * 60));
+        long daysSince = (long) (deltaMillis / (1000.0 * 60 * 60 * 24));
+        if (daysSince > 0) {
+            return String.format("%dd ago", daysSince);
+        } else if (hoursSince > 0) {
+            return String.format("%dh ago", hoursSince);
+        } else if (minsSince > 0) {
+            return String.format("%dm ago", minsSince);
+        } else if (secondsSince > 0) {
+            return String.format("%ds ago", secondsSince);
+        } else {
+            return "just now";
+        }
+    }
 
     /**
      * Copies the specified directory path.&nbsp;Use with great caution since

@@ -22,8 +22,10 @@
     'use strict';
 
     angular.module('ovDevice', [])
-        .controller('OvDeviceCtrl', ['$log', '$scope', '$location', 'RestService',
-        function ($log, $scope, $location, rs) {
+    .controller('OvDeviceCtrl',
+        ['$log', '$scope', '$location', 'RestService', 'VeilService',
+
+        function ($log, $scope, $location, rs, vs) {
             var self = this;
             self.deviceData = [];
 
@@ -34,9 +36,16 @@
                 var url = 'device' + urlSuffix;
                 rs.get(url, function (data) {
                     self.deviceData = data.devices;
+                }, function (errMsg) {
+                    vs.lostServer('OvDeviceCtrl', errMsg);
                 });
             };
             $scope.sortCallback();
+
+            // Cleanup on destroyed scope
+            $scope.$on('$destroy', function () {
+
+            });
 
             $log.log('OvDeviceCtrl has been created');
         }]);

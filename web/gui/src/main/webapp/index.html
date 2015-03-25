@@ -18,7 +18,7 @@
 <head>
     <meta charset="utf-8">
     <link rel="shortcut icon" href="data/img/onos-logo.png">
-    <title>ONOS Angular</title>
+    <title>ONOS</title>
 
     <!-- Third party library code included here -->
     <!--TODO: use minified versions, once debugging is complete -->
@@ -53,12 +53,13 @@
     <script src="app/fw/remote/remote.js"></script>
     <script src="app/fw/remote/urlfn.js"></script>
     <script src="app/fw/remote/rest.js"></script>
+    <script src="app/fw/remote/wsock.js"></script>
     <script src="app/fw/remote/websocket.js"></script>
-    <script src="app/fw/remote/wsevent.js"></script>
 
     <script src="app/fw/widget/widget.js"></script>
     <script src="app/fw/widget/table.js"></script>
     <script src="app/fw/widget/toolbar.js"></script>
+    <script src="app/fw/widget/tooltip.js"></script>
     <script src="app/fw/widget/button.js"></script>
 
     <script src="app/fw/layer/layer.js"></script>
@@ -81,6 +82,7 @@
     <link rel="stylesheet" href="app/fw/nav/nav.css">
     <link rel="stylesheet" href="app/fw/widget/button.css">
     <link rel="stylesheet" href="app/fw/widget/toolbar.css">
+    <link rel="stylesheet" href="app/fw/widget/tooltip.css">
 
     <!-- This is where contributed javascript will get injected -->
     <!-- {INJECTED-JAVASCRIPT-START} -->
@@ -97,6 +99,7 @@
     <script src="app/view/topo/topoPanel.js"></script>
     <script src="app/view/topo/topoSelect.js"></script>
     <script src="app/view/topo/topoTraffic.js"></script>
+    <script src="app/view/topo/topoToolbar.js"></script>
     <script src="app/view/device/device.js"></script>
     <!-- {INJECTED-JAVASCRIPT-END} -->
 
@@ -123,6 +126,7 @@
 
     <div id="floatpanels"></div>
     <div id="alerts"></div>
+    <div id="tooltip"></div>
     <div id="flash"></div>
     <div id="quickhelp"></div>
     <div id="veil"

@@ -24,9 +24,9 @@ import java.util.Collections;
  * An optical layer intent for connectivity from one transponder port to another
  * transponder port. No traffic selector or traffic treatment are needed.
  */
-public class OpticalConnectivityIntent extends Intent {
-    protected final ConnectPoint src;
-    protected final ConnectPoint dst;
+public final class OpticalConnectivityIntent extends Intent {
+    private final ConnectPoint src;
+    private final ConnectPoint dst;
 
     /**
      * Creates an optical connectivity intent between the specified
@@ -54,7 +54,7 @@ public class OpticalConnectivityIntent extends Intent {
     public OpticalConnectivityIntent(ApplicationId appId,
                                      Key key,
                                      ConnectPoint src, ConnectPoint dst) {
-        super(appId, key, Collections.emptyList());
+        super(appId, key, Collections.emptyList(), DEFAULT_INTENT_PRIORITY);
         this.src = src;
         this.dst = dst;
     }

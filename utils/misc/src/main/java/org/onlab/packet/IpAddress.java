@@ -80,13 +80,31 @@ public class IpAddress implements Comparable<IpAddress> {
     }
 
     /**
+     * Tests whether the IP version of this address is IPv4.
+     *
+     * @return true if the IP version of this address is IPv4, otherwise false.
+     */
+    public boolean isIp4() {
+        return (version() == Ip4Address.VERSION);
+    }
+
+    /**
+     * Tests whether the IP version of this address is IPv6.
+     *
+     * @return true if the IP version of this address is IPv6, otherwise false.
+     */
+    public boolean isIp6() {
+        return (version() == Ip6Address.VERSION);
+    }
+
+    /**
      * Gets the {@link Ip4Address} view of the IP address.
      *
      * @return the {@link Ip4Address} view of the IP address if it is IPv4,
      * otherwise null
      */
     public Ip4Address getIp4Address() {
-        if (version() != Ip4Address.VERSION) {
+        if (!isIp4()) {
             return null;
         }
 
@@ -104,7 +122,7 @@ public class IpAddress implements Comparable<IpAddress> {
      * otherwise null
      */
     public Ip6Address getIp6Address() {
-        if (version() != Ip6Address.VERSION) {
+        if (!isIp6()) {
             return null;
         }
 

@@ -15,16 +15,16 @@
  */
 package org.onosproject.net.flow;
 
-import java.util.List;
-
-import org.onosproject.core.GroupId;
-import org.onosproject.net.PortNumber;
-import org.onosproject.net.flow.DefaultTrafficTreatment.Builder;
-import org.onosproject.net.flow.instructions.Instruction;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onlab.packet.VlanId;
+import org.onosproject.core.GroupId;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.flow.instructions.Instructions;
+
+import java.util.List;
 
 /**
  * Abstraction of network traffic treatment.
@@ -36,7 +36,43 @@ public interface TrafficTreatment {
      *
      * @return list of treatment instructions
      */
+    @Deprecated
     List<Instruction> instructions();
+
+    /**
+     * Returns the list of treatment instructions that will be applied
+     * further down the pipeline.
+     * @return list of treatment instructions
+     */
+    List<Instruction> deferred();
+
+    /**
+     * Returns the list of treatment instructions that will be applied
+     * immediately.
+     * @return list of treatment instructions
+     */
+    List<Instruction> immediate();
+
+    /**
+     * Returns the list of all instructions in the treatment, both immediate and
+     * deferred.
+     *
+     * @return list of treatment instructions
+     */
+    List<Instruction> allInstructions();
+
+    /**
+     * Returns the next table in the pipeline.
+     * @return a table transition; may be null.
+     */
+    Instructions.TableTypeTransition tableTransition();
+
+    /**
+     * Whether the deferred treatment instructions will be cleared
+     * by the device.
+     * @return a boolean
+     */
+    Boolean clearedDeferred();
 
     /**
      * Builder of traffic treatment entities.
@@ -205,12 +241,48 @@ public interface TrafficTreatment {
         public Builder transition(FlowRule.Type type);
 
         /**
+         * Pops outermost VLAN tag.
+         *
+         * @return a treatment builder.
+         */
+        public Builder popVlan();
+
+        /**
+         * Pushes a new VLAN tag.
+         *
+         * @return a treatment builder.
+         */
+        public Builder pushVlan();
+
+        /**
+         * Any instructions preceded by this method call will be deferred.
+         * @return a treatment builder
+         */
+        public Builder deferred();
+
+        /**
+         * Any instructions preceded by this method call will be immediate.
+         * @return a treatment builder
+         */
+        public Builder immediate();
+
+
+        /**
+         * Instructs the device to clear the deferred instructions set.
+         * @return a treatment builder
+         */
+        public Builder wipeDeferred();
+
+        /**
          * Builds an immutable traffic treatment descriptor.
+         * <p>
+         * If the treatment is empty when build() is called, it will add a default
+         * drop rule automatically. For a treatment that is actually empty, use
+         * {@link org.onosproject.net.flow.DefaultTrafficTreatment#emptyTreatment}.
+         * </p>
          *
          * @return traffic treatment
          */
         TrafficTreatment build();
-
     }
-
 }

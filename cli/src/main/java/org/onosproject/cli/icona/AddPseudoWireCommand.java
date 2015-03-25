@@ -59,7 +59,7 @@ public class AddPseudoWireCommand extends ConnectivityIntentCommand {
         //TODO: to be managed....
         List<Constraint> constraints = buildConstraints();
         
-        intraChannelService.addIntraPseudoWire(src, dst, selector, treatment,
+        intraChannelService.intraPseudoWire(src, dst, selector, treatment,
                                                IntentUpdateType.INSTALL);
         
     }

@@ -1,4 +1,4 @@
-/*
+ /*
  * Copyright 2014 Open Networking Laboratory
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,14 +23,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.hazelcast.core.IMap;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
+import org.apache.felix.scr.annotations.Modified;
+import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.util.BoundedThreadPool;
 import org.onlab.util.KryoNamespace;
 import org.onlab.util.NewConcurrentHashMap;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.core.CoreService;
@@ -67,12 +72,14 @@ import org.onosproject.store.hz.SMap;
 import org.onosproject.store.serializers.KryoSerializer;
 import org.onosproject.store.serializers.StoreSerializer;
 import org.onosproject.store.serializers.impl.DistributedStoreSerializers;
+import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -91,6 +98,8 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.commons.lang3.concurrent.ConcurrentUtils.createIfAbsentUnchecked;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static org.onlab.util.Tools.get;
 import static org.onlab.util.Tools.groupedThreads;
 import static org.onosproject.net.flow.FlowRuleEvent.Type.RULE_REMOVED;
 import static org.onosproject.store.flow.impl.FlowStoreMessageSubjects.*;
@@ -107,8 +116,17 @@ public class DistributedFlowRuleStore
 
     private final Logger log = getLogger(getClass());
 
-    // TODO: Make configurable.
     private static final int MESSAGE_HANDLER_THREAD_POOL_SIZE = 8;
+    private static final boolean DEFAULT_BACKUP_ENABLED = true;
+    private static final long FLOW_RULE_STORE_TIMEOUT_MILLIS = 5000;
+
+    @Property(name = "msgHandlerPoolSize", intValue = MESSAGE_HANDLER_THREAD_POOL_SIZE,
+            label = "Number of threads in the message handler pool")
+    private int msgHandlerPoolSize = MESSAGE_HANDLER_THREAD_POOL_SIZE;
+
+    @Property(name = "backupEnabled", boolValue = DEFAULT_BACKUP_ENABLED,
+            label = "Indicates whether backups are enabled or not")
+    private boolean backupEnabled = DEFAULT_BACKUP_ENABLED;
 
     private InternalFlowTable flowTable = new InternalFlowTable();
 
@@ -130,6 +148,9 @@ public class DistributedFlowRuleStore
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CoreService coreService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService configService;
+
     private Map<Long, NodeId> pendingResponses = Maps.newConcurrentMap();
 
     // Cache of SMaps used for backup data.  each SMap contain device flow table
@@ -138,7 +159,8 @@ public class DistributedFlowRuleStore
     private ExecutorService messageHandlingExecutor;
 
     private final ExecutorService backupExecutors =
-            Executors.newSingleThreadExecutor(groupedThreads("onos/flow", "async-backups"));
+            BoundedThreadPool.newSingleThreadExecutor(groupedThreads("onos/flow", "async-backups"));
+            //Executors.newSingleThreadExecutor(groupedThreads("onos/flow", "async-backups"));
 
     private boolean syncBackup = false;
 
@@ -154,16 +176,13 @@ public class DistributedFlowRuleStore
         }
     };
 
-    private static final long FLOW_RULE_STORE_TIMEOUT_MILLIS = 5000;
-
     private ReplicaInfoEventListener replicaInfoEventListener;
 
     private IdGenerator idGenerator;
 
-    @Override
     @Activate
-    public void activate() {
-
+    public void activate(ComponentContext context) {
+        configService.registerProperties(getClass());
         super.serializer = SERIALIZER;
         super.theInstance = storeService.getHazelcastInstance();
 
@@ -177,8 +196,7 @@ public class DistributedFlowRuleStore
         final NodeId local = clusterService.getLocalNode().id();
 
         messageHandlingExecutor = Executors.newFixedThreadPool(
-                MESSAGE_HANDLER_THREAD_POOL_SIZE,
-                groupedThreads("onos/store/flow", "message-handlers"));
+                msgHandlerPoolSize, groupedThreads("onos/store/flow", "message-handlers"));
 
         clusterCommunicator.addSubscriber(APPLY_BATCH_FLOWS, new OnStoreBatch(local), messageHandlingExecutor);
 
@@ -240,11 +258,12 @@ public class DistributedFlowRuleStore
 
         replicaInfoManager.addListener(replicaInfoEventListener);
 
-        log.info("Started");
+        logConfig("Started");
     }
 
     @Deactivate
-    public void deactivate() {
+    public void deactivate(ComponentContext context) {
+        configService.unregisterProperties(getClass(), false);
         clusterCommunicator.removeSubscriber(REMOVE_FLOW_ENTRY);
         clusterCommunicator.removeSubscriber(GET_DEVICE_FLOW_ENTRIES);
         clusterCommunicator.removeSubscriber(GET_FLOW_ENTRY);
@@ -253,6 +272,45 @@ public class DistributedFlowRuleStore
         messageHandlingExecutor.shutdown();
         replicaInfoManager.removeListener(replicaInfoEventListener);
         log.info("Stopped");
+    }
+
+    @Modified
+    public void modified(ComponentContext context) {
+        if (context == null) {
+            backupEnabled = DEFAULT_BACKUP_ENABLED;
+            logConfig("Default config");
+            return;
+        }
+
+        Dictionary properties = context.getProperties();
+        int newPoolSize;
+        boolean newBackupEnabled;
+        try {
+            String s = get(properties, "msgHandlerPoolSize");
+            newPoolSize = isNullOrEmpty(s) ? msgHandlerPoolSize : Integer.parseInt(s.trim());
+
+            s = get(properties, "backupEnabled");
+            newBackupEnabled = isNullOrEmpty(s) ? backupEnabled : Boolean.parseBoolean(s.trim());
+
+        } catch (NumberFormatException | ClassCastException e) {
+            newPoolSize = MESSAGE_HANDLER_THREAD_POOL_SIZE;
+            newBackupEnabled = DEFAULT_BACKUP_ENABLED;
+        }
+
+        if (newPoolSize != msgHandlerPoolSize || newBackupEnabled != backupEnabled) {
+            msgHandlerPoolSize = newPoolSize;
+            backupEnabled = newBackupEnabled;
+            ExecutorService oldMsgHandler = messageHandlingExecutor;
+            messageHandlingExecutor = Executors.newFixedThreadPool(
+                    msgHandlerPoolSize, groupedThreads("onos/store/flow", "message-handlers"));
+            oldMsgHandler.shutdown();
+            logConfig("Reconfigured");
+        }
+    }
+
+    private void logConfig(String prefix) {
+        log.info("{} with msgHandlerPoolSize = {}; backupEnabled = {}",
+                 prefix, msgHandlerPoolSize, backupEnabled);
     }
 
 
@@ -385,12 +443,8 @@ public class DistributedFlowRuleStore
                 SERIALIZER.encode(operation));
 
 
-        try {
-
-            clusterCommunicator.unicast(message, replicaInfo.master().get());
-
-        } catch (IOException e) {
-            log.warn("Failed to storeBatch: {}", e.getMessage());
+        if (!clusterCommunicator.unicast(message, replicaInfo.master().get())) {
+            log.warn("Failed to storeBatch: {} to {}", message, replicaInfo.master());
 
             Set<FlowRule> allFailures = operation.getOperations().stream()
                     .map(op -> op.target())
@@ -401,7 +455,6 @@ public class DistributedFlowRuleStore
                     new CompletedBatchOperation(false, allFailures, deviceId)));
             return;
         }
-
     }
 
     private void storeBatchInternal(FlowRuleBatchOperation operation) {
@@ -455,6 +508,10 @@ public class DistributedFlowRuleStore
     }
 
     private void updateBackup(DeviceId deviceId, final Set<FlowRuleBatchEntry> entries) {
+        if (!backupEnabled) {
+            return;
+        }
+
         Future<?> backup = backupExecutors.submit(new UpdateBackup(deviceId, entries));
 
         if (syncBackup) {
@@ -576,21 +633,21 @@ public class DistributedFlowRuleStore
         if (nodeId == null) {
             notifyDelegate(event);
         } else {
-            try {
-                ClusterMessage message = new ClusterMessage(
-                        clusterService.getLocalNode().id(),
-                        REMOTE_APPLY_COMPLETED,
-                        SERIALIZER.encode(event));
-                clusterCommunicator.unicast(message, nodeId);
-            } catch (IOException e) {
-                log.warn("Failed to respond to peer for batch operation result");
-            }
+            ClusterMessage message = new ClusterMessage(
+                    clusterService.getLocalNode().id(),
+                    REMOTE_APPLY_COMPLETED,
+                    SERIALIZER.encode(event));
+            // TODO check unicast return value
+            clusterCommunicator.unicast(message, nodeId);
+            //error log: log.warn("Failed to respond to peer for batch operation result");
         }
     }
 
     private void loadFromBackup(final DeviceId did) {
-
-
+        if (!backupEnabled) {
+            return;
+        }
+        log.info("We are now the master for {}. Will load flow rules from backup", did);
         try {
             log.debug("Loading FlowRules for {} from backups", did);
             SMap<FlowId, ImmutableList<StoredFlowEntry>> backupFlowTable = smaps.get(did);

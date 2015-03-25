@@ -246,15 +246,17 @@ public class LinkDiscovery implements TimerTask {
                 linkProvider.linkDetected(ld);
                 return true;
             } else {
-                final PortNumber localPort = context.inPacket().receivedFrom()
-                        .port();
-                final PortNumber remotePort = portNumber(onoslldp.getPort());
-                final DeviceId remoteDeviceId = DeviceId.deviceId(onoslldp
-                        .getDeviceString());
-                final DeviceId localDeviceId = context.inPacket()
-                        .receivedFrom().deviceId();
+                final PortNumber localPort =  checkNotNull(context.inPacket().receivedFrom()
+                        .port());
+               
+                final PortNumber remotePort =  checkNotNull(portNumber(onoslldp.getPort()));
+                final DeviceId remoteDeviceId = checkNotNull(DeviceId.deviceId(onoslldp
+                        .getDeviceString()));
+                final DeviceId localDeviceId = checkNotNull(context.inPacket()
+                        .receivedFrom().deviceId());
                 // TODO: find a way to avoid enter here in case of icona not
                 // started
+               
                 iconaService.handleELLDP(onoslldp.getNameString(),
                                          localDeviceId,
                                          localPort,

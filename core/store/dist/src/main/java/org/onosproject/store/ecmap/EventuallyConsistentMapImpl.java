@@ -15,9 +15,15 @@
  */
 package org.onosproject.store.ecmap;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.lang3.RandomUtils;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.tuple.Pair;
+import org.onlab.util.AbstractAccumulator;
 import org.onlab.util.KryoNamespace;
+import org.onlab.util.SlidingWindowCounter;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.ControllerNode;
 import org.onosproject.cluster.NodeId;
@@ -33,7 +39,6 @@ import org.onosproject.store.serializers.KryoSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -41,19 +46,23 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.onlab.util.BoundedThreadPool.newFixedThreadPool;
 import static org.onlab.util.Tools.groupedThreads;
-import static org.onlab.util.Tools.minPriority;
 
 /**
  * Distributed Map implementation which uses optimistic replication and gossip
@@ -64,8 +73,8 @@ public class EventuallyConsistentMapImpl<K, V>
 
     private static final Logger log = LoggerFactory.getLogger(EventuallyConsistentMapImpl.class);
 
-    private final Map<K, Timestamped<V>> items;
-    private final Map<K, Timestamp> removedItems;
+    private final ConcurrentMap<K, Timestamped<V>> items;
+    private final ConcurrentMap<K, Timestamp> removedItems;
 
     private final ClusterService clusterService;
     private final ClusterCommunicationService clusterCommunicator;
@@ -74,7 +83,6 @@ public class EventuallyConsistentMapImpl<K, V>
     private final ClockService<K, V> clockService;
 
     private final MessageSubject updateMessageSubject;
-    private final MessageSubject removeMessageSubject;
     private final MessageSubject antiEntropyAdvertisementSubject;
 
     private final Set<EventuallyConsistentMapListener<K, V>> listeners
@@ -83,8 +91,10 @@ public class EventuallyConsistentMapImpl<K, V>
     private final ExecutorService executor;
 
     private final ScheduledExecutorService backgroundExecutor;
+    private final BiFunction<K, V, Collection<NodeId>> peerUpdateFunction;
 
-    private ExecutorService broadcastMessageExecutor;
+    private ExecutorService communicationExecutor;
+    private Map<NodeId, EventAccumulator> senderPending;
 
     private volatile boolean destroyed = false;
     private static final String ERROR_DESTROYED = " map is already destroyed";
@@ -96,6 +106,14 @@ public class EventuallyConsistentMapImpl<K, V>
     // TODO: Make these anti-entropy params configurable
     private long initialDelaySec = 5;
     private long periodSec = 5;
+    private boolean lightweightAntiEntropy = true;
+    private boolean tombstonesDisabled = false;
+
+    private static final int WINDOW_SIZE = 5;
+    private static final int HIGH_LOAD_THRESHOLD = 0;
+    private static final int LOAD_WINDOW = 2;
+    SlidingWindowCounter counter = new SlidingWindowCounter(WINDOW_SIZE);
+    AtomicLong operations = new AtomicLong();
 
     /**
      * Creates a new eventually consistent map shared amongst multiple instances.
@@ -129,14 +147,18 @@ public class EventuallyConsistentMapImpl<K, V>
      *                            both K and V
      * @param clockService        a clock service able to generate timestamps
      *                            for K
+     * @param peerUpdateFunction  function that provides a set of nodes to immediately
+     *                            update to when there writes to the map
      */
     public EventuallyConsistentMapImpl(String mapName,
                                        ClusterService clusterService,
                                        ClusterCommunicationService clusterCommunicator,
                                        KryoNamespace.Builder serializerBuilder,
-                                       ClockService<K, V> clockService) {
+                                       ClockService<K, V> clockService,
+                                       BiFunction<K, V, Collection<NodeId>> peerUpdateFunction) {
         this.clusterService = checkNotNull(clusterService);
         this.clusterCommunicator = checkNotNull(clusterCommunicator);
+        this.peerUpdateFunction = checkNotNull(peerUpdateFunction);
 
         serializer = createSerializer(checkNotNull(serializerBuilder));
         destroyedMessage = mapName + ERROR_DESTROYED;
@@ -146,14 +168,19 @@ public class EventuallyConsistentMapImpl<K, V>
         items = new ConcurrentHashMap<>();
         removedItems = new ConcurrentHashMap<>();
 
-        executor = Executors //FIXME
-                .newFixedThreadPool(4, groupedThreads("onos/ecm", mapName + "-fg-%d"));
+        // should be a normal executor; it's used for receiving messages
+        //TODO make # of threads configurable
+        executor = Executors.newFixedThreadPool(8, groupedThreads("onos/ecm", mapName + "-fg-%d"));
 
-        broadcastMessageExecutor = Executors.newSingleThreadExecutor(groupedThreads("onos/ecm", mapName + "-notify"));
+        // sending executor; should be capped
+        //TODO make # of threads configurable
+        //TODO this probably doesn't need to be bounded anymore
+        communicationExecutor =
+                newFixedThreadPool(8, groupedThreads("onos/ecm", mapName + "-publish-%d"));
+        senderPending = Maps.newConcurrentMap();
 
         backgroundExecutor =
-                newSingleThreadScheduledExecutor(minPriority(
-                        groupedThreads("onos/ecm", mapName + "-bg-%d")));
+                newSingleThreadScheduledExecutor(groupedThreads("onos/ecm", mapName + "-bg-%d"));
 
         // start anti-entropy thread
         backgroundExecutor.scheduleAtFixedRate(new SendAdvertisementTask(),
@@ -162,13 +189,44 @@ public class EventuallyConsistentMapImpl<K, V>
 
         updateMessageSubject = new MessageSubject("ecm-" + mapName + "-update");
         clusterCommunicator.addSubscriber(updateMessageSubject,
-                                          new InternalPutEventListener(), executor);
-        removeMessageSubject = new MessageSubject("ecm-" + mapName + "-remove");
-        clusterCommunicator.addSubscriber(removeMessageSubject,
-                                          new InternalRemoveEventListener(), executor);
+                                          new InternalEventListener(), executor);
+
         antiEntropyAdvertisementSubject = new MessageSubject("ecm-" + mapName + "-anti-entropy");
         clusterCommunicator.addSubscriber(antiEntropyAdvertisementSubject,
                                           new InternalAntiEntropyListener(), backgroundExecutor);
+    }
+
+    /**
+     * Creates a new eventually consistent map shared amongst multiple instances.
+     * <p>
+     * Take a look at the other constructor for usage information. The only difference
+     * is that a BiFunction is provided that returns all nodes in the cluster, so
+     * all nodes will be sent write updates immediately.
+     * </p>
+     *
+     * @param mapName             a String identifier for the map.
+     * @param clusterService      the cluster service
+     * @param clusterCommunicator the cluster communications service
+     * @param serializerBuilder   a Kryo namespace builder that can serialize
+     *                            both K and V
+     * @param clockService        a clock service able to generate timestamps
+     *                            for K
+     */
+    public EventuallyConsistentMapImpl(String mapName,
+                                       ClusterService clusterService,
+                                       ClusterCommunicationService clusterCommunicator,
+                                       KryoNamespace.Builder serializerBuilder,
+                                       ClockService<K, V> clockService) {
+        this(mapName, clusterService, clusterCommunicator, serializerBuilder, clockService,
+             (key, value) -> clusterService.getNodes().stream()
+                     .map(ControllerNode::id)
+                     .filter(nodeId -> !nodeId.equals(clusterService.getLocalNode().id()))
+                     .collect(Collectors.toList()));
+    }
+
+    public EventuallyConsistentMapImpl<K, V> withTombstonesDisabled(boolean status) {
+        tombstonesDisabled = status;
+        return this;
     }
 
     private KryoSerializer createSerializer(KryoNamespace.Builder builder) {
@@ -181,8 +239,6 @@ public class EventuallyConsistentMapImpl<K, V>
                         .register(PutEntry.class)
                         .register(RemoveEntry.class)
                         .register(ArrayList.class)
-                        .register(InternalPutEvent.class)
-                        .register(InternalRemoveEvent.class)
                         .register(AntiEntropyAdvertisement.class)
                         .register(HashMap.class)
                         .build();
@@ -199,7 +255,7 @@ public class EventuallyConsistentMapImpl<K, V>
      */
     public EventuallyConsistentMapImpl<K, V> withBroadcastMessageExecutor(ExecutorService executor) {
         checkNotNull(executor, "Null executor");
-        broadcastMessageExecutor = executor;
+        communicationExecutor = executor;
         return this;
     }
 
@@ -252,31 +308,36 @@ public class EventuallyConsistentMapImpl<K, V>
         Timestamp timestamp = clockService.getTimestamp(key, value);
 
         if (putInternal(key, value, timestamp)) {
-            notifyPeers(new InternalPutEvent<>(key, value, timestamp));
-            EventuallyConsistentMapEvent<K, V> externalEvent
-                    = new EventuallyConsistentMapEvent<>(
-                    EventuallyConsistentMapEvent.Type.PUT, key, value);
-            notifyListeners(externalEvent);
+            notifyPeers(new PutEntry<>(key, value, timestamp),
+                        peerUpdateFunction.apply(key, value));
+            notifyListeners(new EventuallyConsistentMapEvent<>(
+                    EventuallyConsistentMapEvent.Type.PUT, key, value));
         }
     }
 
     private boolean putInternal(K key, V value, Timestamp timestamp) {
+        counter.incrementCount();
         Timestamp removed = removedItems.get(key);
         if (removed != null && removed.isNewerThan(timestamp)) {
             log.debug("ecmap - removed was newer {}", value);
             return false;
         }
 
-        boolean success;
-        synchronized (this) {
-            Timestamped<V> existing = items.get(key);
+        final MutableBoolean updated = new MutableBoolean(false);
+
+        items.compute(key, (k, existing) -> {
             if (existing != null && existing.isNewerThan(timestamp)) {
-                log.debug("ecmap - existing was newer {}", value);
-                success = false;
+                updated.setFalse();
+                return existing;
             } else {
-                items.put(key, new Timestamped<>(value, timestamp));
-                success = true;
+                updated.setTrue();
+                return new Timestamped<>(value, timestamp);
             }
+            });
+
+        boolean success = updated.booleanValue();
+        if (!success) {
+            log.debug("ecmap - existing was newer {}", value);
         }
 
         if (success && removed != null) {
@@ -294,32 +355,48 @@ public class EventuallyConsistentMapImpl<K, V>
         Timestamp timestamp = clockService.getTimestamp(key, null);
 
         if (removeInternal(key, timestamp)) {
-            notifyPeers(new InternalRemoveEvent<>(key, timestamp));
-            EventuallyConsistentMapEvent<K, V> externalEvent
-                    = new EventuallyConsistentMapEvent<>(
-                    EventuallyConsistentMapEvent.Type.REMOVE, key, null);
-            notifyListeners(externalEvent);
+            notifyPeers(new RemoveEntry<>(key, timestamp),
+                        peerUpdateFunction.apply(key, null));
+            notifyListeners(new EventuallyConsistentMapEvent<>(
+                    EventuallyConsistentMapEvent.Type.REMOVE, key, null));
         }
     }
 
     private boolean removeInternal(K key, Timestamp timestamp) {
-        Timestamped<V> value = items.get(key);
-        if (value != null) {
-            if (value.isNewerThan(timestamp)) {
-                return false;
+        if (timestamp == null) {
+            return false;
+        }
+
+        counter.incrementCount();
+        final MutableBoolean updated = new MutableBoolean(false);
+
+        items.compute(key, (k, existing) -> {
+            if (existing != null && existing.isNewerThan(timestamp)) {
+                updated.setFalse();
+                return existing;
             } else {
-                items.remove(key, value);
+                updated.setTrue();
+                // remove from items map
+                return null;
+            }
+            });
+
+        if (updated.isFalse()) {
+            return false;
+        }
+
+        if (!tombstonesDisabled) {
+            Timestamp removedTimestamp = removedItems.get(key);
+            if (removedTimestamp == null) {
+                return removedItems.putIfAbsent(key, timestamp) == null;
+            } else if (timestamp.isNewerThan(removedTimestamp)) {
+                return removedItems.replace(key, removedTimestamp, timestamp);
+            } else {
+                return false;
             }
         }
 
-        Timestamp removedTimestamp = removedItems.get(key);
-        if (removedTimestamp == null) {
-            return removedItems.putIfAbsent(key, timestamp) == null;
-        } else if (timestamp.isNewerThan(removedTimestamp)) {
-            return removedItems.replace(key, removedTimestamp, timestamp);
-        } else {
-            return false;
-        }
+        return updated.booleanValue();
     }
 
     @Override
@@ -331,86 +408,34 @@ public class EventuallyConsistentMapImpl<K, V>
         Timestamp timestamp = clockService.getTimestamp(key, value);
 
         if (removeInternal(key, timestamp)) {
-            notifyPeers(new InternalRemoveEvent<>(key, timestamp));
-            EventuallyConsistentMapEvent<K, V> externalEvent
-                    = new EventuallyConsistentMapEvent<>(
-                    EventuallyConsistentMapEvent.Type.REMOVE, key, value);
-            notifyListeners(externalEvent);
+            notifyPeers(new RemoveEntry<>(key, timestamp),
+                        peerUpdateFunction.apply(key, value));
+            notifyListeners(new EventuallyConsistentMapEvent<>(
+                    EventuallyConsistentMapEvent.Type.REMOVE, key, value));
         }
     }
 
     @Override
     public void putAll(Map<? extends K, ? extends V> m) {
         checkState(!destroyed, destroyedMessage);
-
-        List<PutEntry<K, V>> updates = new ArrayList<>(m.size());
-
-        for (Map.Entry<? extends K, ? extends V> entry : m.entrySet()) {
-            K key = entry.getKey();
-            V value = entry.getValue();
-
-            checkNotNull(key, ERROR_NULL_KEY);
-            checkNotNull(value, ERROR_NULL_VALUE);
-
-            Timestamp timestamp = clockService.getTimestamp(key, value);
-
-            if (putInternal(key, value, timestamp)) {
-                updates.add(new PutEntry<>(key, value, timestamp));
-            }
-        }
-
-        if (!updates.isEmpty()) {
-            notifyPeers(new InternalPutEvent<>(updates));
-
-            for (PutEntry<K, V> entry : updates) {
-                EventuallyConsistentMapEvent<K, V> externalEvent =
-                        new EventuallyConsistentMapEvent<>(
-                                EventuallyConsistentMapEvent.Type.PUT, entry.key(),
-                                entry.value());
-                notifyListeners(externalEvent);
-            }
-        }
+        m.forEach(this::put);
     }
 
     @Override
     public void clear() {
         checkState(!destroyed, destroyedMessage);
-
-        List<RemoveEntry<K>> removed = new ArrayList<>(items.size());
-
-        for (K key : items.keySet()) {
-            // TODO also this is not applicable if value is important for timestamp?
-            Timestamp timestamp = clockService.getTimestamp(key, null);
-
-            if (removeInternal(key, timestamp)) {
-                removed.add(new RemoveEntry<>(key, timestamp));
-            }
-        }
-
-        if (!removed.isEmpty()) {
-            notifyPeers(new InternalRemoveEvent<>(removed));
-
-            for (RemoveEntry<K> entry : removed) {
-                EventuallyConsistentMapEvent<K, V> externalEvent
-                        = new EventuallyConsistentMapEvent<>(
-                        EventuallyConsistentMapEvent.Type.REMOVE, entry.key(),
-                        null);
-                notifyListeners(externalEvent);
-            }
-        }
+        items.forEach((key, value) -> remove(key));
     }
 
     @Override
     public Set<K> keySet() {
         checkState(!destroyed, destroyedMessage);
-
         return items.keySet();
     }
 
     @Override
     public Collection<V> values() {
         checkState(!destroyed, destroyedMessage);
-
         return items.values().stream()
                 .map(Timestamped::value)
                 .collect(Collectors.toList());
@@ -445,12 +470,11 @@ public class EventuallyConsistentMapImpl<K, V>
 
         executor.shutdown();
         backgroundExecutor.shutdown();
-        broadcastMessageExecutor.shutdown();
+        communicationExecutor.shutdown();
 
         listeners.clear();
 
         clusterCommunicator.removeSubscriber(updateMessageSubject);
-        clusterCommunicator.removeSubscriber(removeMessageSubject);
         clusterCommunicator.removeSubscriber(antiEntropyAdvertisementSubject);
     }
 
@@ -460,36 +484,36 @@ public class EventuallyConsistentMapImpl<K, V>
         }
     }
 
-    private void notifyPeers(InternalPutEvent event) {
-        // FIXME extremely memory expensive when we are overrun
-//        broadcastMessageExecutor.execute(() -> broadcastMessage(updateMessageSubject, event));
-        broadcastMessage(updateMessageSubject, event);
+    private void notifyPeers(PutEntry<K, V> event, Collection<NodeId> peers) {
+        queueUpdate(event, peers);
     }
 
-    private void notifyPeers(InternalRemoveEvent event) {
-        // FIXME extremely memory expensive when we are overrun
-//        broadcastMessageExecutor.execute(() -> broadcastMessage(removeMessageSubject, event));
-        broadcastMessage(removeMessageSubject, event);
+    private void notifyPeers(RemoveEntry<K, V> event, Collection<NodeId> peers) {
+        queueUpdate(event, peers);
     }
 
-    private void broadcastMessage(MessageSubject subject, Object event) {
-        // FIXME can we parallelize the serialization... use the caller???
+    private void queueUpdate(AbstractEntry<K, V> event, Collection<NodeId> peers) {
+        if (peers == null) {
+            // we have no friends :(
+            return;
+        }
+        peers.forEach(node ->
+              senderPending.computeIfAbsent(node, unusedKey -> new EventAccumulator(node)).add(event)
+        );
+    }
+
+    private boolean unicastMessage(NodeId peer, MessageSubject subject, Object event) {
         ClusterMessage message = new ClusterMessage(
                 clusterService.getLocalNode().id(),
                 subject,
                 serializer.encode(event));
-        //broadcastMessageExecutor.execute(() -> clusterCommunicator.broadcast(message));
-        clusterCommunicator.broadcast(message);
+        return clusterCommunicator.unicast(message, peer);
+        // Note: we had this flipped before...
+//        communicationExecutor.execute(() -> clusterCommunicator.unicast(message, peer));
     }
 
-    private void unicastMessage(NodeId peer,
-                                MessageSubject subject,
-                                Object event) throws IOException {
-        ClusterMessage message = new ClusterMessage(
-                clusterService.getLocalNode().id(),
-                subject,
-                serializer.encode(event));
-        clusterCommunicator.unicast(message, peer);
+    private boolean underHighLoad() {
+        return counter.get(LOAD_WINDOW) > HIGH_LOAD_THRESHOLD;
     }
 
     private final class SendAdvertisementTask implements Runnable {
@@ -497,6 +521,10 @@ public class EventuallyConsistentMapImpl<K, V>
         public void run() {
             if (Thread.currentThread().isInterrupted()) {
                 log.info("Interrupted, quitting");
+                return;
+            }
+
+            if (underHighLoad()) {
                 return;
             }
 
@@ -526,9 +554,7 @@ public class EventuallyConsistentMapImpl<K, V>
 
                 AntiEntropyAdvertisement<K> ad = createAdvertisement();
 
-                try {
-                    unicastMessage(peer, antiEntropyAdvertisementSubject, ad);
-                } catch (IOException e) {
+                if (!unicastMessage(peer, antiEntropyAdvertisementSubject, ad)) {
                     log.debug("Failed to send anti-entropy advertisement to {}", peer);
                 }
             } catch (Exception e) {
@@ -552,37 +578,27 @@ public class EventuallyConsistentMapImpl<K, V>
 
     private void handleAntiEntropyAdvertisement(AntiEntropyAdvertisement<K> ad) {
         List<EventuallyConsistentMapEvent<K, V>> externalEvents;
-        boolean sync = false;
 
-        synchronized (this) {
-            externalEvents = antiEntropyCheckLocalItems(ad);
+        externalEvents = antiEntropyCheckLocalItems(ad);
 
-            antiEntropyCheckLocalRemoved(ad);
+        antiEntropyCheckLocalRemoved(ad);
 
+        if (!lightweightAntiEntropy) {
             externalEvents.addAll(antiEntropyCheckRemoteRemoved(ad));
 
             // if remote ad has something unknown, actively sync
             for (K key : ad.timestamps().keySet()) {
                 if (!items.containsKey(key)) {
-                    sync = true;
+                    // Send the advertisement back if this peer is out-of-sync
+                    final NodeId sender = ad.sender();
+                    AntiEntropyAdvertisement<K> myAd = createAdvertisement();
+                    if (!unicastMessage(sender, antiEntropyAdvertisementSubject, myAd)) {
+                        log.debug("Failed to send reactive anti-entropy advertisement to {}", sender);
+                    }
                     break;
                 }
             }
-        } // synchronized (this)
-
-        // Send the advertisement outside the synchronized block
-        if (sync) {
-            final NodeId sender = ad.sender();
-            AntiEntropyAdvertisement<K> myAd = createAdvertisement();
-            try {
-                unicastMessage(sender, antiEntropyAdvertisementSubject, myAd);
-            } catch (IOException e) {
-                log.debug(
-                        "Failed to send reactive anti-entropy advertisement to {}",
-                        sender);
-            }
         }
-
         externalEvents.forEach(this::notifyListeners);
     }
 
@@ -596,14 +612,11 @@ public class EventuallyConsistentMapImpl<K, V>
      * @param ad remote anti-entropy advertisement
      * @return list of external events relating to local operations performed
      */
-    // Guarded by synchronized (this)
     private List<EventuallyConsistentMapEvent<K, V>> antiEntropyCheckLocalItems(
             AntiEntropyAdvertisement<K> ad) {
         final List<EventuallyConsistentMapEvent<K, V>> externalEvents
                 = new LinkedList<>();
         final NodeId sender = ad.sender();
-
-        final List<PutEntry<K, V>> updatesToSend = new ArrayList<>();
 
         for (Map.Entry<K, Timestamped<V>> item : items.entrySet()) {
             K key = item.getKey();
@@ -616,9 +629,8 @@ public class EventuallyConsistentMapImpl<K, V>
             if (remoteTimestamp == null || localValue
                     .isNewerThan(remoteTimestamp)) {
                 // local value is more recent, push to sender
-                updatesToSend
-                        .add(new PutEntry<>(key, localValue.value(),
-                                            localValue.timestamp()));
+                queueUpdate(new PutEntry<>(key, localValue.value(),
+                                            localValue.timestamp()), ImmutableList.of(sender));
             }
 
             Timestamp remoteDeadTimestamp = ad.tombstones().get(key);
@@ -632,16 +644,6 @@ public class EventuallyConsistentMapImpl<K, V>
             }
         }
 
-        // Send all updates to the peer at once
-        if (!updatesToSend.isEmpty()) {
-            try {
-                unicastMessage(sender, updateMessageSubject,
-                               new InternalPutEvent<>(updatesToSend));
-            } catch (IOException e) {
-                log.warn("Failed to send advertisement response", e);
-            }
-        }
-
         return externalEvents;
     }
 
@@ -652,11 +654,8 @@ public class EventuallyConsistentMapImpl<K, V>
      *
      * @param ad remote anti-entropy advertisement
      */
-    // Guarded by synchronized (this)
     private void antiEntropyCheckLocalRemoved(AntiEntropyAdvertisement<K> ad) {
         final NodeId sender = ad.sender();
-
-        final List<RemoveEntry<K>> removesToSend = new ArrayList<>();
 
         for (Map.Entry<K, Timestamp> dead : removedItems.entrySet()) {
             K key = dead.getKey();
@@ -666,18 +665,7 @@ public class EventuallyConsistentMapImpl<K, V>
             if (remoteLiveTimestamp != null
                     && localDeadTimestamp.isNewerThan(remoteLiveTimestamp)) {
                 // sender has zombie, push remove
-                removesToSend
-                        .add(new RemoveEntry<>(key, localDeadTimestamp));
-            }
-        }
-
-        // Send all removes to the peer at once
-        if (!removesToSend.isEmpty()) {
-            try {
-                unicastMessage(sender, removeMessageSubject,
-                               new InternalRemoveEvent<>(removesToSend));
-            } catch (IOException e) {
-                log.warn("Failed to send advertisement response", e);
+                queueUpdate(new RemoveEntry<>(key, localDeadTimestamp), ImmutableList.of(sender));
             }
         }
     }
@@ -690,7 +678,6 @@ public class EventuallyConsistentMapImpl<K, V>
      * @param ad remote anti-entropy advertisement
      * @return list of external events relating to local operations performed
      */
-    // Guarded by synchronized (this)
     private List<EventuallyConsistentMapEvent<K, V>>
     antiEntropyCheckRemoteRemoved(AntiEntropyAdvertisement<K> ad) {
         final List<EventuallyConsistentMapEvent<K, V>> externalEvents
@@ -730,32 +717,53 @@ public class EventuallyConsistentMapImpl<K, V>
                       message.sender());
             AntiEntropyAdvertisement<K> advertisement = serializer.decode(message.payload());
             try {
-                handleAntiEntropyAdvertisement(advertisement);
+                if (!underHighLoad()) {
+                    handleAntiEntropyAdvertisement(advertisement);
+                }
             } catch (Exception e) {
                 log.warn("Exception thrown handling advertisements", e);
             }
         }
     }
 
-    private final class InternalPutEventListener implements
+    private final class InternalEventListener implements
             ClusterMessageHandler {
         @Override
         public void handle(ClusterMessage message) {
-            log.debug("Received put event from peer: {}", message.sender());
-            InternalPutEvent<K, V> event = serializer.decode(message.payload());
+            log.debug("Received update event from peer: {}", message.sender());
+            Collection<AbstractEntry<K, V>> events = serializer.decode(message.payload());
 
             try {
-                for (PutEntry<K, V> entry : event.entries()) {
-                    K key = entry.key();
-                    V value = entry.value();
-                    Timestamp timestamp = entry.timestamp();
+                // TODO clean this for loop up
+                for (AbstractEntry<K, V> entry : events) {
+                    final K key = entry.key();
+                    final V value;
+                    final Timestamp timestamp = entry.timestamp();
+                    final EventuallyConsistentMapEvent.Type type;
+                    if (entry instanceof PutEntry) {
+                        PutEntry<K, V> putEntry = (PutEntry<K, V>) entry;
+                        value = putEntry.value();
+                        type = EventuallyConsistentMapEvent.Type.PUT;
+                    } else if (entry instanceof RemoveEntry) {
+                        type = EventuallyConsistentMapEvent.Type.REMOVE;
+                        value = null;
+                    } else {
+                        throw new IllegalStateException("Unknown entry type " + entry.getClass());
+                    }
 
-                    if (putInternal(key, value, timestamp)) {
-                        EventuallyConsistentMapEvent<K, V> externalEvent =
-                                new EventuallyConsistentMapEvent<>(
-                                        EventuallyConsistentMapEvent.Type.PUT, key,
-                                        value);
-                        notifyListeners(externalEvent);
+                    boolean success;
+                    switch (type) {
+                        case PUT:
+                            success = putInternal(key, value, timestamp);
+                            break;
+                        case REMOVE:
+                            success = removeInternal(key, timestamp);
+                            break;
+                        default:
+                            success = false;
+                    }
+                    if (success) {
+                        notifyListeners(new EventuallyConsistentMapEvent<>(type, key, value));
                     }
                 }
             } catch (Exception e) {
@@ -764,29 +772,35 @@ public class EventuallyConsistentMapImpl<K, V>
         }
     }
 
-    private final class InternalRemoveEventListener implements
-            ClusterMessageHandler {
-        @Override
-        public void handle(ClusterMessage message) {
-            log.debug("Received remove event from peer: {}", message.sender());
-            InternalRemoveEvent<K> event = serializer.decode(message.payload());
-            try {
-                for (RemoveEntry<K> entry : event.entries()) {
-                    K key = entry.key();
-                    Timestamp timestamp = entry.timestamp();
+    // TODO pull this into the class if this gets pulled out...
+    private static final int DEFAULT_MAX_EVENTS = 1000;
+    private static final int DEFAULT_MAX_IDLE_MS = 10;
+    private static final int DEFAULT_MAX_BATCH_MS = 50;
+    private static final Timer TIMER = new Timer("onos-ecm-sender-events");
 
-                    if (removeInternal(key, timestamp)) {
-                        EventuallyConsistentMapEvent<K, V> externalEvent
-                        = new EventuallyConsistentMapEvent<>(
-                                EventuallyConsistentMapEvent.Type.REMOVE,
-                                key, null);
-                        notifyListeners(externalEvent);
-                    }
+    private final class EventAccumulator extends AbstractAccumulator<AbstractEntry<K, V>> {
+
+        private final NodeId peer;
+
+        private EventAccumulator(NodeId peer) {
+            super(TIMER, DEFAULT_MAX_EVENTS, DEFAULT_MAX_BATCH_MS, DEFAULT_MAX_IDLE_MS);
+            this.peer = peer;
+        }
+
+        @Override
+        public void processItems(List<AbstractEntry<K, V>> items) {
+            Map<K, AbstractEntry<K, V>> map = Maps.newHashMap();
+            items.forEach(item -> map.compute(item.key(), (key, oldValue) ->
+                  oldValue == null || item.compareTo(oldValue) > 0 ? item : oldValue
+                  )
+            );
+            communicationExecutor.submit(() -> {
+                try {
+                    unicastMessage(peer, updateMessageSubject, Lists.newArrayList(map.values()));
+                } catch (Exception e) {
+                    log.warn("broadcast error", e);
                 }
-            } catch (Exception e) {
-                log.warn("Exception thrown handling remove", e);
-            }
+            });
         }
     }
-
 }

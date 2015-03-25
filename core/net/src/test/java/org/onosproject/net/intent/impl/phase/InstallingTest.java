@@ -64,8 +64,8 @@ public class InstallingTest {
 
     private final ApplicationId appId = new TestApplicationId("test");
     private final ProviderId pid = new ProviderId("of", "test");
-    private final TrafficSelector selector = DefaultTrafficSelector.builder().build();
-    private final TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
+    private final TrafficSelector selector = DefaultTrafficSelector.emptySelector();
+    private final TrafficTreatment treatment = DefaultTrafficTreatment.emptyTreatment();
     private final ConnectPoint cp1 = new ConnectPoint(deviceId("1"), portNumber(1));
     private final ConnectPoint cp2 = new ConnectPoint(deviceId("1"), portNumber(2));
     private final ConnectPoint cp3 = new ConnectPoint(deviceId("2"), portNumber(1));
@@ -91,7 +91,13 @@ public class InstallingTest {
         Intent.bindIdGenerator(idGenerator);
 
         // Intent creation should be placed after binding an ID generator
-        input = new PointToPointIntent(appId, selector, treatment, cp1, cp3);
+        input = PointToPointIntent.builder()
+                .appId(appId)
+                .selector(selector)
+                .treatment(treatment)
+                .ingressPoint(cp1)
+                .egressPoint(cp3)
+                .build();
         compiled = new PathIntent(appId, selector, treatment, path);
     }
 

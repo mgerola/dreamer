@@ -21,7 +21,7 @@
     'use strict';
 
     // references to injected services
-    var $log, fs, ts, qhs;
+    var $log, fs, ts, ns, qhs;
 
     // internal state
     var enabled = true,
@@ -33,7 +33,7 @@
             viewGestures: []
         };
 
-    // TODO: we need to have the concept of view token here..
+    // TODO: do we still need to have the concept of view token here..?
     function getViewToken() {
         return 'NotYetAViewToken';
     }
@@ -76,6 +76,7 @@
             gk = kh.globalKeys[key],
             gcb = fs.isF(gk) || (fs.isA(gk) && fs.isF(gk[0])),
             vk = kh.viewKeys[key],
+            kl = fs.isF(kh.viewKeys._keyListener),
             vcb = fs.isF(vk) || (fs.isA(vk) && fs.isF(vk[0])) || fs.isF(kh.viewFn),
             token = getViewToken();
 
@@ -90,6 +91,9 @@
             // otherwise, let the view callback have a shot
             if (vcb) {
                 vcb(token, key, keyCode, event);
+            }
+            if (kl) {
+                kl(key);
             }
         }
     }
@@ -121,7 +125,7 @@
 
     // returns true if we 'consumed' the ESC keypress, false otherwise
     function escapeKey(view, key, code, ev) {
-        return qhs.hideQuickHelp();
+        return ns.hideIfShown() || qhs.hideQuickHelp();
     }
 
     function toggleTheme(view, key, code, ev) {
@@ -168,12 +172,13 @@
 
     angular.module('onosUtil')
     .factory('KeyService',
-        ['$log', 'FnService', 'ThemeService',
+        ['$log', 'FnService', 'ThemeService', 'NavService',
 
-        function (_$log_, _fs_, _ts_) {
+        function (_$log_, _fs_, _ts_, _ns_) {
             $log = _$log_;
             fs = _fs_;
             ts = _ts_;
+            ns = _ns_;
 
             return {
                 bindQhs: function (_qhs_) {

@@ -1,18 +1,8 @@
 package org.onosproject.store.consistent.impl;
 
-import static org.onlab.util.Tools.groupedThreads;
-import static org.slf4j.LoggerFactory.getLogger;
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -41,9 +31,19 @@ import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.Versioned;
 import org.slf4j.Logger;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static org.onlab.util.Tools.groupedThreads;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Distributed Lock Manager implemented on top of ConsistentMap.
@@ -52,7 +52,7 @@ import com.google.common.collect.Sets;
  * detection capabilities to detect and purge stale locks.
  * TODO: Ensure lock safety and liveness.
  */
-@Component(immediate = true, enabled = false)
+@Component(immediate = true, enabled = true)
 @Service
 public class DistributedLeadershipManager implements LeadershipService {
 
@@ -87,7 +87,7 @@ public class DistributedLeadershipManager implements LeadershipService {
 
     private static final int DELAY_BETWEEN_LEADER_LOCK_ATTEMPTS_SEC = 2;
     private static final int DEADLOCK_DETECTION_INTERVAL_SEC = 2;
-    private static final int LEADERSHIP_STATUS_UPDATE_INTERVAL = 2;
+    private static final int LEADERSHIP_STATUS_UPDATE_INTERVAL_SEC = 2;
 
     private static final KryoSerializer SERIALIZER = new KryoSerializer() {
         @Override
@@ -134,7 +134,7 @@ public class DistributedLeadershipManager implements LeadershipService {
         deadLockDetectionExecutor.scheduleWithFixedDelay(
                 this::purgeStaleLocks, 0, DEADLOCK_DETECTION_INTERVAL_SEC, TimeUnit.SECONDS);
         leadershipStatusBroadcaster.scheduleWithFixedDelay(
-                this::sendLeadershipStatus, 0, LEADERSHIP_STATUS_UPDATE_INTERVAL, TimeUnit.SECONDS);
+                this::sendLeadershipStatus, 0, LEADERSHIP_STATUS_UPDATE_INTERVAL_SEC, TimeUnit.SECONDS);
 
         listenerRegistry = new AbstractListenerRegistry<>();
         eventDispatcher.addSink(LeadershipEvent.class, listenerRegistry);
@@ -190,7 +190,7 @@ public class DistributedLeadershipManager implements LeadershipService {
 
     @Override
     public void runForLeadership(String path) {
-        log.info("Running for leadership for topic: {}", path);
+        log.debug("Running for leadership for topic: {}", path);
         activeTopics.add(path);
         tryLeaderLock(path);
     }
@@ -199,12 +199,16 @@ public class DistributedLeadershipManager implements LeadershipService {
     public void withdraw(String path) {
         activeTopics.remove(path);
         try {
-            if (lockMap.remove(path, localNodeId)) {
-                log.info("Sucessfully gave up leadership for {}", path);
+            Versioned<NodeId> leader = lockMap.get(path);
+            if (Objects.equals(leader.value(), localNodeId)) {
+                if (lockMap.remove(path, leader.version())) {
+                    log.info("Gave up leadership for {}", path);
+                    notifyRemovedLeader(path, localNodeId, leader.version(), leader.creationTime());
+                }
             }
             // else we are not the current owner.
         } catch (Exception e) {
-            log.warn("Failed to verify (and clear) any lock this node might be holding for {}", path, e);
+            log.debug("Failed to verify (and clear) any lock this node might be holding for {}", path, e);
         }
     }
 
@@ -227,7 +231,7 @@ public class DistributedLeadershipManager implements LeadershipService {
             if (currentLeader != null) {
                 if (localNodeId.equals(currentLeader.value())) {
                     log.info("Already has leadership for {}", path);
-                    notifyNewLeader(path, localNodeId, currentLeader.version());
+                    notifyNewLeader(path, localNodeId, currentLeader.version(), currentLeader.creationTime());
                 } else {
                     // someone else has leadership. will retry after sometime.
                     retry(path);
@@ -237,20 +241,20 @@ public class DistributedLeadershipManager implements LeadershipService {
                     log.info("Assumed leadership for {}", path);
                     // do a get again to get the version (epoch)
                     Versioned<NodeId> newLeader = lockMap.get(path);
-                    notifyNewLeader(path, localNodeId, newLeader.version());
+                    notifyNewLeader(path, localNodeId, newLeader.version(), newLeader.creationTime());
                 } else {
                     // someone beat us to it.
                     retry(path);
                 }
             }
         } catch (Exception e) {
-            log.warn("Attempt to acquire leadership lock for topic {} failed", path, e);
+            log.debug("Attempt to acquire leadership lock for topic {} failed", path, e);
             retry(path);
         }
     }
 
-    private void notifyNewLeader(String path, NodeId leader, long epoch) {
-        Leadership newLeadership = new Leadership(path, leader, epoch);
+    private void notifyNewLeader(String path, NodeId leader, long epoch, long electedTime) {
+        Leadership newLeadership = new Leadership(path, leader, epoch, electedTime);
         boolean updatedLeader = false;
         synchronized (leaderBoard) {
             Leadership currentLeader = leaderBoard.get(path);
@@ -271,8 +275,8 @@ public class DistributedLeadershipManager implements LeadershipService {
         }
     }
 
-    private void notifyRemovedLeader(String path, NodeId leader, long epoch) {
-        Leadership oldLeadership = new Leadership(path, leader, epoch);
+    private void notifyRemovedLeader(String path, NodeId leader, long epoch, long electedTime) {
+        Leadership oldLeadership = new Leadership(path, leader, epoch, electedTime);
         boolean updatedLeader = false;
         synchronized (leaderBoard) {
             Leadership currentLeader = leaderBoard.get(path);
@@ -300,7 +304,7 @@ public class DistributedLeadershipManager implements LeadershipService {
             LeadershipEvent leadershipEvent =
                     SERIALIZER.decode(message.payload());
 
-            log.trace("Leadership Event: time = {} type = {} event = {}",
+            log.debug("Leadership Event: time = {} type = {} event = {}",
                     leadershipEvent.time(), leadershipEvent.type(),
                     leadershipEvent);
 
@@ -346,23 +350,24 @@ public class DistributedLeadershipManager implements LeadershipService {
                 String path = entry.getKey();
                 NodeId nodeId = entry.getValue().value();
                 long epoch = entry.getValue().version();
+                long creationTime = entry.getValue().creationTime();
                 if (clusterService.getState(nodeId) == ControllerNode.State.INACTIVE) {
                     log.info("Lock for {} is held by {} which is currently inactive", path, nodeId);
                     try {
                         if (lockMap.remove(path, epoch)) {
-                            log.info("Successfully purged stale lock held by {} for {}", nodeId, path);
-                            notifyRemovedLeader(path, nodeId, epoch);
+                            log.info("Purged stale lock held by {} for {}", nodeId, path);
+                            notifyRemovedLeader(path, nodeId, epoch, creationTime);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to purge stale lock held by {} for {}", nodeId, path, e);
                     }
                 }
                 if (localNodeId.equals(nodeId) && !activeTopics.contains(path)) {
-                    log.info("Lock for {} is held by {} when it not running for leadership.", path, nodeId);
+                    log.debug("Lock for {} is held by {} when it not running for leadership.", path, nodeId);
                     try {
                         if (lockMap.remove(path, epoch)) {
-                            log.info("Successfully purged stale lock held by {} for {}", nodeId, path);
-                            notifyRemovedLeader(path, nodeId, epoch);
+                            log.info("Purged stale lock held by {} for {}", nodeId, path);
+                            notifyRemovedLeader(path, nodeId, epoch, creationTime);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to purge stale lock held by {} for {}", nodeId, path, e);
@@ -370,20 +375,24 @@ public class DistributedLeadershipManager implements LeadershipService {
                 }
             });
         } catch (Exception e) {
-            log.warn("Failed cleaning up stale locks", e);
+            log.debug("Failed cleaning up stale locks", e);
         }
     }
 
     private void sendLeadershipStatus() {
-        leaderBoard.forEach((path, leadership) -> {
-            if (leadership.leader().equals(localNodeId)) {
-                LeadershipEvent event = new LeadershipEvent(LeadershipEvent.Type.LEADER_ELECTED, leadership);
-                clusterCommunicator.broadcast(
-                        new ClusterMessage(
-                                clusterService.getLocalNode().id(),
-                                LEADERSHIP_EVENT_MESSAGE_SUBJECT,
-                                SERIALIZER.encode(event)));
-            }
-        });
+        try {
+            leaderBoard.forEach((path, leadership) -> {
+                if (leadership.leader().equals(localNodeId)) {
+                    LeadershipEvent event = new LeadershipEvent(LeadershipEvent.Type.LEADER_ELECTED, leadership);
+                    clusterCommunicator.broadcast(
+                            new ClusterMessage(
+                                    clusterService.getLocalNode().id(),
+                                    LEADERSHIP_EVENT_MESSAGE_SUBJECT,
+                                    SERIALIZER.encode(event)));
+                }
+            });
+        } catch (Exception e) {
+            log.debug("Failed to send leadership updates", e);
+        }
     }
 }

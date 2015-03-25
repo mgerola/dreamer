@@ -80,8 +80,8 @@ public class MplsIntentCompilerTest extends AbstractIntentTest {
      */
     @Test
     public void testForwardPathCompilation() {
-        Optional<MplsLabel> ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(10));
-        Optional<MplsLabel> egressLabel = Optional.ofNullable(MplsLabel.mplsLabel(20));
+        Optional<MplsLabel> ingressLabel = Optional.of(MplsLabel.mplsLabel(10));
+        Optional<MplsLabel> egressLabel = Optional.of(MplsLabel.mplsLabel(20));
 
         MplsIntent intent = makeIntent("d1", ingressLabel, "d8", egressLabel);
         assertThat(intent, is(notNullValue()));
@@ -96,7 +96,8 @@ public class MplsIntentCompilerTest extends AbstractIntentTest {
         Intent forwardResultIntent = result.get(0);
         assertThat(forwardResultIntent instanceof MplsPathIntent, is(true));
 
-        if (forwardResultIntent instanceof MplsIntent) {
+        // if statement suppresses static analysis warnings about unchecked cast
+        if (forwardResultIntent instanceof MplsPathIntent) {
             MplsPathIntent forwardPathIntent = (MplsPathIntent) forwardResultIntent;
             // 7 links for the hops, plus one default lnk on ingress and egress
             assertThat(forwardPathIntent.path().links(), hasSize(hops.length + 1));
@@ -117,8 +118,8 @@ public class MplsIntentCompilerTest extends AbstractIntentTest {
      */
     @Test
     public void testReversePathCompilation() {
-        Optional<MplsLabel> ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(10));
-        Optional<MplsLabel> egressLabel = Optional.ofNullable(MplsLabel.mplsLabel(20));
+        Optional<MplsLabel> ingressLabel = Optional.of(MplsLabel.mplsLabel(10));
+        Optional<MplsLabel> egressLabel = Optional.of(MplsLabel.mplsLabel(20));
 
         MplsIntent intent = makeIntent("d8", ingressLabel, "d1", egressLabel);
         assertThat(intent, is(notNullValue()));
@@ -133,7 +134,8 @@ public class MplsIntentCompilerTest extends AbstractIntentTest {
         Intent reverseResultIntent = result.get(0);
         assertThat(reverseResultIntent instanceof MplsPathIntent, is(true));
 
-        if (reverseResultIntent instanceof MplsIntent) {
+        // if statement suppresses static analysis warnings about unchecked cast
+        if (reverseResultIntent instanceof MplsPathIntent) {
             MplsPathIntent reversePathIntent = (MplsPathIntent) reverseResultIntent;
             assertThat(reversePathIntent.path().links(), hasSize(hops.length + 1));
             assertThat(reversePathIntent.path().links(), linksHasPath("d2", "d1"));

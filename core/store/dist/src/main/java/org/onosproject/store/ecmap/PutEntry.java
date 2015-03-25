@@ -23,10 +23,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * Describes a single put event in an EventuallyConsistentMap.
  */
-final class PutEntry<K, V> {
-    private final K key;
+final class PutEntry<K, V> extends AbstractEntry<K, V> {
     private final V value;
-    private final Timestamp timestamp;
 
     /**
      * Creates a new put entry.
@@ -36,26 +34,15 @@ final class PutEntry<K, V> {
      * @param timestamp timestamp of the put event
      */
     public PutEntry(K key, V value, Timestamp timestamp) {
-        this.key = checkNotNull(key);
+        super(key, timestamp);
         this.value = checkNotNull(value);
-        this.timestamp = checkNotNull(timestamp);
     }
 
     // Needed for serialization.
     @SuppressWarnings("unused")
     private PutEntry() {
-        this.key = null;
+        super();
         this.value = null;
-        this.timestamp = null;
-    }
-
-    /**
-     * Returns the key of the entry.
-     *
-     * @return the key
-     */
-    public K key() {
-        return key;
     }
 
     /**
@@ -67,21 +54,12 @@ final class PutEntry<K, V> {
         return value;
     }
 
-    /**
-     * Returns the timestamp of the event.
-     *
-     * @return the timestamp
-     */
-    public Timestamp timestamp() {
-        return timestamp;
-    }
-
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(getClass())
-                .add("key", key)
+                .add("key", key())
                 .add("value", value)
-                .add("timestamp", timestamp)
+                .add("timestamp", timestamp())
                 .toString();
     }
 }

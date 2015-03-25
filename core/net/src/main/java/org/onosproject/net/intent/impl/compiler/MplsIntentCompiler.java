@@ -23,7 +23,7 @@ import org.onosproject.net.resource.LinkResourceAllocations;
 
 
 @Component(immediate = true)
-public class MplsIntentCompiler  extends ConnectivityIntentCompiler<MplsIntent> {
+public class MplsIntentCompiler extends ConnectivityIntentCompiler<MplsIntent> {
 
     // TODO: use off-the-shell core provider ID
     private static final ProviderId PID =
@@ -78,7 +78,8 @@ public class MplsIntentCompiler  extends ConnectivityIntentCompiler<MplsIntent> 
         return new MplsPathIntent(intent.appId(),
                               intent.selector(), intent.treatment(), path,
                               intent.ingressLabel(), intent.egressLabel(),
-                              intent.constraints());
+                              intent.constraints(),
+                              intent.priority());
     }
 
 

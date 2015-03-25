@@ -4,10 +4,11 @@ import java.util.Date;
 import java.util.Optional;
 
 import org.onlab.packet.MplsLabel;
-import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.intent.IntentId;
 
 public class PseudoWireIntent {
 
@@ -25,14 +26,13 @@ public class PseudoWireIntent {
 
     private PathInstallationStatus installationStatus;
     private Date lastStatusUpdate;
-
-    private Boolean isBackup;
     
+    private IntentId intentId;
+
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
                             String dstDpid, long dstPort, Integer ingressLabel,
                             Integer egressLabel,
-                            PathInstallationStatus installationStatus, 
-                            boolean isIngress, boolean isEgress, boolean isBackup) {
+                            PathInstallationStatus installationStatus, boolean isIngress, boolean isEgress) {
         this(dstCluster, 
              new ConnectPoint(DeviceId.deviceId(srcDpid),
                                           PortNumber.portNumber(srcPort)),
@@ -40,7 +40,7 @@ public class PseudoWireIntent {
                               PortNumber.portNumber(dstPort)), 
              ingressLabel,
              egressLabel, 
-             installationStatus, isEgress, isIngress, isBackup);
+             installationStatus, isIngress, isEgress);
 
     }
 
@@ -49,12 +49,11 @@ public class PseudoWireIntent {
                             Integer egressLabel,
                             PathInstallationStatus installationStatus,
                             boolean isIngress,
-                            boolean isEgress,
-                            boolean isBackup) {
+                            boolean isEgress) {
         this.dstClusterName = dstClusterName;
         this.src = src;
         this.dst = dst;
-        if(ingressLabel !=null){
+        if(ingressLabel != null){
         this.ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(ingressLabel));
         }else{
             this.ingressLabel = Optional.empty();
@@ -68,7 +67,7 @@ public class PseudoWireIntent {
         this.lastStatusUpdate = new Date();
         this.isEgress = isEgress;
         this.isIngress = isIngress;
-        this.isBackup = isBackup;
+
 
     }
 
@@ -104,9 +103,17 @@ public class PseudoWireIntent {
     public void ingressLabel(MplsLabel ingressLabel) {
         this.ingressLabel = Optional.ofNullable(ingressLabel);
     }
+    
+    public void ingressLabel(Optional<MplsLabel> ingressLabel) {
+        this.ingressLabel = ingressLabel;
+    }
 
     public Optional<MplsLabel> egressLabel() {
         return egressLabel;
+    }
+    
+    public void egressLabel(Optional<MplsLabel> egressLabel) {
+        this.egressLabel = egressLabel;
     }
 
     public void egressLabel(MplsLabel egressLabel) {
@@ -121,18 +128,25 @@ public class PseudoWireIntent {
         return isIngress;
     }
 
-    public Boolean isBackup() {
-    	return isBackup;
+    public IntentId intentId() {
+        return intentId;
+    }
+    
+    public void intentId(IntentId intentId){
+        this.intentId = intentId;
     }
 
     @Override
     public String toString() {
         return "PseudoWireIntent [dstClusterName=" + dstClusterName + ", src="
                 + src + ", dst=" + dst + ", ingressLabel=" + ingressLabel
-                + ", egressLabel=" + egressLabel + ", installationStatus="
+                + ", egressLabel=" + egressLabel + ", isEgress=" + isEgress
+                + ", isIngress=" + isIngress + ", installationStatus="
                 + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate
-                + "]";
+                + ", intentId=" + intentId + "]";
     }
+
+
 
 
 }

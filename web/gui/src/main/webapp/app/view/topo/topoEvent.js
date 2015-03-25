@@ -27,15 +27,16 @@
     'use strict';
 
     // injected refs
-    var $log, wss, wes, vs, tps, tis, tfs, tss, tts;
+    var $log, wss, tps, tis, tfs, tss, tts;
 
     // internal state
-    var wsock, evApis;
+    var handlerMap,
+        openListener;
 
     // ==========================
 
-    function bindApis() {
-        evApis = {
+    function createHandlerMap() {
+        handlerMap = {
             showSummary: tps,
 
             showDetails: tss,
@@ -58,103 +59,50 @@
         };
     }
 
-    var nilApi = {},
-        dispatcher = {
-            handleEvent: function (ev) {
-                var eid = ev.event,
-                    api = evApis[eid] || nilApi,
-                    eh = api[eid];
+    function wsOpen(host, url) {
+        $log.debug('TOPO: web socket open - cluster node:', host, 'URL:', url);
 
-                if (eh) {
-                    $log.debug(' << *Rx* ', eid, ev.payload);
-                    eh(ev.payload);
-                } else {
-                    $log.warn('Unknown event (ignored):', ev);
-                }
-            },
+        // TODO: request "instanceUpdate" events for all instances
+        // this should give us the updated uiAttached icon placement
 
-            sendEvent: function (evType, payload) {
-                if (wsock) {
-                    $log.debug(' *Tx* >> ', evType, payload);
-                    wes.sendEvent(wsock, evType, payload);
-                } else {
-                    $log.warn('sendEvent: no websocket open:', evType, payload);
-                }
-            }
-        };
-
-    // ===  Web Socket functions ===
-
-    function onWsOpen() {
-        $log.debug('web socket opened...');
-        // start by requesting periodic summary data...
-        dispatcher.sendEvent('requestSummary');
-        vs.hide();
     }
-
-    function onWsMessage(ev) {
-        dispatcher.handleEvent(ev);
-    }
-
-    function onWsClose(reason) {
-        $log.log('web socket closed; reason=', reason);
-        wsock = null;
-        vs.show([
-            'Oops!',
-            'Web-socket connection to server closed...',
-            'Try refreshing the page.'
-        ]);
-    }
-
-    // ==========================
 
     angular.module('ovTopo')
     .factory('TopoEventService',
-        ['$log', '$location', 'WebSocketService', 'WsEventService', 'VeilService',
+        ['$log', '$location', 'WebSocketService',
             'TopoPanelService', 'TopoInstService', 'TopoForceService',
             'TopoSelectService', 'TopoTrafficService',
 
-        function (_$log_, $loc, _wss_, _wes_, _vs_,
-                  _tps_, _tis_, _tfs_, _tss_, _tts_) {
+        function (_$log_, $loc, _wss_, _tps_, _tis_, _tfs_, _tss_, _tts_) {
             $log = _$log_;
             wss = _wss_;
-            wes = _wes_;
-            vs = _vs_;
             tps = _tps_;
             tis = _tis_;
             tfs = _tfs_;
             tss = _tss_;
             tts = _tts_;
 
-            bindApis();
+            createHandlerMap();
 
-            // TODO: handle "guiSuccessor" functionality (replace host)
-            // TODO: implement retry on close functionality
-
-            function openSock() {
-                wsock = wss.createWebSocket('topology', {
-                    onOpen: onWsOpen,
-                    onMessage: onWsMessage,
-                    onClose: onWsClose,
-                    wsport: $loc.search().wsport
-                });
-                $log.debug('web socket opened:', wsock);
+            function start() {
+                openListener = wss.addOpenListener(wsOpen);
+                wss.bindHandlers(handlerMap);
+                wss.sendEvent('topoStart');
+                wss.sendEvent('requestSummary');
+                $log.debug('topo comms started');
             }
 
-            function closeSock() {
-                var path;
-                if (wsock) {
-                    path = wsock.meta.path;
-                    wsock.close();
-                    wsock = null;
-                    $log.debug('web socket closed. path:', path);
-                }
+            function stop() {
+                wss.sendEvent('topoStop');
+                wss.unbindHandlers(handlerMap);
+                wss.removeOpenListener(openListener);
+                openListener = null;
+                $log.debug('topo comms stopped');
             }
 
             return {
-                openSock: openSock,
-                closeSock: closeSock,
-                sendEvent: dispatcher.sendEvent
+                start: start,
+                stop: stop
             };
         }]);
 }());

@@ -15,6 +15,10 @@
  */
 package org.onosproject.cli.net;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.net.ConnectPoint;
@@ -27,19 +31,15 @@ import org.onosproject.net.intent.Constraint;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.SinglePointToMultiPointIntent;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import static org.onosproject.net.DeviceId.deviceId;
 import static org.onosproject.net.PortNumber.portNumber;
 
 
 @Command(scope = "onos", name = "add-single-to-multi-intent",
-        description = "Installs connectivity intent between multiple egress devices and a single ingress device")
+        description = "Installs connectivity intent between a single ingress device and multiple egress devices")
 public class AddSinglePointToMultiPointIntentCommand extends ConnectivityIntentCommand {
-    @Argument(index = 0, name = "egressDevices ingressDevice",
-            description = "egressDevice/Port...egressDevice/Port ingressDevice/port",
+    @Argument(index = 0, name = "ingressDevice egressDevices",
+            description = "ingressDevice/Port egressDevice/Port...egressDevice/Port",
             required = true, multiValued = true)
     String[] deviceStrings = null;
 
@@ -51,14 +51,14 @@ public class AddSinglePointToMultiPointIntentCommand extends ConnectivityIntentC
             return;
         }
 
-        String ingressDeviceString = deviceStrings[deviceStrings.length - 1];
+        String ingressDeviceString = deviceStrings[0];
         DeviceId ingressDeviceId = deviceId(getDeviceId(ingressDeviceString));
         PortNumber ingressPortNumber = portNumber(getPortNumber(ingressDeviceString));
         ConnectPoint ingressPoint = new ConnectPoint(ingressDeviceId,
                                                      ingressPortNumber);
 
         Set<ConnectPoint> egressPoints = new HashSet<>();
-        for (int index = 0; index < deviceStrings.length - 1; index++) {
+        for (int index = 1; index < deviceStrings.length; index++) {
             String egressDeviceString = deviceStrings[index];
             DeviceId egressDeviceId = deviceId(getDeviceId(egressDeviceString));
             PortNumber egressPortNumber = portNumber(getPortNumber(egressDeviceString));
@@ -68,7 +68,7 @@ public class AddSinglePointToMultiPointIntentCommand extends ConnectivityIntentC
         }
 
         TrafficSelector selector = buildTrafficSelector();
-        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
+        TrafficTreatment treatment = DefaultTrafficTreatment.emptyTreatment();
         List<Constraint> constraints = buildConstraints();
 
         SinglePointToMultiPointIntent intent =
@@ -79,7 +79,8 @@ public class AddSinglePointToMultiPointIntentCommand extends ConnectivityIntentC
                         treatment,
                         ingressPoint,
                         egressPoints,
-                        constraints);
+                        constraints,
+                        priority());
         service.submit(intent);
         print("Single point to multipoint intent submitted:\n%s", intent.toString());
     }

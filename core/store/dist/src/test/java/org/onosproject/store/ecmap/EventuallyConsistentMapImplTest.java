@@ -16,9 +16,10 @@
 package org.onosproject.store.ecmap;
 
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,10 +54,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static junit.framework.TestCase.assertFalse;
 import static org.easymock.EasyMock.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 /**
  * Unit tests for EventuallyConsistentMapImpl.
@@ -70,10 +68,8 @@ public class EventuallyConsistentMapImplTest {
     private SequentialClockService<String, String> clockService;
 
     private static final String MAP_NAME = "test";
-    private static final MessageSubject PUT_MESSAGE_SUBJECT
+    private static final MessageSubject UPDATE_MESSAGE_SUBJECT
             = new MessageSubject("ecm-" + MAP_NAME + "-update");
-    private static final MessageSubject REMOVE_MESSAGE_SUBJECT
-            = new MessageSubject("ecm-" + MAP_NAME + "-remove");
     private static final MessageSubject ANTI_ENTROPY_MESSAGE_SUBJECT
             = new MessageSubject("ecm-" + MAP_NAME + "-anti-entropy");
 
@@ -85,8 +81,7 @@ public class EventuallyConsistentMapImplTest {
     private final ControllerNode self =
             new DefaultControllerNode(new NodeId("local"), IpAddress.valueOf(1));
 
-    private ClusterMessageHandler putHandler;
-    private ClusterMessageHandler removeHandler;
+    private ClusterMessageHandler updateHandler;
     private ClusterMessageHandler antiEntropyHandler;
 
     /*
@@ -108,8 +103,6 @@ public class EventuallyConsistentMapImplTest {
                     .register(PutEntry.class)
                     .register(RemoveEntry.class)
                     .register(ArrayList.class)
-                    .register(InternalPutEvent.class)
-                    .register(InternalRemoveEvent.class)
                     .register(AntiEntropyAdvertisement.class)
                     .register(HashMap.class)
                     .build();
@@ -119,8 +112,8 @@ public class EventuallyConsistentMapImplTest {
     @Before
     public void setUp() throws Exception {
         clusterService = createMock(ClusterService.class);
-        expect(clusterService.getLocalNode()).andReturn(self)
-                .anyTimes();
+        expect(clusterService.getLocalNode()).andReturn(self).anyTimes();
+        expect(clusterService.getNodes()).andReturn(ImmutableSet.of(self)).anyTimes();
         replay(clusterService);
 
         clusterCommunicator = createMock(ClusterCommunicationService.class);
@@ -163,7 +156,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testSize() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertEquals(0, ecMap.size());
         ecMap.put(KEY1, VALUE1);
@@ -184,7 +177,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testIsEmpty() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertTrue(ecMap.isEmpty());
         ecMap.put(KEY1, VALUE1);
@@ -195,7 +188,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testContainsKey() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertFalse(ecMap.containsKey(KEY1));
         ecMap.put(KEY1, VALUE1);
@@ -207,7 +200,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testContainsValue() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertFalse(ecMap.containsValue(VALUE1));
         ecMap.put(KEY1, VALUE1);
@@ -222,7 +215,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testGet() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         CountDownLatch latch;
 
@@ -240,7 +233,7 @@ public class EventuallyConsistentMapImplTest {
         ecMap.addListener(new TestListener(latch));
 
         assertNull(ecMap.get(KEY2));
-        putHandler.handle(message);
+        updateHandler.handle(message);
         assertTrue("External listener never got notified of internal event",
                    latch.await(100, TimeUnit.MILLISECONDS));
         assertEquals(VALUE2, ecMap.get(KEY2));
@@ -257,7 +250,7 @@ public class EventuallyConsistentMapImplTest {
         latch = new CountDownLatch(1);
         ecMap.addListener(new TestListener(latch));
 
-        removeHandler.handle(removeMessage);
+        updateHandler.handle(removeMessage);
         assertTrue("External listener never got notified of internal event",
                    latch.await(100, TimeUnit.MILLISECONDS));
         assertNull(ecMap.get(KEY1));
@@ -278,7 +271,7 @@ public class EventuallyConsistentMapImplTest {
         ecMap.addListener(listener);
 
         // Set up expected internal message to be broadcast to peers on first put
-        expectSpecificMessage(generatePutMessage(KEY1, VALUE1, clockService
+        expectSpecificMulticastMessage(generatePutMessage(KEY1, VALUE1, clockService
                 .peekAtNextTimestamp()), clusterCommunicator);
 
         // Put first value
@@ -289,7 +282,7 @@ public class EventuallyConsistentMapImplTest {
         verify(clusterCommunicator);
 
         // Set up expected internal message to be broadcast to peers on second put
-        expectSpecificMessage(generatePutMessage(
+        expectSpecificMulticastMessage(generatePutMessage(
                 KEY1, VALUE2, clockService.peekAtNextTimestamp()), clusterCommunicator);
 
         // Update same key to a new value
@@ -332,14 +325,14 @@ public class EventuallyConsistentMapImplTest {
         ecMap.addListener(listener);
 
         // Put in an initial value
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
         ecMap.put(KEY1, VALUE1);
         assertEquals(VALUE1, ecMap.get(KEY1));
 
         // Remove the value and check the correct internal cluster messages
         // are sent
-        expectSpecificMessage(generateRemoveMessage(KEY1, clockService.peekAtNextTimestamp()),
-                              clusterCommunicator);
+        expectSpecificMulticastMessage(generateRemoveMessage(KEY1, clockService.peekAtNextTimestamp()),
+                                       clusterCommunicator);
 
         ecMap.remove(KEY1);
         assertNull(ecMap.get(KEY1));
@@ -349,8 +342,8 @@ public class EventuallyConsistentMapImplTest {
         // Remove the same value again. Even though the value is no longer in
         // the map, we expect that the tombstone is updated and another remove
         // event is sent to the cluster and external listeners.
-        expectSpecificMessage(generateRemoveMessage(KEY1, clockService.peekAtNextTimestamp()),
-                              clusterCommunicator);
+        expectSpecificMulticastMessage(generateRemoveMessage(KEY1, clockService.peekAtNextTimestamp()),
+                                       clusterCommunicator);
 
         ecMap.remove(KEY1);
         assertNull(ecMap.get(KEY1));
@@ -359,7 +352,7 @@ public class EventuallyConsistentMapImplTest {
 
 
         // Put in a new value for us to try and remove
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         ecMap.put(KEY2, VALUE2);
 
@@ -400,8 +393,8 @@ public class EventuallyConsistentMapImplTest {
         ecMap.addListener(listener);
 
         // Expect a multi-update inter-instance message
-        expectSpecificMessage(generatePutMessage(KEY1, VALUE1, KEY2, VALUE2),
-                              clusterCommunicator);
+        expectSpecificBroadcastMessage(generatePutMessage(KEY1, VALUE1, KEY2, VALUE2),
+                                       clusterCommunicator);
 
         Map<String, String> putAllValues = new HashMap<>();
         putAllValues.put(KEY1, VALUE1);
@@ -434,12 +427,12 @@ public class EventuallyConsistentMapImplTest {
         verify(clusterCommunicator);
 
         // Put some items in the map
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
         ecMap.put(KEY1, VALUE1);
         ecMap.put(KEY2, VALUE2);
 
         ecMap.addListener(listener);
-        expectSpecificMessage(generateRemoveMessage(KEY1, KEY2), clusterCommunicator);
+        expectSpecificBroadcastMessage(generateRemoveMessage(KEY1, KEY2), clusterCommunicator);
 
         ecMap.clear();
 
@@ -449,7 +442,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testKeySet() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertTrue(ecMap.keySet().isEmpty());
 
@@ -482,7 +475,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testValues() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertTrue(ecMap.values().isEmpty());
 
@@ -520,7 +513,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testEntrySet() throws Exception {
-        expectAnyMessage(clusterCommunicator);
+        expectPeerMessage(clusterCommunicator);
 
         assertTrue(ecMap.entrySet().isEmpty());
 
@@ -571,8 +564,7 @@ public class EventuallyConsistentMapImplTest {
 
     @Test
     public void testDestroy() throws Exception {
-        clusterCommunicator.removeSubscriber(PUT_MESSAGE_SUBJECT);
-        clusterCommunicator.removeSubscriber(REMOVE_MESSAGE_SUBJECT);
+        clusterCommunicator.removeSubscriber(UPDATE_MESSAGE_SUBJECT);
         clusterCommunicator.removeSubscriber(ANTI_ENTROPY_MESSAGE_SUBJECT);
 
         replay(clusterCommunicator);
@@ -597,12 +589,11 @@ public class EventuallyConsistentMapImplTest {
     }
 
     private ClusterMessage generatePutMessage(String key, String value, Timestamp timestamp) {
-        InternalPutEvent<String, String> event =
-                new InternalPutEvent<>(key, value, timestamp);
+        PutEntry<String, String> event = new PutEntry<>(key, value, timestamp);
 
         return new ClusterMessage(
-                clusterService.getLocalNode().id(), PUT_MESSAGE_SUBJECT,
-                SERIALIZER.encode(event));
+                clusterService.getLocalNode().id(), UPDATE_MESSAGE_SUBJECT,
+                SERIALIZER.encode(Lists.newArrayList(event)));
     }
 
     private ClusterMessage generatePutMessage(String key1, String value1, String key2, String value2) {
@@ -617,38 +608,35 @@ public class EventuallyConsistentMapImplTest {
         list.add(pe1);
         list.add(pe2);
 
-        InternalPutEvent<String, String> event = new InternalPutEvent<>(list);
 
         return new ClusterMessage(
-                clusterService.getLocalNode().id(), PUT_MESSAGE_SUBJECT,
-                SERIALIZER.encode(event));
+                clusterService.getLocalNode().id(), UPDATE_MESSAGE_SUBJECT,
+                SERIALIZER.encode(list));
     }
 
     private ClusterMessage generateRemoveMessage(String key, Timestamp timestamp) {
-        InternalRemoveEvent<String> event = new InternalRemoveEvent<>(key, timestamp);
+        RemoveEntry<String, String> event = new RemoveEntry<>(key, timestamp);
 
         return new ClusterMessage(
-                clusterService.getLocalNode().id(), REMOVE_MESSAGE_SUBJECT,
-                SERIALIZER.encode(event));
+                clusterService.getLocalNode().id(), UPDATE_MESSAGE_SUBJECT,
+                SERIALIZER.encode(Lists.newArrayList(event)));
     }
 
     private ClusterMessage generateRemoveMessage(String key1, String key2) {
-        ArrayList<RemoveEntry<String>> list = new ArrayList<>();
+        ArrayList<RemoveEntry<String, String>> list = new ArrayList<>();
 
         Timestamp timestamp1 = clockService.peek(1);
         Timestamp timestamp2 = clockService.peek(2);
 
-        RemoveEntry<String> re1 = new RemoveEntry<>(key1, timestamp1);
-        RemoveEntry<String> re2 = new RemoveEntry<>(key2, timestamp2);
+        RemoveEntry<String, String> re1 = new RemoveEntry<>(key1, timestamp1);
+        RemoveEntry<String, String> re2 = new RemoveEntry<>(key2, timestamp2);
 
         list.add(re1);
         list.add(re2);
 
-        InternalRemoveEvent<String> event = new InternalRemoveEvent<>(list);
-
         return new ClusterMessage(
-                clusterService.getLocalNode().id(), REMOVE_MESSAGE_SUBJECT,
-                SERIALIZER.encode(event));
+                clusterService.getLocalNode().id(), UPDATE_MESSAGE_SUBJECT,
+                SERIALIZER.encode(list));
     }
 
     /**
@@ -658,23 +646,69 @@ public class EventuallyConsistentMapImplTest {
      * @param m message we expect to be sent
      * @param clusterCommunicator a mock ClusterCommunicationService to set up
      */
-    private static void expectSpecificMessage(ClusterMessage m,
-            ClusterCommunicationService clusterCommunicator) {
+    //FIXME rename
+    private static void expectSpecificBroadcastMessage(ClusterMessage m,
+                           ClusterCommunicationService clusterCommunicator) {
         reset(clusterCommunicator);
-        expect(clusterCommunicator.broadcast(m)).andReturn(true);
+//        expect(clusterCommunicator.broadcast(m)).andReturn(true);
+        expect(clusterCommunicator.unicast(eq(m), anyObject(NodeId.class)))
+                .andReturn(true)
+                .anyTimes();
         replay(clusterCommunicator);
     }
 
     /**
-     * Sets up a mock ClusterCommunicationService to expect any cluster message
+     * Sets up a mock ClusterCommunicationService to expect a specific cluster
+     * message to be multicast to the cluster.
+     *
+     * @param m message we expect to be sent
+     * @param clusterCommunicator a mock ClusterCommunicationService to set up
+     */
+    //FIXME rename
+    private static void expectSpecificMulticastMessage(ClusterMessage m,
+                           ClusterCommunicationService clusterCommunicator) {
+        reset(clusterCommunicator);
+//        expect(clusterCommunicator.multicast(eq(m), anyObject(Set.class))).andReturn(true);
+        expect(clusterCommunicator.unicast(eq(m), anyObject(NodeId.class)))
+                .andReturn(true)
+                .anyTimes();
+        replay(clusterCommunicator);
+    }
+
+
+    /**
+     * Sets up a mock ClusterCommunicationService to expect a multicast cluster message
      * that is sent to it. This is useful for unit tests where we aren't
      * interested in testing the messaging component.
      *
      * @param clusterCommunicator a mock ClusterCommunicationService to set up
      */
-    private void expectAnyMessage(ClusterCommunicationService clusterCommunicator) {
+    //FIXME rename
+    private void expectPeerMessage(ClusterCommunicationService clusterCommunicator) {
         reset(clusterCommunicator);
-        expect(clusterCommunicator.broadcast(anyObject(ClusterMessage.class)))
+//        expect(clusterCommunicator.multicast(anyObject(ClusterMessage.class),
+//                                             anyObject(Iterable.class)))
+        expect(clusterCommunicator.unicast(anyObject(ClusterMessage.class),
+                                           anyObject(NodeId.class)))
+                .andReturn(true)
+                .anyTimes();
+        replay(clusterCommunicator);
+    }
+
+    /**
+     * Sets up a mock ClusterCommunicationService to expect a broadcast cluster message
+     * that is sent to it. This is useful for unit tests where we aren't
+     * interested in testing the messaging component.
+     *
+     * @param clusterCommunicator a mock ClusterCommunicationService to set up
+     */
+    //FIXME rename
+    private void expectBroadcastMessage(ClusterCommunicationService clusterCommunicator) {
+        reset(clusterCommunicator);
+//        expect(clusterCommunicator.broadcast(anyObject(ClusterMessage.class)))
+//                .andReturn(true)
+//                .anyTimes();
+        expect(clusterCommunicator.unicast(anyObject(ClusterMessage.class), anyObject(NodeId.class)))
                 .andReturn(true)
                 .anyTimes();
         replay(clusterCommunicator);
@@ -700,13 +734,12 @@ public class EventuallyConsistentMapImplTest {
         }
 
         @Override
-        public boolean unicast(ClusterMessage message, NodeId toNodeId)
-                throws IOException {
+        public boolean unicast(ClusterMessage message, NodeId toNodeId)  {
             return false;
         }
 
         @Override
-        public boolean multicast(ClusterMessage message, Set<NodeId> nodeIds) {
+        public boolean multicast(ClusterMessage message, Iterable<NodeId> nodeIds) {
             return false;
         }
 
@@ -720,10 +753,8 @@ public class EventuallyConsistentMapImplTest {
         @Override
         public void addSubscriber(MessageSubject subject,
                                   ClusterMessageHandler subscriber) {
-            if (subject.equals(PUT_MESSAGE_SUBJECT)) {
-                putHandler = subscriber;
-            } else if (subject.equals(REMOVE_MESSAGE_SUBJECT)) {
-                removeHandler = subscriber;
+            if (subject.equals(UPDATE_MESSAGE_SUBJECT)) {
+                updateHandler = subscriber;
             } else if (subject.equals(ANTI_ENTROPY_MESSAGE_SUBJECT)) {
                 antiEntropyHandler = subscriber;
             } else {
@@ -735,10 +766,8 @@ public class EventuallyConsistentMapImplTest {
         public void addSubscriber(MessageSubject subject,
                                   ClusterMessageHandler subscriber,
                                   ExecutorService executor) {
-            if (subject.equals(PUT_MESSAGE_SUBJECT)) {
-                putHandler = subscriber;
-            } else if (subject.equals(REMOVE_MESSAGE_SUBJECT)) {
-                removeHandler = subscriber;
+            if (subject.equals(UPDATE_MESSAGE_SUBJECT)) {
+                updateHandler = subscriber;
             } else if (subject.equals(ANTI_ENTROPY_MESSAGE_SUBJECT)) {
                 antiEntropyHandler = subscriber;
             } else {

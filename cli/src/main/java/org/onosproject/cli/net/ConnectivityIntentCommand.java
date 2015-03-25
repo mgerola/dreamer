@@ -25,9 +25,11 @@ import org.apache.karaf.shell.commands.Option;
 import org.onosproject.cli.AbstractShellCommand;
 import org.onosproject.net.Link;
 import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.intent.Constraint;
+import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.constraint.BandwidthConstraint;
 import org.onosproject.net.intent.constraint.LambdaConstraint;
@@ -96,6 +98,11 @@ public abstract class ConnectivityIntentCommand extends AbstractShellCommand {
             required = false, multiValued = false)
     private String setEthDstString = null;
 
+    // Priorities
+    @Option(name = "-p", aliases = "--priority", description = "Priority",
+            required = false, multiValued = false)
+    private int priority = Intent.DEFAULT_INTENT_PRIORITY;
+
     /**
      * Constructs a traffic selector based on the command line arguments
      * presented to the command.
@@ -149,13 +156,19 @@ public abstract class ConnectivityIntentCommand extends AbstractShellCommand {
      * @return traffic treatment
      */
     protected TrafficTreatment buildTrafficTreatment() {
-        final TrafficTreatment.Builder builder = builder();
+        boolean hasEthSrc = !isNullOrEmpty(setEthSrcString);
+        boolean hasEthDst = !isNullOrEmpty(setEthDstString);
 
-        if (!isNullOrEmpty(setEthSrcString)) {
+        if (!hasEthSrc && !hasEthDst) {
+            return DefaultTrafficTreatment.emptyTreatment();
+        }
+
+        final TrafficTreatment.Builder builder = builder();
+        if (hasEthSrc) {
             final MacAddress setEthSrc = MacAddress.valueOf(setEthSrcString);
             builder.setEthSrc(setEthSrc);
         }
-        if (!isNullOrEmpty(setEthDstString)) {
+        if (hasEthDst) {
             final MacAddress setEthDst = MacAddress.valueOf(setEthDstString);
             builder.setEthDst(setEthDst);
         }
@@ -199,5 +212,14 @@ public abstract class ConnectivityIntentCommand extends AbstractShellCommand {
             key = Key.of(intentKey, appId());
         }
         return key;
+    }
+
+    /**
+     * Gets the priority to use for the intent.
+     *
+     * @return priority
+     */
+    protected int priority() {
+        return priority;
     }
 }

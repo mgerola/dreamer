@@ -43,12 +43,20 @@ public interface IntentService {
     void withdraw(Intent intent);
 
     /**
+     * Purges a specific intent from the system if it is <b>FAILED</b> or
+     * <b>WITHDRAWN</b>. Otherwise, the intent remains in its current state.
+     *
+     * @param intent intent to purge
+     */
+    void purge(Intent intent);
+
+    /**
      * Fetches an intent based on its key.
      *
      * @param key key of the intent
      * @return intent object if the key is found, null otherwise
      */
-    public Intent getIntent(Key key);
+    Intent getIntent(Key key);
 
     /**
      * Returns an iterable of intents currently in the system.

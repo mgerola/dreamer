@@ -8,12 +8,12 @@ import org.onosproject.net.flow.TrafficSelector;
 import org.onosproject.net.flow.TrafficTreatment;
 
 public interface IntraChannelService {
-
-    void addIntraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
-                            TrafficTreatment treatment,
-                            IntentUpdateType intentUpdateType);
     
     public void remIntraPseudoWire(IconaIntraEvent event);
+
+    void intraPseudoWire(ConnectPoint src, ConnectPoint dst,
+                         TrafficSelector selector,
+                         TrafficTreatment treatment, IntentUpdateType type);
 
 
 }

@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
+import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.cli.AbstractShellCommand;
 import org.onosproject.cli.Comparators;
@@ -52,7 +53,7 @@ public class FlowsListCommand extends AbstractShellCommand {
     public static final String ANY = "any";
 
     private static final String FMT =
-            "   id=%s, state=%s, bytes=%s, packets=%s, duration=%s, priority=%s, appId=%s";
+            "   id=%s, state=%s, bytes=%s, packets=%s, duration=%s, priority=%s, tableId=%s appId=%s";
     private static final String TFMT = "      treatment=%s";
     private static final String SFMT = "      selector=%s";
 
@@ -126,12 +127,18 @@ public class FlowsListCommand extends AbstractShellCommand {
             instr.add(i.toString());
         }
 
+        ApplicationId appCoreId = coreService.getAppId(flow.appId());
+        String appName = appCoreId == null ?
+                Short.toString(flow.appId())
+                : appCoreId.name();
+
         result.put("flowId", Long.toHexString(flow.id().value()))
                 .put("state", flow.state().toString())
                 .put("bytes", flow.bytes())
                 .put("packets", flow.packets())
                 .put("life", flow.life())
-                .put("appId", coreService.getAppId(flow.appId()).name());
+                .put("tableId", flow.type().toString())
+                .put("appId", appName);
         result.set("selector", crit);
         result.set("treatment", instr);
         return result;
@@ -185,10 +192,10 @@ public class FlowsListCommand extends AbstractShellCommand {
         if (!empty) {
             for (FlowEntry f : flows) {
                 print(FMT, Long.toHexString(f.id().value()), f.state(),
-                      f.bytes(), f.packets(), f.life(), f.priority(),
+                      f.bytes(), f.packets(), f.life(), f.priority(), f.type(),
                       coreService.getAppId(f.appId()).name());
                 print(SFMT, f.selector().criteria());
-                print(TFMT, f.treatment().instructions());
+                print(TFMT, f.treatment());
             }
         }
     }

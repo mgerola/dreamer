@@ -15,14 +15,14 @@
  */
 package org.onosproject.net.flow;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-
-import java.util.Objects;
-
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.DefaultGroupId;
 import org.onosproject.core.GroupId;
 import org.onosproject.net.DeviceId;
+
+import java.util.Objects;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class DefaultFlowRule implements FlowRule {
 
@@ -58,6 +58,23 @@ public class DefaultFlowRule implements FlowRule {
         this.groupId = new DefaultGroupId((short) ((flowId >>> 32) & 0xFFFF));
         this.id = FlowId.valueOf(flowId);
         this.type = Type.DEFAULT;
+    }
+
+    public DefaultFlowRule(DeviceId deviceId, TrafficSelector selector,
+                           TrafficTreatment treatment, int priority, long flowId,
+                           int timeout, boolean permanent, Type tableType) {
+        this.deviceId = deviceId;
+        this.priority = priority;
+        this.selector = selector;
+        this.treatment = treatment;
+        this.timeout = timeout;
+        this.permanent = permanent;
+        this.created = System.currentTimeMillis();
+
+        this.appId = (short) (flowId >>> 48);
+        this.groupId = new DefaultGroupId((short) ((flowId >>> 32) & 0xFFFF));
+        this.id = FlowId.valueOf(flowId);
+        this.type = tableType;
     }
 
     public DefaultFlowRule(DeviceId deviceId, TrafficSelector selector,
@@ -180,11 +197,11 @@ public class DefaultFlowRule implements FlowRule {
      * @see java.lang.Object#equals(java.lang.Object)
      */
     public int hashCode() {
-        return Objects.hash(deviceId, selector, priority);
+        return Objects.hash(deviceId, selector, priority, type);
     }
 
     public int hash() {
-        return Objects.hash(deviceId, selector, treatment);
+        return Objects.hash(deviceId, selector, treatment, type);
     }
 
     @Override
@@ -202,7 +219,8 @@ public class DefaultFlowRule implements FlowRule {
             DefaultFlowRule that = (DefaultFlowRule) obj;
             return Objects.equals(deviceId, that.deviceId) &&
                     Objects.equals(priority, that.priority) &&
-                    Objects.equals(selector, that.selector);
+                    Objects.equals(selector, that.selector) &&
+                    Objects.equals(type, that.type);
 
         }
         return false;
@@ -215,7 +233,8 @@ public class DefaultFlowRule implements FlowRule {
                 .add("deviceId", deviceId)
                 .add("priority", priority)
                 .add("selector", selector.criteria())
-                .add("treatment", treatment == null ? "N/A" : treatment.instructions())
+                .add("treatment", treatment == null ? "N/A" : treatment.allInstructions())
+                .add("table type", type)
                 .add("created", created)
                 .toString();
     }

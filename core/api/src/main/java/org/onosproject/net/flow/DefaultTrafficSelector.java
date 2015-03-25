@@ -15,22 +15,22 @@
  */
 package org.onosproject.net.flow;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableSet;
+import org.onlab.packet.Ip6Address;
+import org.onlab.packet.IpPrefix;
+import org.onlab.packet.MacAddress;
+import org.onlab.packet.MplsLabel;
+import org.onlab.packet.VlanId;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.flow.criteria.Criteria;
+import org.onosproject.net.flow.criteria.Criterion;
+
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
-import org.onosproject.net.PortNumber;
-import org.onosproject.net.flow.criteria.Criteria;
-import org.onosproject.net.flow.criteria.Criterion;
-import org.onlab.packet.IpPrefix;
-import org.onlab.packet.Ip6Address;
-import org.onlab.packet.MacAddress;
-import org.onlab.packet.MplsLabel;
-import org.onlab.packet.VlanId;
-
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Default traffic selector implementation.
@@ -38,6 +38,9 @@ import com.google.common.collect.ImmutableSet;
 public final class DefaultTrafficSelector implements TrafficSelector {
 
     private final Set<Criterion> criteria;
+
+    private static final TrafficSelector EMPTY
+            = new DefaultTrafficSelector(Collections.emptySet());
 
     /**
      * Creates a new traffic selector with the specified criteria.
@@ -98,6 +101,15 @@ public final class DefaultTrafficSelector implements TrafficSelector {
     }
 
     /**
+     * Returns an empty traffic selector.
+     *
+     * @return empty traffic selector
+     */
+    public static TrafficSelector emptySelector() {
+        return EMPTY;
+    }
+
+    /**
      * Returns a new traffic selector builder primed to produce entities
      * patterned after the supplied selector.
      *
@@ -141,7 +153,7 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchMetadata(Long metadata) {
+        public Builder matchMetadata(long metadata) {
             return add(Criteria.matchMetadata(metadata));
         }
 
@@ -156,7 +168,7 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchEthType(Short ethType) {
+        public Builder matchEthType(short ethType) {
             return add(Criteria.matchEthType(ethType));
         }
 
@@ -166,22 +178,22 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchVlanPcp(Byte vlanPcp) {
+        public Builder matchVlanPcp(byte vlanPcp) {
             return add(Criteria.matchVlanPcp(vlanPcp));
         }
 
         @Override
-        public Builder matchIPDscp(Byte ipDscp) {
+        public Builder matchIPDscp(byte ipDscp) {
             return add(Criteria.matchIPDscp(ipDscp));
         }
 
         @Override
-        public Builder matchIPEcn(Byte ipEcn) {
+        public Builder matchIPEcn(byte ipEcn) {
             return add(Criteria.matchIPEcn(ipEcn));
         }
 
         @Override
-        public Builder matchIPProtocol(Byte proto) {
+        public Builder matchIPProtocol(byte proto) {
             return add(Criteria.matchIPProtocol(proto));
         }
 
@@ -196,42 +208,42 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchTcpSrc(Short tcpPort) {
+        public Builder matchTcpSrc(short tcpPort) {
             return add(Criteria.matchTcpSrc(tcpPort));
         }
 
         @Override
-        public Builder matchTcpDst(Short tcpPort) {
+        public Builder matchTcpDst(short tcpPort) {
             return add(Criteria.matchTcpDst(tcpPort));
         }
 
         @Override
-        public Builder matchUdpSrc(Short udpPort) {
+        public Builder matchUdpSrc(short udpPort) {
             return add(Criteria.matchUdpSrc(udpPort));
         }
 
         @Override
-        public Builder matchUdpDst(Short udpPort) {
+        public Builder matchUdpDst(short udpPort) {
             return add(Criteria.matchUdpDst(udpPort));
         }
 
         @Override
-        public Builder matchSctpSrc(Short sctpPort) {
+        public Builder matchSctpSrc(short sctpPort) {
             return add(Criteria.matchSctpSrc(sctpPort));
         }
 
         @Override
-        public Builder matchSctpDst(Short sctpPort) {
+        public Builder matchSctpDst(short sctpPort) {
             return add(Criteria.matchSctpDst(sctpPort));
         }
 
         @Override
-        public Builder matchIcmpType(Byte icmpType) {
+        public Builder matchIcmpType(byte icmpType) {
             return add(Criteria.matchIcmpType(icmpType));
         }
 
         @Override
-        public Builder matchIcmpCode(Byte icmpCode) {
+        public Builder matchIcmpCode(byte icmpCode) {
             return add(Criteria.matchIcmpCode(icmpCode));
         }
 
@@ -246,17 +258,17 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchIPv6FlowLabel(Integer flowLabel) {
+        public Builder matchIPv6FlowLabel(int flowLabel) {
             return add(Criteria.matchIPv6FlowLabel(flowLabel));
         }
 
         @Override
-        public Builder matchIcmpv6Type(Byte icmpv6Type) {
+        public Builder matchIcmpv6Type(byte icmpv6Type) {
             return add(Criteria.matchIcmpv6Type(icmpv6Type));
         }
 
         @Override
-        public Builder matchIcmpv6Code(Byte icmpv6Code) {
+        public Builder matchIcmpv6Code(byte icmpv6Code) {
             return add(Criteria.matchIcmpv6Code(icmpv6Code));
         }
 
@@ -281,17 +293,17 @@ public final class DefaultTrafficSelector implements TrafficSelector {
         }
 
         @Override
-        public Builder matchIPv6ExthdrFlags(Integer exthdrFlags) {
+        public Builder matchIPv6ExthdrFlags(int exthdrFlags) {
             return add(Criteria.matchIPv6ExthdrFlags(exthdrFlags));
         }
 
         @Override
-        public Builder matchLambda(Short lambda) {
+        public Builder matchLambda(short lambda) {
             return add(Criteria.matchLambda(lambda));
         }
 
         @Override
-        public Builder matchOpticalSignalType(Short signalType) {
+        public Builder matchOpticalSignalType(short signalType) {
             return add(Criteria.matchOpticalSignalType(signalType));
         }
 

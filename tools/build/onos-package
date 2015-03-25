@@ -1,6 +1,6 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Packages ONOS distributable into onos.tar.gz
+# Packages ONOS distributable into onos.tar.gz and onos.zip
 # -----------------------------------------------------------------------------
 
 [ ! -d "$ONOS_ROOT" ] && echo "ONOS_ROOT is not defined" >&2 && exit 1
@@ -22,10 +22,7 @@ cd $ONOS_STAGE
 # Check if Apache Karaf bits are available and if not, fetch them.
 if [ ! -f $KARAF_ZIP -a ! -f $KARAF_TAR ]; then
     echo "Downloading $KARAF_TAR..."
-    karafURL=$(curl -s http://www.apache.org/dyn/closer.cgi/karaf/$KARAF_VERSION/apache-karaf-$KARAF_VERSION.tar.gz |
-                grep "<a href=\".*apache-karaf-$KARAF_VERSION.tar.gz\"" |
-                head -n 1 | sed 's/.*<a href="//g;s/".*//g')
-    curl -s $karafURL > $KARAF_TAR
+    curl -sL http://downloads.onosproject.org/third-party/apache-karaf-$KARAF_VERSION.tar.gz > $KARAF_TAR
 fi
 [ ! -f $KARAF_ZIP -a ! -f $KARAF_TAR ] && \
     echo "Apache Karaf bits $KARAF_ZIP or $KARAF_TAR not found" && exit 1
@@ -40,7 +37,17 @@ cp -r $ONOS_ROOT/tools/package/bin .
 cp -r $ONOS_ROOT/tools/package/debian $ONOS_STAGE/debian
 cp -r $ONOS_ROOT/tools/package/etc/* $ONOS_STAGE/$KARAF_DIST/etc
 
-# Patch-in proper Karaf version into the startup script.
+# Stage all builtin ONOS apps for factory install
+mkdir $ONOS_STAGE/apps
+find $ONOS_ROOT -name 'app.xml' | egrep -v '/src/test/|/target/|org\.foo\.' | \
+    xargs grep 'name=' | sed 's/<app name="//g;s/".*//g' | while read line; do
+        appxml=${line%:*}
+        app=${line#*:}
+        mkdir $ONOS_STAGE/apps/$app
+        cp $appxml $ONOS_STAGE/apps/$app/app.xml
+    done
+
+# Patch-in proper Karaf version into the startup script
 sed "s/\$KARAF_VERSION/$KARAF_VERSION/g" \
     $ONOS_ROOT/tools/package/bin/onos-service > bin/onos-service
 sed "s/\$KARAF_VERSION/$KARAF_VERSION/g" \
@@ -57,16 +64,15 @@ find $M2_REPO/org/onosproject/ -type d -name $ONOS_POM_VERSION | while read line
         $KARAF_DIST/system/org/onosproject/$artifact/$ONOS_POM_VERSION
 done
 
-export ONOS_FEATURES="${ONOS_FEATURES:-webconsole,onos-api,onos-core,onos-cli,onos-rest,onos-gui,onos-openflow,onos-app-fwd,onos-app-foo}"
-
 # ONOS Patching ----------------------------------------------------------------
 
 # Patch the Apache Karaf distribution file to add ONOS features repository
 perl -pi.old -e "s|^(featuresRepositories=.*)|\1,mvn:org.onosproject/onos-features/$ONOS_POM_VERSION/xml/features|" \
     $ONOS_STAGE/$KARAF_DIST/etc/org.apache.karaf.features.cfg 
 
-# Patch the Apache Karaf distribution file to load ONOS features
-perl -pi.old -e "s|^(featuresBoot=.*)|\1,$ONOS_FEATURES|" \
+# Patch the Apache Karaf distribution file to load default ONOS boot features
+export BOOT_FEATURES="webconsole,onos-api,onos-core,onos-cli,onos-rest,onos-gui"
+perl -pi.old -e "s|^(featuresBoot=.*)|\1,$BOOT_FEATURES|" \
     $ONOS_STAGE/$KARAF_DIST/etc/org.apache.karaf.features.cfg
 
 # Patch the Apache Karaf distribution with ONOS branding bundle
@@ -80,5 +86,5 @@ echo $ONOS_VERSION > $ONOS_STAGE/VERSION
 cd $ONOS_STAGE_ROOT
 COPYFILE_DISABLE=1 tar zcf $ONOS_TAR $ONOS_BITS
 which zip >/dev/null && zip -rq $ONOS_ZIP $ONOS_BITS
-ls -l $ONOS_TAR $ONOS_ZIP >&2
+ls -l $ONOS_TAR $ONOS_ZIP 2>/dev/null
 rm -r $ONOS_STAGE

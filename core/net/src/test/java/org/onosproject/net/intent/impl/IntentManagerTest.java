@@ -48,7 +48,7 @@ import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.resource.LinkResourceAllocations;
-import org.onosproject.store.intent.impl.SimpleIntentStore;
+import org.onosproject.store.trivial.impl.SimpleIntentStore;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -82,9 +82,10 @@ import static org.onosproject.net.intent.IntentTestsMocks.MockIntent;
  *
  *  in general, verify intents store, flow store, and work queue
  */
-@Ignore
+
 public class IntentManagerTest {
 
+    private static final int SUBMIT_TIMEOUT_MS = 1000;
     private static final ApplicationId APPID = new TestApplicationId("manager-test");
 
     private IntentManager manager;
@@ -346,6 +347,7 @@ public class IntentManagerTest {
     }
 
     @Test
+    @Ignore("This is disabled because we are seeing intermittent failures on Jenkins")
     public void stressSubmitWithdrawUnique() {
         flowRuleService.setFuture(true);
 
@@ -380,7 +382,7 @@ public class IntentManagerTest {
             service.withdraw(intent);
         }
 
-        assertAfter(100, () -> {
+        assertAfter(SUBMIT_TIMEOUT_MS, () -> {
             assertEquals(1L, service.getIntentCount());
             assertEquals(0L, flowRuleService.getFlowRuleCount());
         });

@@ -15,6 +15,8 @@
  */
 package org.onosproject.store.intent.impl;
 
+import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang.math.RandomUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -23,6 +25,8 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
+import org.onosproject.cluster.ControllerNode;
+import org.onosproject.cluster.NodeId;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentData;
 import org.onosproject.net.intent.IntentEvent;
@@ -30,6 +34,7 @@ import org.onosproject.net.intent.IntentState;
 import org.onosproject.net.intent.IntentStore;
 import org.onosproject.net.intent.IntentStoreDelegate;
 import org.onosproject.net.intent.Key;
+import org.onosproject.net.intent.PartitionService;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
 import org.onosproject.store.ecmap.EventuallyConsistentMap;
@@ -37,11 +42,13 @@ import org.onosproject.store.ecmap.EventuallyConsistentMapEvent;
 import org.onosproject.store.ecmap.EventuallyConsistentMapImpl;
 import org.onosproject.store.ecmap.EventuallyConsistentMapListener;
 import org.onosproject.store.impl.MultiValuedTimestamp;
-import org.onosproject.store.impl.SystemClockTimestamp;
+import org.onosproject.store.impl.WallClockTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.slf4j.Logger;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.onosproject.net.intent.IntentState.*;
@@ -51,6 +58,8 @@ import static org.slf4j.LoggerFactory.getLogger;
  * Manages inventory of Intents in a distributed data store that uses optimistic
  * replication and gossip based techniques.
  */
+//FIXME we should listen for leadership changes. if the local instance has just
+// ...  become a leader, scan the pending map and process those
 @Component(immediate = false, enabled = true)
 @Service
 public class GossipIntentStore
@@ -80,21 +89,23 @@ public class GossipIntentStore
                 .register(KryoNamespaces.API)
                 .register(IntentData.class)
                 .register(MultiValuedTimestamp.class)
-                .register(SystemClockTimestamp.class);
+                .register(WallClockTimestamp.class);
 
         currentMap = new EventuallyConsistentMapImpl<>("intent-current",
                                                        clusterService,
                                                        clusterCommunicator,
                                                        intentSerializer,
-                                                       new IntentDataLogicalClockManager<>());
+                                                       new IntentDataLogicalClockManager<>(),
+                                                       (key, intentData) -> getPeerNodes(key, intentData));
 
         pendingMap = new EventuallyConsistentMapImpl<>("intent-pending",
                                                        clusterService,
                                                        clusterCommunicator,
-                                                       intentSerializer, // TODO
-                                                       new IntentDataClockManager<>());
+                                                       intentSerializer,
+                                                       new IntentDataClockManager<>(),
+                                                       (key, intentData) -> getPeerNodes(key, intentData));
 
-        currentMap.addListener(new InternalIntentStatesListener());
+        currentMap.addListener(new InternalCurrentListener());
         pendingMap.addListener(new InternalPendingListener());
 
         log.info("Started");
@@ -148,6 +159,7 @@ public class GossipIntentStore
         if (original.installables() != null) {
             result.setInstallables(original.installables());
         }
+        result.setOrigin(original.origin());
         return result;
     }
 
@@ -212,6 +224,8 @@ public class GossipIntentStore
             }
             return true;
 
+        case PURGE_REQ:
+            return true;
 
         case COMPILING:
         case RECOMPILING:
@@ -225,26 +239,56 @@ public class GossipIntentStore
 
     @Override
     public void write(IntentData newData) {
-        //log.debug("writing intent {}", newData);
-
         IntentData currentData = currentMap.get(newData.key());
-
         if (isUpdateAcceptable(currentData, newData)) {
             // Only the master is modifying the current state. Therefore assume
             // this always succeeds
-            currentMap.put(newData.key(), copyData(newData));
+            if (newData.state() == PURGE_REQ) {
+                currentMap.remove(newData.key(), newData);
+            } else {
+                currentMap.put(newData.key(), copyData(newData));
+            }
 
             // if current.put succeeded
             pendingMap.remove(newData.key(), newData);
         } else {
             log.debug("not writing update: current {}, new {}", currentData, newData);
         }
-        /*try {
-            notifyDelegate(IntentEvent.getEvent(newData));
-        } catch (IllegalArgumentException e) {
-            //no-op
-            log.trace("ignore this exception: {}", e);
-        }*/
+    }
+
+    private Collection<NodeId> getPeerNodes(Key key, IntentData data) {
+        NodeId master = partitionService.getLeader(key);
+        NodeId origin = (data != null) ? data.origin() : null;
+        if (master == null || origin == null) {
+            log.warn("Intent {} has no home; master = {}, origin = {}",
+                     data.key(), master, origin);
+        }
+
+        NodeId me = clusterService.getLocalNode().id();
+        boolean isMaster = Objects.equals(master, me);
+        boolean isOrigin = Objects.equals(origin, me);
+        if (isMaster && isOrigin) {
+            return getRandomNode();
+        } else if (isMaster) {
+            return origin != null ? ImmutableList.of(origin) : getRandomNode();
+        } else if (isOrigin) {
+            return master != null ? ImmutableList.of(master) : getRandomNode();
+        } else {
+            log.warn("Not master or origin for intent {}", data.key());
+            return ImmutableList.of(master);
+        }
+    }
+
+    private List<NodeId> getRandomNode() {
+        NodeId me = clusterService.getLocalNode().id();
+        List<NodeId> nodes = clusterService.getNodes().stream()
+                .map(ControllerNode::id)
+                .filter(node -> !Objects.equals(node, me))
+                .collect(Collectors.toList());
+        if (nodes.size() == 0) {
+            return null;
+        }
+        return ImmutableList.of(nodes.get(RandomUtils.nextInt(nodes.size())));
     }
 
     @Override
@@ -268,10 +312,10 @@ public class GossipIntentStore
 
     @Override
     public void addPending(IntentData data) {
-        log.debug("new pending {} {} {}", data.key(), data.state(), data.version());
         if (data.version() == null) {
-            data.setVersion(new SystemClockTimestamp());
+            data.setVersion(new WallClockTimestamp());
         }
+        data.setOrigin(clusterService.getLocalNode().id());
         pendingMap.put(data.key(), copyData(data));
     }
 
@@ -293,7 +337,7 @@ public class GossipIntentStore
         }
     }
 
-    private final class InternalIntentStatesListener implements
+    private final class InternalCurrentListener implements
             EventuallyConsistentMapListener<Key, IntentData> {
         @Override
         public void event(

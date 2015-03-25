@@ -15,6 +15,7 @@
  */
 package org.onosproject.provider.of.flow.impl;
 
+import com.google.common.collect.Lists;
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip6Address;
 import org.onosproject.net.PortNumber;
@@ -95,20 +96,25 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     @Override
     public OFFlowAdd buildFlowAdd() {
         Match match = buildMatch();
-        List<OFAction> actions = buildActions();
-        List<OFInstruction> instructions = buildInstructions();
-        // FIXME had to revert back to using apply-actions instead of
-        // write-actions because LINC-OE apparently doesn't support
-        // write-actions. I would prefer to change this back in the future
-        // because apply-actions is an optional instruction in OF 1.3.
+        List<OFAction> deferredActions = buildActions(treatment.deferred());
+        List<OFAction> immediateActions = buildActions(treatment.immediate());
+        List<OFInstruction> instructions = Lists.newLinkedList();
 
-        OFInstruction applyActions =
-                factory().instructions().applyActions(actions);
 
-        instructions.add(applyActions);
+        if (immediateActions.size() > 0) {
+            instructions.add(factory().instructions().applyActions(immediateActions));
+        }
+        if (treatment.clearedDeferred()) {
+            instructions.add(factory().instructions().clearActions());
+        }
+        if (deferredActions.size() > 0) {
+            instructions.add(factory().instructions().writeActions(deferredActions));
+        }
+        if (treatment.tableTransition() != null) {
+            instructions.add(buildTableGoto(treatment.tableTransition()));
+        }
 
         long cookie = flowRule().id().value();
-
 
         OFFlowAdd fm = factory().buildFlowAdd()
                 .setXid(xid)
@@ -127,15 +133,25 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
     @Override
     public OFFlowMod buildFlowMod() {
         Match match = buildMatch();
-        List<OFAction> actions = buildActions();
-        List<OFInstruction> instructions = buildInstructions();
-        OFInstruction applyActions =
-                factory().instructions().applyActions(actions);
+        List<OFAction> deferredActions = buildActions(treatment.deferred());
+        List<OFAction> immediateActions = buildActions(treatment.immediate());
+        List<OFInstruction> instructions = Lists.newLinkedList();
 
-        instructions.add(applyActions);
+
+        if (immediateActions.size() > 0) {
+            instructions.add(factory().instructions().applyActions(immediateActions));
+        }
+        if (treatment.clearedDeferred()) {
+            instructions.add(factory().instructions().clearActions());
+        }
+        if (deferredActions.size() > 0) {
+            instructions.add(factory().instructions().writeActions(deferredActions));
+        }
+        if (treatment.tableTransition() != null) {
+            instructions.add(buildTableGoto(treatment.tableTransition()));
+        }
 
         long cookie = flowRule().id().value();
-
 
         OFFlowMod fm = factory().buildFlowModify()
                 .setXid(xid)
@@ -164,6 +180,7 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 .setMatch(match)
                 .setFlags(Collections.singleton(OFFlowModFlags.SEND_FLOW_REM))
                 .setPriority(flowRule().priority())
+                .setTableId(TableId.of(flowRule().type().ordinal()))
                 .build();
 
         return fm;
@@ -187,12 +204,13 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
         return instructions;
     }
 
-    private List<OFAction> buildActions() {
+    private List<OFAction> buildActions(List<Instruction> treatments) {
         List<OFAction> actions = new LinkedList<>();
+        boolean tableFound = false;
         if (treatment == null) {
             return actions;
         }
-        for (Instruction i : treatment.instructions()) {
+        for (Instruction i : treatments) {
             switch (i.type()) {
                 case DROP:
                     log.warn("Saw drop action; assigning drop action");
@@ -223,12 +241,17 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                     break;
                 case TABLE:
                     //FIXME: should not occur here.
+                    tableFound = true;
                     break;
                 default:
                     log.warn("Instruction type {} not yet implemented.", i.type());
             }
         }
-
+        if (tableFound && actions.isEmpty()) {
+            // handles the case where there are no actions, but there is
+            // a goto instruction for the next table
+            return null;
+        }
         return actions;
     }
 
@@ -258,6 +281,8 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 return OpenFlowSwitch.TableType.ETHER;
             case COS:
                 return OpenFlowSwitch.TableType.COS;
+            case FIRST:
+                return OpenFlowSwitch.TableType.FIRST;
             default:
                 return OpenFlowSwitch.TableType.NONE;
         }
@@ -305,7 +330,7 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 return factory().actions().pushMpls(EthType.of(pushHeaderInstructions
                                                                .ethernetType()));
             case MPLS_POP:
-                PushHeaderInstructions  popHeaderInstructions =
+                PushHeaderInstructions popHeaderInstructions =
                         (PushHeaderInstructions) l2m;
                 return factory().actions().popMpls(EthType.of(popHeaderInstructions
                                                               .ethernetType()));
@@ -317,6 +342,12 @@ public class FlowModBuilderVer13 extends FlowModBuilder {
                 break;
             case DEC_MPLS_TTL:
                 return factory().actions().decMplsTtl();
+            case VLAN_POP:
+                return factory().actions().popVlan();
+            case VLAN_PUSH:
+                PushHeaderInstructions pushVlanInstruction = (PushHeaderInstructions) l2m;
+                return factory().actions().pushVlan(
+                        EthType.of(pushVlanInstruction.ethernetType()));
             default:
                 log.warn("Unimplemented action type {}.", l2m.subtype());
                 break;

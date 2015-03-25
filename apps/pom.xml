@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.2.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -32,23 +32,18 @@
     <description>ONOS sample applications</description>
 
     <modules>
-        <module>tvue</module>
         <module>fwd</module>
-        <module>ifwd</module>
         <module>mobility</module>
         <module>proxyarp</module>
         <module>config</module>
         <module>sdnip</module>
-        <module>calendar</module>
         <module>optical</module>
         <module>metrics</module>
         <module>oecfg</module>
-        <module>demo</module>
-        <module>election</module>
         <module>routing</module>
         <module>routing-api</module>
         <module>bgprouter</module>
-        <module>intent-perf</module>
+        <module>test</module>
         <module>icona</module>
     </modules>
 
@@ -84,6 +79,11 @@
             <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-scr-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.onosproject</groupId>
+                <artifactId>onos-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

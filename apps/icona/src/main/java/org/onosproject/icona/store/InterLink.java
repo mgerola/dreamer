@@ -14,6 +14,7 @@ public class InterLink {
     
     private BackupInterLink bil;
 
+
     public InterLink(String srcClusterName, String dstClusterName,
                      String srcDpid, Long srcPort, String dstDpid, Long dstPort) {
         this.src = new ConnectPoint(DeviceId.deviceId(srcDpid), PortNumber.portNumber(srcPort));
@@ -55,7 +56,7 @@ public class InterLink {
     public void setBIL(BackupInterLink bil) {
     	this.bil = bil;
     }
-    
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -100,6 +101,13 @@ public class InterLink {
             return false;
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "InterLink [srcClusterName=" + srcClusterName + ", dstClusterName=" + dstClusterName + ", src=" + src
+                + ", dst=" + dst + "]";
+    }
+
     
 
 

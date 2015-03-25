@@ -17,7 +17,8 @@ package org.onosproject.net.flow;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.collect.Lists;
+import org.apache.commons.collections.ListUtils;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
@@ -27,7 +28,7 @@ import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.Instructions;
 
-import java.util.LinkedList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,7 +37,14 @@ import java.util.Objects;
  */
 public final class DefaultTrafficTreatment implements TrafficTreatment {
 
-    private final List<Instruction> instructions;
+    private final List<Instruction> immediate;
+    private final List<Instruction> deferred;
+    private final Instructions.TableTypeTransition table;
+
+    private final boolean hasClear;
+
+    private static final DefaultTrafficTreatment EMPTY
+            = new DefaultTrafficTreatment(Collections.emptyList());
 
     /**
      * Creates a new traffic treatment from the specified list of instructions.
@@ -44,12 +52,51 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
      * @param instructions treatment instructions
      */
     private DefaultTrafficTreatment(List<Instruction> instructions) {
-        this.instructions = ImmutableList.copyOf(instructions);
+        this.immediate = ImmutableList.copyOf(instructions);
+        this.deferred = ImmutableList.of();
+        this.hasClear = false;
+        this.table = null;
+    }
+
+    private DefaultTrafficTreatment(List<Instruction> deferred,
+                                   List<Instruction> immediate,
+                                   Instructions.TableTypeTransition table,
+                                   boolean clear) {
+        this.immediate = ImmutableList.copyOf(immediate);
+        this.deferred = ImmutableList.copyOf(deferred);
+        this.table = table;
+        this.hasClear = clear;
+
     }
 
     @Override
     public List<Instruction> instructions() {
-        return instructions;
+        return immediate;
+    }
+
+    @Override
+    public List<Instruction> deferred() {
+        return deferred;
+    }
+
+    @Override
+    public List<Instruction> immediate() {
+        return immediate;
+    }
+
+    @Override
+    public List<Instruction> allInstructions() {
+        return ListUtils.union(immediate, deferred);
+    }
+
+    @Override
+    public Instructions.TableTypeTransition tableTransition() {
+        return table;
+    }
+
+    @Override
+    public Boolean clearedDeferred() {
+        return hasClear;
     }
 
     /**
@@ -59,6 +106,15 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
      */
     public static TrafficTreatment.Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Returns an empty traffic treatment.
+     *
+     * @return empty traffic treatment
+     */
+    public static TrafficTreatment emptyTreatment() {
+        return EMPTY;
     }
 
     /**
@@ -75,7 +131,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
     //FIXME: Order of instructions may affect hashcode
     @Override
     public int hashCode() {
-        return Objects.hash(instructions);
+        return Objects.hash(immediate, deferred, table);
     }
 
     @Override
@@ -85,7 +141,9 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
         if (obj instanceof DefaultTrafficTreatment) {
             DefaultTrafficTreatment that = (DefaultTrafficTreatment) obj;
-            return Objects.equals(instructions, that.instructions);
+            return Objects.equals(immediate, that.immediate) &&
+                    Objects.equals(deferred, that.deferred) &&
+                    Objects.equals(table, that.table);
 
         }
         return false;
@@ -94,7 +152,10 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
     @Override
     public String toString() {
         return MoreObjects.toStringHelper(getClass())
-                .add("instructions", instructions)
+                .add("immediate", immediate)
+                .add("deferred", deferred)
+                .add("transition", table == null ? "None" : table.toString())
+                .add("cleared", hasClear)
                 .toString();
     }
 
@@ -106,19 +167,22 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
 
         boolean drop = false;
 
-        List<Instruction> outputs = new LinkedList<>();
+        boolean clear = false;
 
-        // TODO: should be a list of instructions based on group objects
-        List<Instruction> groups = new LinkedList<>();
+        Instructions.TableTypeTransition table;
 
-        // TODO: should be a list of instructions based on modification objects
-        List<Instruction> modifications = new LinkedList<>();
+        List<Instruction> deferred = Lists.newLinkedList();
+
+        List<Instruction> immediate = Lists.newLinkedList();
+
+        List<Instruction> current = immediate;
 
         // Creates a new builder
         private Builder() {
         }
 
         // Creates a new builder based off an existing treatment
+        //FIXME only works for immediate instruction sets.
         private Builder(TrafficTreatment treatment) {
             for (Instruction instruction : treatment.instructions()) {
                 add(instruction);
@@ -127,30 +191,24 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
 
         @Override
         public Builder add(Instruction instruction) {
-            if (drop) {
-                return this;
-            }
+
             switch (instruction.type()) {
                 case DROP:
-                    drop = true;
-                    break;
-                case TABLE:
                 case OUTPUT:
-                    outputs.add(instruction);
-                    break;
+                case GROUP:
                 case L0MODIFICATION:
                 case L2MODIFICATION:
                 case L3MODIFICATION:
-                    // TODO: enforce modification order if any
-                    modifications.add(instruction);
+                    current.add(instruction);
                     break;
-                case GROUP:
-                    groups.add(instruction);
+                case TABLE:
+                    table = (Instructions.TableTypeTransition) instruction;
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown instruction type: " +
                                                                instruction.type());
             }
+
             return this;
         }
 
@@ -250,22 +308,45 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
 
         @Override
-        public TrafficTreatment.Builder transition(FlowRule.Type type) {
+        public Builder popVlan() {
+            return add(Instructions.popVlan());
+        }
+
+        @Override
+        public Builder pushVlan() {
+            return add(Instructions.pushVlan());
+        }
+
+        @Override
+        public Builder transition(FlowRule.Type type) {
             return add(Instructions.transition(type));
         }
 
         @Override
+        public Builder immediate() {
+            current = immediate;
+            return this;
+        }
+
+        @Override
+        public Builder deferred() {
+            current = deferred;
+            return this;
+        }
+
+        @Override
+        public Builder wipeDeferred() {
+            clear = true;
+            return this;
+        }
+
+        @Override
         public TrafficTreatment build() {
-
-            //If we are dropping should we just return an empty list?
-            List<Instruction> instructions = new LinkedList<Instruction>();
-            instructions.addAll(modifications);
-            instructions.addAll(groups);
-            if (!drop) {
-                instructions.addAll(outputs);
+            if (deferred.size() == 0 && immediate.size() == 0
+                    && table == null && !clear) {
+                drop();
             }
-
-            return new DefaultTrafficTreatment(instructions);
+            return new DefaultTrafficTreatment(deferred, immediate, table, clear);
         }
 
     }

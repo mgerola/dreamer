@@ -25,6 +25,7 @@ import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.ChassisId;
+import org.onosproject.cfg.ComponentConfigService;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.net.Device;
@@ -73,13 +74,14 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected DeviceProviderRegistry providerRegistry;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ComponentConfigService cfgService;
+
     private DeviceProviderService providerService;
 
     private ExecutorService deviceBuilder =
             Executors.newFixedThreadPool(1, groupedThreads("onos/null", "device-creator"));
 
-
-    //currently hardcoded. will be made configurable via rest/cli.
     private static final String SCHEME = "null";
     private static final int DEF_NUMDEVICES = 10;
     private static final int DEF_NUMPORTS = 10;
@@ -90,15 +92,14 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
     private final Map<Integer, DeviceDescription> descriptions = Maps.newHashMap();
 
     @Property(name = "devConfigs", value = "", label = "Instance-specific configurations")
-    private String devConfigs = "";
+    private String devConfigs = null;
 
     private int numDevices = DEF_NUMDEVICES;
 
-    @Property(name = "numPorts", value = "10", label = "Number of ports per devices")
+    @Property(name = "numPorts", intValue = 10, label = "Number of ports per devices")
     private int numPorts = DEF_NUMPORTS;
 
     private DeviceCreator creator;
-
 
     /**
      *
@@ -111,6 +112,7 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
 
     @Activate
     public void activate(ComponentContext context) {
+        cfgService.registerProperties(getClass());
         providerService = providerRegistry.register(this);
         if (!modified(context)) {
             deviceBuilder.submit(new DeviceCreator(true));
@@ -121,6 +123,7 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
 
     @Deactivate
     public void deactivate(ComponentContext context) {
+        cfgService.unregisterProperties(getClass(), false);
         deviceBuilder.submit(new DeviceCreator(false));
         try {
             deviceBuilder.awaitTermination(1000, TimeUnit.MILLISECONDS);
@@ -147,13 +150,13 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
         int newDevNum = DEF_NUMDEVICES;
         int newPortNum = DEF_NUMPORTS;
         try {
-            String s = (String) properties.get("devConfigs");
+            String s = get(properties, "devConfigs");
             if (!isNullOrEmpty(s)) {
                 newDevNum = getDevicesConfig(s);
             }
-            s = (String) properties.get("numPorts");
+            s = get(properties, "numPorts");
             newPortNum = isNullOrEmpty(s) ? DEF_NUMPORTS : Integer.parseInt(s.trim());
-        } catch (NumberFormatException | ClassCastException e) {
+        } catch (NumberFormatException e) {
             log.warn(e.getMessage());
             newDevNum = numDevices;
             newPortNum = numPorts;
@@ -238,11 +241,10 @@ public class NullDeviceProvider extends AbstractProvider implements DeviceProvid
             ChassisId cid;
 
             // nodeIdHash takes into account for nodeID to avoid collisions when running multi-node providers.
-            long nodeIdHash = clusterService.getLocalNode().hashCode() << 16;
+            long nodeIdHash = clusterService.getLocalNode().id().hashCode() << 16;
 
             for (int i = 0; i < numDevices; i++) {
-                // mark 'last' device to facilitate chaining of islands together
-                long id = (i + 1 == numDevices) ? nodeIdHash | 0xffff : nodeIdHash | i;
+                long id = nodeIdHash | i;
 
                 did = DeviceId.deviceId(new URI(SCHEME, toHex(id), null));
                 cid = new ChassisId(i);

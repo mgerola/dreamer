@@ -26,7 +26,7 @@
     <parent>
         <groupId>org.onosproject</groupId>
         <artifactId>onos</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.2.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -50,7 +50,7 @@
                 <configuration>
                     <show>package</show>
                     <docfilessubdirs>true</docfilessubdirs>
-                    <doctitle>ONOS Java API</doctitle>
+                    <doctitle>ONOS Java API (1.2.0-SNAPSHOT)</doctitle>
                     <groups>
                         <group>
                             <title>Network Model &amp; Services</title>
@@ -61,7 +61,7 @@
                         <group>
                             <title>Core Subsystems</title>
                             <packages>
-                                org.onosproject.impl:org.onosproject.core.impl:org.onosproject.cluster.impl:org.onosproject.net.device.impl:org.onosproject.net.link.impl:org.onosproject.net.host.impl:org.onosproject.net.topology.impl:org.onosproject.net.packet.impl:org.onosproject.net.flow.impl:org.onosproject.net.*.impl:org.onosproject.event.impl:org.onosproject.net.intent.impl*:org.onosproject.net.proxyarp.impl:org.onosproject.mastership.impl:org.onosproject.net.resource.impl:org.onosproject.json:org.onosproject.json.*:org.onosproject.provider.host.impl:org.onosproject.provider.lldp.impl:org.onosproject.net.statistic.impl:org.onosproject.app.impl:org.onosproject.common.*:org.onosproject.net.group.impl
+                                org.onosproject.impl:org.onosproject.core.impl:org.onosproject.cluster.impl:org.onosproject.net.device.impl:org.onosproject.net.link.impl:org.onosproject.net.host.impl:org.onosproject.net.topology.impl:org.onosproject.net.packet.impl:org.onosproject.net.flow.impl:org.onosproject.net.*.impl:org.onosproject.event.impl:org.onosproject.net.intent.impl*:org.onosproject.net.proxyarp.impl:org.onosproject.mastership.impl:org.onosproject.net.resource.impl:org.onosproject.json:org.onosproject.json.*:org.onosproject.provider.host.impl:org.onosproject.provider.lldp.impl:org.onosproject.net.statistic.impl:org.onosproject.app.impl:org.onosproject.common.*:org.onosproject.net.group.impl:org.onosproject.cfg.impl
                             </packages>
                         </group>
                         <group>
@@ -71,15 +71,13 @@
                             </packages>
                         </group>
                         <group>
-                            <title>OpenFlow Providers &amp; Controller
-                            </title>
+                            <title>OpenFlow Providers &amp; Controller</title>
                             <packages>
                                 org.onosproject.provider.of.*:org.onosproject.openflow.*
                             </packages>
                         </group>
                         <group>
-                            <title>Null Providers
-                            </title>
+                            <title>Null Providers</title>
                             <packages>
                                 org.onosproject.provider.nil.*
                             </packages>
@@ -109,7 +107,7 @@
                             </packages>
                         </group>
                     </groups>
-                    <excludePackageNames>org.onlab.thirdparty:org.onosproject.oecfg</excludePackageNames>
+                    <excludePackageNames>org.onlab.thirdparty:org.onosproject.oecfg:org.onosproject.maven</excludePackageNames>
                 </configuration>
             </plugin>
         </plugins>

@@ -15,14 +15,6 @@
  */
 package org.onosproject.net.packet.impl;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.slf4j.LoggerFactory.getLogger;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -31,6 +23,7 @@ import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.net.Device;
+import org.onosproject.net.MastershipRole;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
@@ -54,6 +47,14 @@ import org.onosproject.net.packet.PacketStoreDelegate;
 import org.onosproject.net.provider.AbstractProviderRegistry;
 import org.onosproject.net.provider.AbstractProviderService;
 import org.slf4j.Logger;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Provides a basic implementation of the packet SB &amp; NB APIs.
@@ -88,12 +89,14 @@ implements PacketService, PacketProviderRegistry {
         private final TrafficSelector selector;
         private final PacketPriority priority;
         private final ApplicationId appId;
+        private final FlowRule.Type tableType;
 
         public PacketRequest(TrafficSelector selector, PacketPriority priority,
-                             ApplicationId appId) {
+                             ApplicationId appId, FlowRule.Type tableType) {
             this.selector = selector;
             this.priority = priority;
             this.appId = appId;
+            this.tableType = tableType;
         }
 
         public TrafficSelector selector() {
@@ -106,6 +109,10 @@ implements PacketService, PacketProviderRegistry {
 
         public ApplicationId appId() {
             return appId;
+        }
+
+        public FlowRule.Type tableType() {
+            return tableType;
         }
 
         @Override
@@ -170,10 +177,26 @@ implements PacketService, PacketProviderRegistry {
         checkNotNull(appId, "Application ID cannot be null");
 
         PacketRequest request =
-                new PacketRequest(selector, priority, appId);
+                new PacketRequest(selector, priority, appId, FlowRule.Type.DEFAULT);
 
         packetRequests.add(request);
         pushToAllDevices(request);
+    }
+
+    @Override
+    public void requestPackets(TrafficSelector selector, PacketPriority priority,
+                               ApplicationId appId, FlowRule.Type tableType) {
+        checkNotNull(selector, "Selector cannot be null");
+        checkNotNull(appId, "Application ID cannot be null");
+        checkNotNull(tableType, "Table Type cannot be null. For requesting packets +"
+                + "without table hints, use other methods in the packetService API");
+
+        PacketRequest request =
+                new PacketRequest(selector, priority, appId, tableType);
+
+        if (packetRequests.add(request)) {
+            pushToAllDevices(request);
+        }
     }
 
     /**
@@ -183,7 +206,9 @@ implements PacketService, PacketProviderRegistry {
      */
     private void pushToAllDevices(PacketRequest request) {
         for (Device device : deviceService.getDevices()) {
-            pushRule(device, request);
+            if (deviceService.getRole(device.id()) == MastershipRole.MASTER) {
+                pushRule(device, request);
+            }
         }
     }
 
@@ -195,6 +220,11 @@ implements PacketService, PacketProviderRegistry {
      * @param request the packet request
      */
     private void pushRule(Device device, PacketRequest request) {
+        // Everything is pre-provisioned on ROADMs
+        if (device.type().equals(Device.Type.ROADM)) {
+            return;
+        }
+
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
                                                             .punt()
                                                             .build();
@@ -204,7 +234,7 @@ implements PacketService, PacketProviderRegistry {
                                 treatment,
                                 request.priority().priorityValue(),
                                 request.appId(),
-                                0, true);
+                                0, true, request.tableType());
 
         flowService.applyFlowRules(flow);
     }

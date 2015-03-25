@@ -15,7 +15,11 @@
  */
 package org.onosproject.cli.net;
 
-import com.google.common.collect.Lists;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
 import org.apache.karaf.shell.commands.Option;
@@ -37,11 +41,7 @@ import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.PointToPointIntent;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import com.google.common.collect.Lists;
 
 import static org.onosproject.net.DeviceId.deviceId;
 import static org.onosproject.net.PortNumber.portNumber;
@@ -129,17 +129,22 @@ public class IntentPushTestCommand extends AbstractShellCommand
     private List<Intent> generateIntents(ConnectPoint ingress, ConnectPoint egress) {
         TrafficSelector.Builder selectorBldr = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4);
-        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
+        TrafficTreatment treatment = DefaultTrafficTreatment.emptyTreatment();
 
         List<Intent> intents = Lists.newArrayList();
         for (int i = 0; i < count; i++) {
             TrafficSelector selector = selectorBldr
                     .matchEthSrc(MacAddress.valueOf(i + keyOffset))
                     .build();
-            intents.add(new PointToPointIntent(appId(), Key.of(i + keyOffset, appId()),
-                                               selector, treatment,
-                                               ingress, egress,
-                                               Collections.emptyList()));
+            intents.add(PointToPointIntent.builder()
+                    .appId(appId())
+                    .key(Key.of(i + keyOffset, appId()))
+                    .selector(selector)
+                    .treatment(treatment)
+                    .ingressPoint(ingress)
+                    .egressPoint(egress)
+                    .build());
+
 
         }
         return intents;
@@ -221,7 +226,7 @@ public class IntentPushTestCommand extends AbstractShellCommand
                 log.warn("install event latch is null");
             }
         } else if (IGNORE_EVENT.contains(event.type())) {
-            log.info("Unexpected intent event: {}", event);
+            log.debug("Unexpected intent event: {}", event);
         }
     }
 }

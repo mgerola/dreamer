@@ -4,7 +4,11 @@ import java.io.Serializable;
 import java.util.LinkedList;
 import java.util.List;
 
+import net.jcip.annotations.Immutable;
+
 import org.onosproject.icona.store.InterLink;
+
+import com.google.common.collect.ImmutableList;
 
 
 public class InterClusterPath implements Serializable {
@@ -16,7 +20,8 @@ public class InterClusterPath implements Serializable {
     }
 
     public List<InterLink> getInterlinks() {
-        return interlinks;
+        return ImmutableList.copyOf(interlinks);
+
     }
 
     public void addInterlinks(InterLink interlink) {

@@ -98,6 +98,7 @@ import static org.onosproject.net.link.LinkEvent.Type.LINK_REMOVED;
 /**
  * Facility for creating messages bound for the topology viewer.
  */
+@Deprecated
 public abstract class TopologyViewMessages {
 
     protected static final Logger log = LoggerFactory.getLogger(TopologyViewMessages.class);

@@ -16,9 +16,6 @@
 package org.onosproject.openflow.drivers;
 
 
-import java.util.Collections;
-import java.util.List;
-
 import org.onosproject.openflow.controller.Dpid;
 import org.onosproject.openflow.controller.RoleState;
 import org.onosproject.openflow.controller.driver.AbstractOpenFlowSwitch;
@@ -29,8 +26,12 @@ import org.projectfloodlight.openflow.protocol.OFFlowAdd;
 import org.projectfloodlight.openflow.protocol.OFMessage;
 import org.projectfloodlight.openflow.protocol.OFPortDesc;
 import org.projectfloodlight.openflow.protocol.OFVersion;
+import org.projectfloodlight.openflow.types.TableId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A simple implementation of a driver manager that differentiates between
@@ -41,6 +42,8 @@ public final class DriverManager implements OpenFlowSwitchDriverFactory {
     private static final Logger log = LoggerFactory.getLogger(DriverManager.class);
 
     private static final int LOWEST_PRIORITY = 0;
+
+    private static Dpid corsaDpid = new Dpid();
 
     /**
      * Return an IOFSwitch object based on switch's manufacturer description
@@ -55,6 +58,15 @@ public final class DriverManager implements OpenFlowSwitchDriverFactory {
             OFDescStatsReply desc, OFVersion ofv) {
         String vendor = desc.getMfrDesc();
         String hw = desc.getHwDesc();
+
+        if (dpid.equals(corsaDpid)) {
+            if (hw.startsWith("Open vSwitch")) {
+                return new OFOVSSwitchCorsaTTP(dpid, desc);
+            } else {
+                return new OFCorsaSwitchDriver(dpid, desc);
+            }
+        }
+
         if (vendor.startsWith("Stanford University, Ericsson Research and CPqD Research")
                 &&
                 hw.startsWith("OpenFlow 1.3 Reference Userspace Switch")) {
@@ -75,8 +87,14 @@ public final class DriverManager implements OpenFlowSwitchDriverFactory {
             return new OFOpticalSwitchImplLINC13(dpid, desc);
         }
 
+        if (vendor.startsWith("Corsa") && hw.startsWith("Corsa Element")
+                && sw.startsWith("2.3.1")) {
+            log.warn("Corsa Switch 2.3.1 found");
+            return new OFCorsaSwitchDriver(dpid, desc);
+        }
+
         log.warn("DriverManager could not identify switch desc: {}. "
-                + "Assigning AbstractOpenFlowSwich", desc);
+                         + "Assigning AbstractOpenFlowSwich", desc);
         return new AbstractOpenFlowSwitch(dpid, desc) {
 
             @Override
@@ -125,6 +143,17 @@ public final class DriverManager implements OpenFlowSwitchDriverFactory {
                     return Collections.unmodifiableList(ports.getEntries());
                 }
             }
+
+            @Override
+            public TableType getTableType(TableId tid) {
+                return TableType.NONE;
+            }
+
+            @Override
+            public void transformAndSendMsg(OFMessage msg, TableType tableType) {
+                // TODO Auto-generated method stub
+
+            }
         };
     }
 
@@ -137,6 +166,10 @@ public final class DriverManager implements OpenFlowSwitchDriverFactory {
     public static OpenFlowSwitchDriver getSwitch(Dpid dpid,
             OFDescStatsReply desc, OFVersion ofv) {
         return new DriverManager().getOFSwitchImpl(dpid, desc, ofv);
+    }
+
+    public static void setCorsaDpid(Dpid dpid) {
+        corsaDpid = dpid;
     }
 
 }

@@ -18,6 +18,7 @@ package org.onosproject.store.cluster.impl;
 import com.google.common.collect.Maps;
 import com.hazelcast.config.TopicConfig;
 import com.hazelcast.core.IAtomicLong;
+import com.hazelcast.core.ILock;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -50,7 +51,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,7 +73,7 @@ import static org.onlab.util.Tools.groupedThreads;
  * the current leader (e.g., for informational purpose).
  * </p>
  */
-@Component(immediate = true)
+@Component(immediate = true, enabled = false)
 @Service
 public class HazelcastLeadershipService implements LeadershipService {
     private static final Logger log =
@@ -170,7 +170,8 @@ public class HazelcastLeadershipService implements LeadershipService {
         if (topic != null) {
             return new Leadership(topic.topicName(),
                     topic.leader(),
-                    topic.term());
+                    topic.term(),
+                    0);
         }
         return null;
     }
@@ -215,7 +216,8 @@ public class HazelcastLeadershipService implements LeadershipService {
         for (Topic topic : topics.values()) {
             Leadership leadership = new Leadership(topic.topicName(),
                                                    topic.leader(),
-                                                   topic.term());
+                                                   topic.term(),
+                                                   0);
             result.put(topic.topicName(), leadership);
         }
         return result;
@@ -247,8 +249,8 @@ public class HazelcastLeadershipService implements LeadershipService {
         // higher if the mastership has changed any times.
         private long myLastLeaderTerm = NO_TERM;
 
-        private NodeId leader;
-        private Lock leaderLock;
+        private volatile NodeId leader;
+        private ILock leaderLock;
         private Future<?> getLockFuture;
         private Future<?> periodicProcessingFuture;
 
@@ -412,7 +414,7 @@ public class HazelcastLeadershipService implements LeadershipService {
                             //
                             leadershipEvent = new LeadershipEvent(
                                 LeadershipEvent.Type.LEADER_REELECTED,
-                                new Leadership(topicName, localNodeId, myLastLeaderTerm));
+                                new Leadership(topicName, localNodeId, myLastLeaderTerm, 0));
                             // Dispatch to all instances
 
                             clusterCommunicator.broadcastIncludeSelf(
@@ -427,9 +429,11 @@ public class HazelcastLeadershipService implements LeadershipService {
                             long delta = System.currentTimeMillis() -
                                 lastLeadershipUpdateMs;
                             if (delta > LEADERSHIP_REMOTE_TIMEOUT_MS) {
+                                log.debug("Topic {} leader {} booted due to heartbeat timeout",
+                                          topicName, leader);
                                 leadershipEvent = new LeadershipEvent(
                                         LeadershipEvent.Type.LEADER_BOOTED,
-                                        new Leadership(topicName, leader, myLastLeaderTerm));
+                                        new Leadership(topicName, leader, myLastLeaderTerm, 0));
                                 // Dispatch only to the local listener(s)
                                 eventDispatcher.post(leadershipEvent);
                                 leader = null;
@@ -484,8 +488,8 @@ public class HazelcastLeadershipService implements LeadershipService {
 
                         leader = localNodeId;
                         leadershipEvent = new LeadershipEvent(
-                                                              LeadershipEvent.Type.LEADER_ELECTED,
-                                                              new Leadership(topicName, localNodeId, myLastLeaderTerm));
+                                             LeadershipEvent.Type.LEADER_ELECTED,
+                                             new Leadership(topicName, localNodeId, myLastLeaderTerm, 0));
                         clusterCommunicator.broadcastIncludeSelf(
                                 new ClusterMessage(
                                         clusterService.getLocalNode().id(),
@@ -512,14 +516,16 @@ public class HazelcastLeadershipService implements LeadershipService {
                             leader = null;
                         }
                         leadershipEvent = new LeadershipEvent(
-                                                              LeadershipEvent.Type.LEADER_BOOTED,
-                                                              new Leadership(topicName, localNodeId, myLastLeaderTerm));
+                                                 LeadershipEvent.Type.LEADER_BOOTED,
+                                                 new Leadership(topicName, localNodeId, myLastLeaderTerm, 0));
                         clusterCommunicator.broadcastIncludeSelf(
                                 new ClusterMessage(
                                         clusterService.getLocalNode().id(),
                                         LEADERSHIP_EVENT_MESSAGE_SUBJECT,
                                         SERIALIZER.encode(leadershipEvent)));
-                        leaderLock.unlock();
+                        if (leaderLock.isLockedByCurrentThread()) {
+                            leaderLock.unlock();
+                        }
                     }
                 }
             }

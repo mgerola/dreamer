@@ -28,28 +28,29 @@
     ];
 
     // references to injected services etc.
-    var $log, fs, ks, zs, gs, ms, sus, flash, tes, tfs, tps, tis, tss, tts, tos;
+    var $log, fs, ks, zs, gs, ms, sus, flash, wss,
+        tes, tfs, tps, tis, tss, tts, tos, ttbs;
 
     // DOM elements
     var ovtopo, svg, defs, zoomLayer, mapG, forceG, noDevsLayer;
 
     // Internal state
-    var zoomer;
+    var zoomer, actionMap;
 
     // --- Short Cut Keys ------------------------------------------------
 
     function setUpKeys() {
         // key bindings need to be made after the services have been injected
         // thus, deferred to here...
-        ks.keyBindings({
-            O: [tps.toggleSummary, 'Toggle ONOS summary pane'],
+        actionMap = {
             I: [toggleInstances, 'Toggle ONOS instances pane'],
+            O: [tps.toggleSummary, 'Toggle ONOS summary pane'],
             D: [tss.toggleDetails, 'Disable / enable details pane'],
 
             H: [tfs.toggleHosts, 'Toggle host visibility'],
             M: [tfs.toggleOffline, 'Toggle offline visibility'],
             B: [toggleMap, 'Toggle background map'],
-            //P: togglePorts,
+            P: [tfs.togglePorts, 'Toggle Port Highlighting'],
 
             //X: [toggleNodeLock, 'Lock / unlock node positions'],
             Z: [tos.toggleOblique, 'Toggle oblique view (Experimental)'],
@@ -68,12 +69,16 @@
 
             esc: handleEscape,
 
+            _keyListener: ttbs.keyListener,
+
             _helpFormat: [
-                ['O', 'I', 'D', '-', 'H', 'M', 'B', 'P' ],
+                ['I', 'O', 'D', '-', 'H', 'M', 'P', 'B' ],
                 ['X', 'Z', 'L', 'U', 'R' ],
                 ['V', 'rightArrow', 'leftArrow', 'W', 'A', 'F', '-', 'E' ]
             ]
-        });
+        };
+
+        ks.keyBindings(actionMap);
 
         ks.gestureNotes([
             ['click', 'Select the item and show details'],
@@ -102,7 +107,7 @@
     }
 
     function equalizeMasters() {
-        tes.sendEvent('equalizeMasters');
+        wss.sendEvent('equalizeMasters');
         flash.flash('Equalizing master roles');
     }
 
@@ -129,6 +134,20 @@
             // talk to Thomas about this: shouldn't it be done
             // when we deselect the node (if tss.haveDetails()...)
         }
+    }
+
+    // --- Toolbar Functions ---------------------------------------------
+
+    function getActionEntry(key) {
+        var entry = actionMap[key];
+        return fs.isA(entry) || [entry, ''];
+    }
+
+    function setUpToolbar() {
+        ttbs.init({
+            getActionEntry: getActionEntry
+        });
+        ttbs.createToolbar();
     }
 
     // --- Glyphs, Icons, and the like -----------------------------------
@@ -213,17 +232,17 @@
     // --- Controller Definition -----------------------------------------
 
     angular.module('ovTopo', moduleDependencies)
-        .controller('OvTopoCtrl', [
-            '$scope', '$log', '$location', '$timeout',
+        .controller('OvTopoCtrl', ['$scope', '$log', '$location', '$timeout',
             'FnService', 'MastService', 'KeyService', 'ZoomService',
             'GlyphService', 'MapService', 'SvgUtilService', 'FlashService',
+            'WebSocketService',
             'TopoEventService', 'TopoForceService', 'TopoPanelService',
             'TopoInstService', 'TopoSelectService', 'TopoTrafficService',
-            'TopoObliqueService',
+            'TopoObliqueService', 'TopoToolbarService',
 
         function ($scope, _$log_, $loc, $timeout, _fs_, mast,
-                  _ks_, _zs_, _gs_, _ms_, _sus_, _flash_,
-                  _tes_, _tfs_, _tps_, _tis_, _tss_, _tts_, _tos_) {
+                  _ks_, _zs_, _gs_, _ms_, _sus_, _flash_, _wss_,
+                  _tes_, _tfs_, _tps_, _tis_, _tss_, _tts_, _tos_, _ttbs_) {
             var self = this,
                 projection,
                 dim,
@@ -233,8 +252,7 @@
                     projection: function () { return projection; },
                     zoomLayer: function () { return zoomLayer; },
                     zoomer: function () { return zoomer; },
-                    opacifyMap: opacifyMap,
-                    sendEvent: _tes_.sendEvent
+                    opacifyMap: opacifyMap
                 };
 
             $log = _$log_;
@@ -245,6 +263,7 @@
             ms = _ms_;
             sus = _sus_;
             flash = _flash_;
+            wss = _wss_;
             tes = _tes_;
             tfs = _tfs_;
             // TODO: consider funnelling actions through TopoForceService...
@@ -255,6 +274,7 @@
             tss = _tss_;
             tts = _tts_;
             tos = _tos_;
+            ttbs = _ttbs_;
 
             self.notifyResize = function () {
                 svgResized(fs.windowSize(mast.mastHeight()));
@@ -263,10 +283,11 @@
             // Cleanup on destroyed scope..
             $scope.$on('$destroy', function () {
                 $log.log('OvTopoCtrl is saying Buh-Bye!');
-                tes.closeSock();
+                tes.stop();
                 tps.destroyPanels();
                 tis.destroyInst();
                 tfs.destroyForce();
+                ttbs.destroyToolbar();
             });
 
             // svg layer and initialization of components
@@ -277,6 +298,7 @@
             dim = [svg.attr('width'), svg.attr('height')];
 
             setUpKeys();
+            setUpToolbar();
             setUpDefs();
             setUpZoom();
             setUpNoDevs();
@@ -290,8 +312,8 @@
             forceG = zoomLayer.append('g').attr('id', 'topo-force');
             tfs.initForce(svg, forceG, uplink, dim);
             tis.initInst({ showMastership: tfs.showMastership });
-            tps.initPanels({ sendEvent: tes.sendEvent });
-            tes.openSock();
+            tps.initPanels();
+            tes.start();
 
             $log.log('OvTopoCtrl has been created');
         }]);

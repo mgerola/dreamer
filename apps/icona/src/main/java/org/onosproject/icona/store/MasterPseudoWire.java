@@ -14,6 +14,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class MasterPseudoWire extends PseudoWire {
     private PathInstallationStatus pwStatus;
     private Map<String, PseudoWireIntent> clusterIntentMap;
+    InterClusterPath path;
 
     private TrafficSelector selector;
     private TrafficTreatment treatment;
@@ -21,37 +22,24 @@ public class MasterPseudoWire extends PseudoWire {
     // private InterClusterPath interClusterPath;
     // TODO: ingressLabel and egressLabel
 
-    public enum PathInstallationStatus {
-        RECEIVED, INITIALIZED, RESERVED, COMMITTED, INSTALLED,
-
-    }
-
-    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
+    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, String clusterMaster,
                     TrafficSelector trafficSelector, TrafficTreatment treatment) {
         
-        this(srcEndPoint, dstEndPoint, trafficSelector, treatment, null,
-             PathInstallationStatus.RECEIVED);
+        this(srcEndPoint, dstEndPoint, clusterMaster, trafficSelector, treatment, new InterClusterPath(), PathInstallationStatus.RECEIVED);
 
     }
 
-    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint,
+    public MasterPseudoWire(EndPoint srcEndPoint, EndPoint dstEndPoint, String clusterMaster,
                       TrafficSelector selector, TrafficTreatment treatment, InterClusterPath path,
                       PathInstallationStatus pwStatus) {
-        super(srcEndPoint, dstEndPoint, path);
+        super(srcEndPoint, dstEndPoint, clusterMaster, pwStatus);
         checkNotNull(selector);
         checkNotNull(treatment);
         this.selector = selector;
         this.treatment = treatment;
         this.pwStatus = pwStatus;
+        this.path = path;
         this.clusterIntentMap = new HashMap<String, PseudoWireIntent>();
-    }
-
-    public PathInstallationStatus getPwStatus() {
-        return pwStatus;
-    }
-
-    public void setPwStatus(PathInstallationStatus pwStatus) {
-        this.pwStatus = pwStatus;
     }
 
     public void setIntentStatus(String clusterName,
@@ -68,15 +56,13 @@ public class MasterPseudoWire extends PseudoWire {
                                     Integer egressLabel,
                                     PathInstallationStatus installationStatus,
                                     boolean isIngress,
-                                    boolean isEgress,
-                                    boolean isBackup) {
+                                    boolean isEgress) {
         PseudoWireIntent pwIntent = new PseudoWireIntent(dstClusterName, src, dst,
                                                          ingressLabel,
                                                          egressLabel,
                                                          installationStatus,
                                                          isIngress,
-                                                         isEgress,
-                                                         isBackup);
+                                                         isEgress);
         clusterIntentMap.put(pwIntent.dstClusterName(), pwIntent);
     }
 
@@ -96,14 +82,19 @@ public class MasterPseudoWire extends PseudoWire {
         return treatment;
     }
 
-    @Override
-    public String toString() {
-        return "MasterPseudoWire [srcEndPoint=" + super.getSrcEndPoint() + ", dstEndPoint="
-                + super.getDstEndPoint() + ", pseudoWireId=" + super.getPseudoWireId() + "pwStatus=" + pwStatus + ", clusterIntentMap="
-                + clusterIntentMap + ", path=" + super.getInterClusterPath() + ", selector="
-                + selector + ", treatment=" + treatment + "]";
+    public InterClusterPath getInterClusterPath() {
+        return path;
+    }
+    
+    public void setInterClusterPath(InterClusterPath path){
+        this.path = path;
     }
 
+    @Override
+    public String toString() {
+        return "MasterPseudoWire [" + super.toString() + "pwStatus=" + pwStatus + ", clusterIntentMap="
+                + clusterIntentMap + "]";
+    }
     
 
 }

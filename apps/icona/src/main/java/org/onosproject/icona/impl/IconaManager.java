@@ -3,6 +3,7 @@ package org.onosproject.icona.impl;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -31,12 +32,14 @@ import org.onosproject.icona.channel.inter.InterChannelService;
 import org.onosproject.icona.channel.intra.IconaIntraEvent;
 import org.onosproject.icona.channel.intra.IntraChannelService;
 import org.onosproject.icona.channel.intra.IntraPseudoWireElement;
+import org.onosproject.icona.channel.intra.IntraPseudoWireElement.IntentUpdateType;
 import org.onosproject.icona.store.Cluster;
 import org.onosproject.icona.store.EndPoint;
 import org.onosproject.icona.store.IconaStoreService;
 import org.onosproject.icona.store.InterLink;
 import org.onosproject.icona.store.MasterPseudoWire;
-import org.onosproject.icona.store.MasterPseudoWire.PathInstallationStatus;
+import org.onosproject.icona.store.PseudoWire;
+import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.icona.store.PseudoWireIntent;
 import org.onosproject.mastership.MastershipService;
 import org.onosproject.net.ConnectPoint;
@@ -65,8 +68,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class IconaManager implements IconaService {
 
     private final Logger log = getLogger(getClass());
-    //TODO: manage the dealy: hazelcast migrate distributed register 
-    //and with low delay we have troubles...
+    // TODO: manage the dealy: hazelcast migrate distributed register
+    // and with low delay we have troubles...
     // ICONA interval to send HELLO
     private static int helloInterval = 3000;
     // If ICONA does not receive HELLO packets from another cluster for a period
@@ -103,16 +106,16 @@ public class IconaManager implements IconaService {
     protected IconaConfigService iconaConfigService;
 
     private class MgmtHandler extends Thread {
-    
+
         @Override
         public void run() {
             // TODO: to be changed: add new hello is equal to update. I do not
             // need to remove previousHello and maybe I can use a simpler index
-    
+
             // TODO: manage mastership! We cannot use the swtiches master...
-            
-                try {
-                    while (!isInterrupted()) {
+
+            try {
+                while (!isInterrupted()) {
                     // log.info("IconaLeader {}",
                     // leadershipService.getLeader(iconaLeaderPath));
                     if (leadershipService.getLeader(iconaConfigService
@@ -123,7 +126,7 @@ public class IconaManager implements IconaService {
                                     .equals(leadershipService
                                                     .getLeader(iconaConfigService
                                                             .getIconaLeaderPath()))) {
-    
+
                         // log.info("Sono icona-leader");
                         interChannelService
                                 .helloManagement(new Date(), iconaConfigService
@@ -146,29 +149,29 @@ public class IconaManager implements IconaService {
                                                                interLink.src(),
                                                                interLink.dst());
                                 }
-    
+
                                 interChannelService.remCluster(cluster
                                         .getClusterName());
-    
+
                                 log.warn("Cluster {} is down: no HELLO received in the last {} milliseconds",
                                          cluster.getClusterName(),
                                          helloInterval * deadOccurence);
                             }
                         }
                     }
-                    }
-                    Thread.sleep(helloInterval);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException("Interrupted", e);
-    
+                }
+                Thread.sleep(helloInterval);
+            } catch (InterruptedException e) {
+                throw new RuntimeException("Interrupted", e);
+
             }
         }
     }
 
     @Activate
     public void activate() {
+        log.info("Starting ICONA manager: Cluster {}", iconaConfigService.getClusterName());
         loadStartUp();
-        log.info("Starting icona manager");
         deviceService.addListener(new ManageDevices());
         linkService.addListener(new ManageLinks());
         mgmtThread = new MgmtHandler();
@@ -209,18 +212,19 @@ public class IconaManager implements IconaService {
                             PortNumber localPort, DeviceId remoteId,
                             PortNumber remotePort) {
 
-        log.debug("Received ELLDP from cluster {}: local switch DPID {} and port {} "
+        log.info("Received ELLDP from cluster {}: local switch DPID {} and port {} "
                          + "and remote switch DPID {} and port {}",
                  remoteclusterName, localId, localPort, remoteId, remotePort);
         // Publish a new "IL add" and if an EPs exits, an "EP remove" is
         // published
-        
-        //TODO: some of these check sould be handle in the linkdiscorvery...
+
+        // TODO: some of these check sould be handle in the linkdiscorvery...
         if (mastershipService.getLocalRole(localId) == MastershipRole.MASTER) {
             if (!remoteclusterName.isEmpty() && remoteclusterName != null
                     && iconaStoreService.getCluster(remoteclusterName) != null
                     && localId != null) {
-                if (!iconaStoreService.getInterLink(localId, localPort).isPresent()) {
+                if (!iconaStoreService.getInterLink(localId, localPort)
+                        .isPresent()) {
                     interChannelService
                             .addInterLinkEvent(iconaConfigService
                                                        .getClusterName(),
@@ -229,7 +233,7 @@ public class IconaManager implements IconaService {
                                                                 localPort),
                                                new ConnectPoint(remoteId,
                                                                 remotePort));
-                    
+
                     for (EndPoint endPoint : iconaStoreService
                             .getEndPoints(localId)) {
                         interChannelService.remEndPointEvent(endPoint);
@@ -329,7 +333,7 @@ public class IconaManager implements IconaService {
                 case PORT_REMOVED:
                     // If it was a IL or an EP, an "IL or EP remove" is
                     // published.
-
+                    
                     iconaStoreService
                             .getInterLink(id, event.port().number())
                             .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -351,6 +355,12 @@ public class IconaManager implements IconaService {
                     // If the port is not up and an IL exists, an "IL remove" is
                     // published.
                     if (!event.port().isEnabled()) {
+                        
+                        Collection<PseudoWireIntent> localIntents = iconaStoreService.getLocalIntents(new ConnectPoint(id, event.port().number()));
+                        if(localIntents != null) {
+                            log.info("We need to reroute all the intents!");
+                        }
+                        
                         iconaStoreService
                                 .getInterLink(id, event.port().number())
                                 .ifPresent(interLink -> interChannelService.remInterLinkEvent(interLink
@@ -392,8 +402,12 @@ public class IconaManager implements IconaService {
 
     @Override
     public void handlePseudoWire(IconaIntraEvent event) {
-
+        
         IntraPseudoWireElement intraPW = event.intraPseudoWireElement();
+        
+        if(event.intraPseudoWireElement().intentUpdateType() == IntentUpdateType.INSTALL) {
+
+        
         EndPoint srcEndPoint = iconaStoreService
                 .getEndPoint(DeviceId.deviceId(intraPW.srcId()),
                              PortNumber.portNumber(intraPW.srcPort()))
@@ -405,10 +419,16 @@ public class IconaManager implements IconaService {
                              PortNumber.portNumber(intraPW.dstPort()))
                 .orElseThrow(() -> new NullPointerException(
                                                             "Destination EndPoint does not exists"));
-        // TODO: publish the PW on the topology channel
-        //TODO: Fix trafficSelector and TrafficTratement 
-        MasterPseudoWire pw = new MasterPseudoWire(srcEndPoint, dstEndPoint, DefaultTrafficSelector.builder().build(), DefaultTrafficTreatment.builder().build());
-        checkArgument(iconaStoreService.addMasterPseudoWire(pw));
+
+        // TODO: Fix trafficSelector and TrafficTratement
+        MasterPseudoWire pw = new MasterPseudoWire(srcEndPoint, dstEndPoint,
+                                                   iconaConfigService
+                                                           .getClusterName(),
+                                                   DefaultTrafficSelector
+                                                           .builder().build(),
+                                                   DefaultTrafficTreatment
+                                                           .builder().build());
+        iconaStoreService.addMasterPseudoWire(pw);
 
         if (leadershipService
                 .getLeader(iconaConfigService.getIconaLeaderPath()) != null
@@ -418,24 +438,37 @@ public class IconaManager implements IconaService {
                         .equals(leadershipService.getLeader(iconaConfigService
                                         .getIconaLeaderPath()))) {
 
+            // Publishing PW on the interchannel
+            interChannelService
+                    .addPseudoWireEvent(srcEndPoint, dstEndPoint,
+                                        iconaConfigService.getClusterName(),
+                                        PathInstallationStatus.RECEIVED, pw.getPseudoWireId());
+
             BFSTree geoTree = new BFSTree(
                                           iconaStoreService.getCluster(srcEndPoint
                                                   .clusterName()),
-                                          iconaStoreService, null);
-      
+                                          iconaStoreService);
+
             Cluster dstCluster = iconaStoreService.getCluster(dstEndPoint
                     .clusterName());
             InterClusterPath interClusterPath = geoTree.getPath(dstCluster);
             checkNotNull(interClusterPath.getInterlinks());
+            String ils = "";
+            for (InterLink il : interClusterPath.getInterlinks()){
+            
+                ils = ils + " " + il.toString();
+            }
+            log.info("ILs PATH: {}", ils);
             pw.setInterClusterPath(interClusterPath);
-            
-            
+
+
+
             // EPs are in the same cluster
             if (interClusterPath.getInterlinks().isEmpty()) {
                 pw.addPseudoWireIntent(srcEndPoint, dstEndPoint,
-                                       srcEndPoint.clusterName(),
-                                       null, null,
-                                       PathInstallationStatus.RECEIVED, true, true, false);
+                                       srcEndPoint.clusterName(), null, null,
+                                       PathInstallationStatus.RECEIVED, true,
+                                       true);
 
                 // Installation procedure...
             } else {
@@ -444,27 +477,26 @@ public class IconaManager implements IconaService {
                 // order: from destination to source.
                 List<InterLink> interLinks = interClusterPath.getInterlinks();
 
-                // SrcEndPoint to last interLink
                 pw.addPseudoWireIntent(srcEndPoint,
                                        interLinks.get(interLinks.size() - 1)
                                                .src(), srcEndPoint
-                                               .clusterName(),
-                                               null, null,
-                                       PathInstallationStatus.RECEIVED, true, false, false);
+                                               .clusterName(), null, null,
+                                       PathInstallationStatus.RECEIVED, true,
+                                       false);
 
-                // DstEndPoint to first interlink
                 pw.addPseudoWireIntent(interLinks.get(0).dst(), dstEndPoint,
-                                       dstEndPoint.clusterName(),
-                                       null, null,
-                                       PathInstallationStatus.RECEIVED, false, true, false);
+                                       dstEndPoint.clusterName(), null, null,
+                                       PathInstallationStatus.RECEIVED, false,
+                                       true);
 
                 // Interlinks in the middle
                 for (int i = interLinks.size() - 1; i > 0; i--) {
                     pw.addPseudoWireIntent(interLinks.get(i).dst(), interLinks
-                            .get(i - 1).src(), interLinks.get(i)
-                            .dstClusterName(), 
-                            null, null, 
-                            PathInstallationStatus.RECEIVED, false, false, false);
+                                                   .get(i - 1).src(),
+                                           interLinks.get(i).dstClusterName(),
+                                           null, null,
+                                           PathInstallationStatus.RECEIVED,
+                                           false, false);
 
                 }
             }
@@ -472,15 +504,34 @@ public class IconaManager implements IconaService {
             // Send the intents to the channel
             for (PseudoWireIntent pseudoWireIntent : pw.getIntents()) {
                 interChannelService
-                        .addMasterPseudoWireEvent(iconaConfigService.getClusterName(),
-                                            pw.getPseudoWireId(),
-                                            pseudoWireIntent,
-                                            IntentRequestType.RESERVE,
-                                            IntentReplayType.EMPTY);
+                        .addPseudoWireIntentEvent(iconaConfigService
+                                                          .getClusterName(), pw
+                                                          .getPseudoWireId(),
+                                                  pseudoWireIntent,
+                                                  IntentRequestType.RESERVE,
+                                                  IntentReplayType.EMPTY);
 
             }
+            
 
             pw.setPwStatus(PathInstallationStatus.INITIALIZED);
+        }
+        } else if (event.intraPseudoWireElement().intentUpdateType() == IntentUpdateType.DELETE) {
+            ConnectPoint srcCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
+                    PortNumber.portNumber(intraPW.srcPort()));
+            ConnectPoint dstCP = new ConnectPoint(DeviceId.deviceId(intraPW.srcId()),
+                                              PortNumber.portNumber(intraPW.srcPort())); 
+            
+            
+            PseudoWire pw = iconaStoreService.getPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
+            if (pw == null) {
+                pw = iconaStoreService.getMasterPseudoWire(iconaStoreService.getPseudoWireId(srcCP, dstCP));
+                if (pw == null) { 
+                    log.warn("Pseudowire does not exist: {}");
+                    return;
+                }
+            } 
+            interChannelService.addPseudoWireEvent(pw);
         }
     }
 }

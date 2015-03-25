@@ -35,11 +35,10 @@
 
     // view IDs.. note the first view listed is loaded at startup
     var viewIds = [
-        // TODO: inject view IDs server side
         // {INJECTED-VIEW-IDS-START}
-        'sample',
         'topo',
         'device',
+        'sample',
         // {INJECTED-VIEW-IDS-END}
 
         // dummy entry
@@ -65,10 +64,10 @@
         .controller('OnosCtrl', [
             '$log', '$route', '$routeParams', '$location',
             'KeyService', 'ThemeService', 'GlyphService', 'PanelService',
-            'FlashService', 'QuickHelpService',
+            'FlashService', 'QuickHelpService', 'WebSocketService',
 
             function ($log, $route, $routeParams, $location,
-                      ks, ts, gs, ps, flash, qhs) {
+                      ks, ts, gs, ps, flash, qhs, wss) {
                 var self = this;
 
                 self.$route = $route;
@@ -84,6 +83,12 @@
                 ps.init();
                 flash.initFlash();
                 qhs.initQuickHelp();
+
+                // TODO: register handler for user settings, etc.
+
+                wss.createWebSocket({
+                    wsport: $location.search().wsport
+                });
 
                 $log.log('OnosCtrl has been created');
 

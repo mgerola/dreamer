@@ -17,7 +17,6 @@ package org.onosproject.sdnip;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.onlab.packet.Ethernet;
-import org.onlab.packet.Ip4Address;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
@@ -33,6 +32,7 @@ import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.intent.Intent;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.IntentState;
+import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.MultiPointToSinglePointIntent;
 import org.onosproject.net.intent.PointToPointIntent;
 import org.onosproject.routing.FibListener;
@@ -44,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -63,6 +64,9 @@ import static com.google.common.base.Preconditions.checkArgument;
  * IntentService.
  */
 public class IntentSynchronizer implements FibListener {
+    private static final int PRIORITY_OFFSET = 100;
+    private static final int PRIORITY_MULTIPLIER = 5;
+
     private static final Logger log =
         LoggerFactory.getLogger(IntentSynchronizer.class);
 
@@ -315,7 +319,7 @@ public class IntentSynchronizer implements FibListener {
 
         // Match the destination IP prefix at the first hop
         TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
-        if (prefix.version() == Ip4Address.VERSION) {
+        if (prefix.isIp4()) {
             selector.matchEthType(Ethernet.TYPE_IPV4);
             selector.matchIPDst(prefix);
         } else {
@@ -333,9 +337,14 @@ public class IntentSynchronizer implements FibListener {
             selector.matchVlanId(VlanId.ANY);
         }
 
-        return new MultiPointToSinglePointIntent(appId, selector.build(),
+        int priority =
+            prefix.prefixLength() * PRIORITY_MULTIPLIER + PRIORITY_OFFSET;
+        Key key = Key.of(prefix.toString(), appId);
+        return new MultiPointToSinglePointIntent(appId, key, selector.build(),
                                                  treatment.build(),
-                                                 ingressPorts, egressPort);
+                                                 ingressPorts, egressPort,
+                                                 Collections.emptyList(),
+                                                 priority);
     }
 
     @Override

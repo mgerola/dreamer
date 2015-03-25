@@ -3,10 +3,11 @@ package org.onosproject.icona.store;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Iterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.ImmutableList;
 
 public class Cluster {
 
@@ -52,20 +53,11 @@ public class Cluster {
     }
 
     public Collection<InterLink> getInterLinks() {
-        return interlinks;
-    }
-    
-    public Collection<InterLink> getOutgoingInterLinks() {
-    	Collection<InterLink> outgoingILs = new HashSet<InterLink>();
-    	for (InterLink il : interlinks) {
-    		if (il.srcClusterName().equals(clusterName))
-    			outgoingILs.add(il);
-    	}
-        return outgoingILs;
+        return ImmutableList.copyOf(interlinks);
     }
 
     public void remEndPoint(EndPoint endPoint) {
-        if (!endPoints.remove(endPoints)) {
+        if (!endPoints.remove(endPoint)) {
             log.warn("EndPoint {} is not present in this cluster {}", endPoint,
                      getClusterName());
         }
@@ -76,8 +68,16 @@ public class Cluster {
     }
 
     public Collection<EndPoint> getEndPoints() {
-        return endPoints;
+        return ImmutableList.copyOf(endPoints);
 
     }
+
+    @Override
+    public String toString() {
+        return "Cluster [clusterName=" + clusterName + ", lastSeenTimestamp=" + lastSeenTimestamp + ", interlinks="
+                + interlinks + ", endPoints=" + endPoints + "]";
+    }
+    
+    
 
 }
