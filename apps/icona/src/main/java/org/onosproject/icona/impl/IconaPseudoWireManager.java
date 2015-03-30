@@ -2,6 +2,7 @@ package org.onosproject.icona.impl;
 
 import static org.slf4j.LoggerFactory.getLogger;
 
+import java.security.Key;
 import java.util.Optional;
 
 import org.apache.felix.scr.annotations.Activate;
@@ -21,6 +22,7 @@ import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.intent.IngressMplsBackupIntent;
 import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
+import org.onosproject.net.intent.MplsIntent;
 import org.slf4j.Logger;
 
 @Service
@@ -52,26 +54,19 @@ public class IconaPseudoWireManager implements IconaPseudoWireService {
     public IntentId installPseudoWireIntent(ConnectPoint ingress, Optional<MplsLabel> ingressLabel,
                                         ConnectPoint egress, Optional<MplsLabel> egressLabel) {
 
-//        TrafficSelector selec = DefaultTrafficSelector.builder().build();
-//        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
-//        MplsIntent intent = new MplsIntent(iconaConfigService.getApplicationId(), selec, treatment,
-//                   ingress, ingressLabel, egress, egressLabel);
-//        intentService.submit(intent);
-//        return intent.id();
-
-              TrafficSelector selec = DefaultTrafficSelector.builder().build();
-              TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
-              IngressMplsBackupIntent intent = IngressMplsBackupIntent.builder().appId(iconaConfigService.getApplicationId())
-                      .selector(selec)
-                      .treatment(treatment)
-                       .ingressPoint(ingress)
-                       .ingressLabel(Optional.ofNullable(MplsLabel.mplsLabel(100)))
-                       .egressPoint(egress)
-                       .egressLabel(egressLabel.get())
-                       .backupLabel(MplsLabel.mplsLabel(200)).build();
-              log.info("intent subitted");
-              intentService.submit(intent);
-              return intent.id();
+        TrafficSelector selec = DefaultTrafficSelector.builder().build();
+        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
+        MplsIntent intent = MplsIntent.builder()
+                                .appId(iconaConfigService.getApplicationId())
+                                .selector(selec)
+                                .treatment(treatment)
+                                .ingressPoint(ingress)
+                                .ingressLabel(ingressLabel)
+                                .egressPoint(egress)
+                                .egressLabel(egressLabel)
+                                .build();
+        intentService.submit(intent);
+        return intent.id();
 
     }
 

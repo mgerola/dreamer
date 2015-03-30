@@ -2,7 +2,7 @@
 export OC1="10.216.160.41"
 
 # for node clustering
-export ONOS_NIC="172.16.0.*"
+export ONOS_NIC="10.216.160.*"
 
 export ONOS_APPS="openflow,icona"
 
