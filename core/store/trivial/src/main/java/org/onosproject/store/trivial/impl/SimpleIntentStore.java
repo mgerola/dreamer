@@ -38,6 +38,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.onosproject.net.intent.IntentState.*;
 import static org.slf4j.LoggerFactory.getLogger;
 
+/**
+ * Simple single-instance implementation of the intent store.
+ */
 @Component(immediate = true)
 @Service
 public class SimpleIntentStore
@@ -48,19 +51,6 @@ public class SimpleIntentStore
 
     private final Map<Key, IntentData> current = Maps.newConcurrentMap();
     private final Map<Key, IntentData> pending = Maps.newConcurrentMap();
-
-    private IntentData copyData(IntentData original) {
-        if (original == null) {
-            return null;
-        }
-        IntentData result =
-                new IntentData(original.intent(), original.state(), original.version());
-
-        if (original.installables() != null) {
-            result.setInstallables(original.installables());
-        }
-        return result;
-    }
 
     @Activate
     public void activate() {
@@ -99,91 +89,20 @@ public class SimpleIntentStore
         return null;
     }
 
-
-    /**
-     * Determines whether an intent data update is allowed. The update must
-     * either have a higher version than the current data, or the state
-     * transition between two updates of the same version must be sane.
-     *
-     * @param currentData existing intent data in the store
-     * @param newData new intent data update proposal
-     * @return true if we can apply the update, otherwise false
-     */
-    private boolean isUpdateAcceptable(IntentData currentData, IntentData newData) {
-
-        if (currentData == null) {
-            return true;
-        } else if (currentData.version().compareTo(newData.version()) < 0) {
-            return true;
-        } else if (currentData.version().compareTo(newData.version()) > 0) {
-            return false;
-        }
-
-        // current and new data versions are the same
-        IntentState currentState = currentData.state();
-        IntentState newState = newData.state();
-
-        switch (newState) {
-            case INSTALLING:
-                if (currentState == INSTALLING) {
-                    return false;
-                }
-            // FALLTHROUGH
-            case INSTALLED:
-                if (currentState == INSTALLED) {
-                    return false;
-                } else if (currentState == WITHDRAWING || currentState == WITHDRAWN) {
-                    log.warn("Invalid state transition from {} to {} for intent {}",
-                             currentState, newState, newData.key());
-                    return false;
-                }
-                return true;
-
-            case WITHDRAWING:
-                if (currentState == WITHDRAWING) {
-                    return false;
-                }
-            // FALLTHOUGH
-            case WITHDRAWN:
-                if (currentState == WITHDRAWN) {
-                    return false;
-                } else if (currentState == INSTALLING || currentState == INSTALLED) {
-                    log.warn("Invalid state transition from {} to {} for intent {}",
-                             currentState, newState, newData.key());
-                    return false;
-                }
-                return true;
-
-
-            case FAILED:
-                if (currentState == FAILED) {
-                    return false;
-                }
-                return true;
-
-
-            case COMPILING:
-            case RECOMPILING:
-            case INSTALL_REQ:
-            case WITHDRAW_REQ:
-            default:
-                log.warn("Invalid state {} for intent {}", newState, newData.key());
-                return false;
-        }
-    }
-
     @Override
     public void write(IntentData newData) {
+        checkNotNull(newData);
+
         synchronized (this) {
             // TODO this could be refactored/cleaned up
             IntentData currentData = current.get(newData.key());
             IntentData pendingData = pending.get(newData.key());
 
-            if (isUpdateAcceptable(currentData, newData)) {
+            if (IntentData.isUpdateAcceptable(currentData, newData)) {
                 if (pendingData.state() == PURGE_REQ) {
                     current.remove(newData.key(), newData);
                 } else {
-                    current.put(newData.key(), copyData(newData));
+                    current.put(newData.key(), new IntentData(newData));
                 }
 
                 if (pendingData != null
@@ -219,7 +138,11 @@ public class SimpleIntentStore
 
     @Override
     public IntentData getIntentData(Key key) {
-        return copyData(current.get(key));
+        IntentData currentData = current.get(key);
+        if (currentData == null) {
+            return null;
+        }
+        return new IntentData(currentData);
     }
 
     @Override

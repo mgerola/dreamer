@@ -97,7 +97,12 @@ public class CompilingTest {
                 .ingressPoint(cp1)
                 .egressPoint(cp3)
                 .build();
-        compiled = new PathIntent(appId, selector, treatment, path);
+        compiled = PathIntent.builder()
+                .appId(appId)
+                .selector(selector)
+                .treatment(treatment)
+                .path(path)
+                .build();
     }
 
 
@@ -116,12 +121,12 @@ public class CompilingTest {
         expect(processor.compile(input, null)).andReturn(Arrays.asList(compiled));
         replay(processor);
 
-        Compiling sut = new Compiling(processor, pending, null);
+        Compiling sut = new Compiling(processor, pending);
 
         Optional<IntentProcessPhase> output = sut.execute();
 
         verify(processor);
-        assertThat(output.get(), is(instanceOf(InstallCoordinating.class)));
+        assertThat(output.get(), is(instanceOf(Installing.class)));
     }
 
     /**
@@ -134,11 +139,11 @@ public class CompilingTest {
         expect(processor.compile(input, null)).andThrow(new IntentCompilationException());
         replay(processor);
 
-        Compiling sut = new Compiling(processor, pending, null);
+        Compiling sut = new Compiling(processor, pending);
 
         Optional<IntentProcessPhase> output = sut.execute();
 
         verify(processor);
-        assertThat(output.get(), is(instanceOf(CompilingFailed.class)));
+        assertThat(output.get(), is(instanceOf(CompileFailed.class)));
     }
 }

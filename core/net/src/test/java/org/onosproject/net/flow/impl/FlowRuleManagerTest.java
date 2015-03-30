@@ -557,11 +557,6 @@ public class FlowRuleManagerTest {
         }
 
         @Override
-        public List<Instruction> instructions() {
-            return null;
-        }
-
-        @Override
         public List<Instruction> deferred() {
             return null;
         }
@@ -582,8 +577,8 @@ public class FlowRuleManagerTest {
         }
 
         @Override
-        public Boolean clearedDeferred() {
-            return null;
+        public boolean clearedDeferred() {
+            return false;
         }
 
         @Override

@@ -17,8 +17,15 @@ package org.onosproject.net.group;
 
 /**
  * Representation of generalized Key that would be used to store
- * groups in &lt; Key, Value &gt; store. Implementation of this interface
- * MUST override "equals()" and "hashcode()" methods.
+ * groups in &lt; Key, Value &gt; store. This key uses a generic
+ * byte array so that applications can associate their groups with
+ * any of their data by translating it into a byte array.
  */
 public interface GroupKey  {
+    /**
+     * Returns the byte representation of key.
+     *
+     * @return byte array
+     */
+    public byte[] key();
 }

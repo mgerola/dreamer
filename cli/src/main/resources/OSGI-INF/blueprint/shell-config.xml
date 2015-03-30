@@ -282,33 +282,6 @@
             </completers>
         </command>
         <command>
-			<action class="org.onosproject.cli.icona.TopologyCommand" />
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.ClustersCommand" />
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.InterLinksCommand" />
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.EndPointsCommand" />
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.PseudoWiresCommand" />
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.ClusterIdCommand" />
-			<completers>
-			<ref component-id="ClusterIdCompleter"/>
-			</completers>
-		</command>
-		<command>
-			<action class="org.onosproject.cli.icona.AddPseudoWireCommand" />
-			<completers>
-			<ref component-id="EndPointCompleter"/>
-			</completers>
-		</command>
-        <command>
 			<action class="org.onosproject.cli.net.AddMplsIntent" />
 			<completers>
 			<ref component-id="connectPointCompleter" />
@@ -332,7 +305,5 @@
     <bean id="nullCompleter" class="org.apache.karaf.shell.console.completer.NullCompleter"/>
     <bean id="ethTypeCompleter" class="org.onosproject.cli.net.EthTypeCompleter"/>
     <bean id="ipProtocolCompleter" class="org.onosproject.cli.net.IpProtocolCompleter"/>
-    <bean id="ClusterIdCompleter" class="org.onosproject.cli.icona.ClusterIdCompleter" />
-    <bean id="EndPointCompleter" class="org.onosproject.cli.icona.EndPointCompleter" />
 
 </blueprint>

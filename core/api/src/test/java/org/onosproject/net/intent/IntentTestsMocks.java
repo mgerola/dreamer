@@ -54,7 +54,6 @@ import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyVertex;
 import org.onosproject.store.Timestamp;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -93,23 +92,18 @@ public class IntentTestsMocks {
      */
     public static class MockTreatment implements TrafficTreatment {
         @Override
-        public List<Instruction> instructions() {
-            return new ArrayList<>();
-        }
-
-        @Override
         public List<Instruction> deferred() {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
         public List<Instruction> immediate() {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
         public List<Instruction> allInstructions() {
-            return null;
+            return Collections.emptyList();
         }
 
         @Override
@@ -118,8 +112,8 @@ public class IntentTestsMocks {
         }
 
         @Override
-        public Boolean clearedDeferred() {
-            return null;
+        public boolean clearedDeferred() {
+            return false;
         }
     }
 
@@ -419,12 +413,13 @@ public class IntentTestsMocks {
         private final Long number;
 
         public MockIntent(Long number) {
-            super(NetTestTools.APP_ID, Collections.emptyList());
+            super(NetTestTools.APP_ID, null, Collections.emptyList(),
+                    Intent.DEFAULT_INTENT_PRIORITY);
             this.number = number;
         }
 
         public MockIntent(Long number, Collection<NetworkResource> resources) {
-            super(NetTestTools.APP_ID, resources);
+            super(NetTestTools.APP_ID, null, resources, Intent.DEFAULT_INTENT_PRIORITY);
             this.number = number;
         }
 
@@ -458,9 +453,8 @@ public class IntentTestsMocks {
                 return -1;
             }
             MockTimestamp that = (MockTimestamp) o;
-            return (this.value > that.value ? -1 : (this.value == that.value ? 0 : 1));
+            return this.value - that.value;
         }
     }
-
 
 }

@@ -69,8 +69,10 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <netty4.version>4.0.23.Final</netty4.version>
-        <copycat.version>0.4.0.onos</copycat.version>
+        <copycat.version>0.5.0.onos-SNAPSHOT</copycat.version>
         <openflowj.version>0.3.9.oe</openflowj.version>
+        <karaf.version>3.0.3</karaf.version>
+        <jersey.version>1.19</jersey.version>
     </properties>
 
     <distributionManagement>
@@ -79,6 +81,14 @@
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
+
+    <!--- Needed for copycat. Remove before official release -->
+    <repositories>
+        <repository>
+            <id>snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -194,8 +204,20 @@
             <dependency>
                 <groupId>com.sun.jersey</groupId>
                 <artifactId>jersey-servlet</artifactId>
-                <version>1.18.1</version>
+                <version>${jersey.version}</version>
                 <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.jersey.jersey-test-framework</groupId>
+                <artifactId>jersey-test-framework-core</artifactId>
+                <version>${jersey.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.jersey.jersey-test-framework</groupId>
+                <artifactId>jersey-test-framework-grizzly2</artifactId>
+                <version>${jersey.version}</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
@@ -229,10 +251,18 @@
                 <version>1.9.8</version>
                 <scope>provided</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.karaf.features</groupId>
+                <artifactId>org.apache.karaf.features.core</artifactId>
+                <version>${karaf.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.karaf.shell</groupId>
                 <artifactId>org.apache.karaf.shell.console</artifactId>
-                <version>3.0.2</version>
+                <version>${karaf.version}</version>
                 <scope>provided</scope>
             </dependency>
 

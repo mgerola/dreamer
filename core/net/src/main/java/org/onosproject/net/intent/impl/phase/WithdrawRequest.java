@@ -28,13 +28,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 final class WithdrawRequest implements IntentProcessPhase {
 
     private final IntentProcessor processor;
-    private final IntentData pending;
-    private final IntentData current;
+    private final IntentData data;
+    private final IntentData stored;
 
-    WithdrawRequest(IntentProcessor processor, IntentData intentData, IntentData current) {
+    /**
+     * Creates a withdraw request phase.
+     *
+     * @param processor  intent processor to be passed to intent process phases
+     *                   generated after this phase
+     * @param intentData intent data to be processed
+     * @param stored     intent data stored in the store
+     */
+    WithdrawRequest(IntentProcessor processor, IntentData intentData, IntentData stored) {
         this.processor = checkNotNull(processor);
-        this.pending = checkNotNull(intentData);
-        this.current = checkNotNull(current);
+        this.data = checkNotNull(intentData);
+        this.stored = checkNotNull(stored);
     }
 
     @Override
@@ -42,6 +50,7 @@ final class WithdrawRequest implements IntentProcessPhase {
         //TODO perhaps we want to validate that the pending and current are the
         // same version i.e. they are the same
         // Note: this call is not just the symmetric version of submit
-        return Optional.of(new WithdrawCoordinating(processor, pending, current));
+        data.setInstallables(stored.installables());
+        return Optional.of(new Withdrawing(processor, data));
     }
 }

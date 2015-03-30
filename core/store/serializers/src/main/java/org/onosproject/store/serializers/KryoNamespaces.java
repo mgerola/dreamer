@@ -81,6 +81,7 @@ import org.onosproject.net.flow.instructions.L3ModificationInstruction;
 import org.onosproject.net.host.DefaultHostDescription;
 import org.onosproject.net.host.HostDescription;
 import org.onosproject.net.intent.ConnectivityIntent;
+import org.onosproject.net.intent.FlowRuleIntent;
 import org.onosproject.net.intent.HostToHostIntent;
 import org.onosproject.net.intent.IngressMplsBackupIntent;
 import org.onosproject.net.intent.IngressMplsBackupPathIntent;
@@ -298,6 +299,7 @@ public final class KryoNamespaces {
                     PointToPointIntent.class,
                     MultiPointToSinglePointIntent.class,
                     SinglePointToMultiPointIntent.class,
+                    FlowRuleIntent.class,
                     LinkCollectionIntent.class,
                     OpticalConnectivityIntent.class,
                     OpticalPathIntent.class,

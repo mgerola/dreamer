@@ -36,14 +36,13 @@ import org.onosproject.net.intent.IntentStoreDelegate;
 import org.onosproject.net.intent.Key;
 import org.onosproject.net.intent.PartitionService;
 import org.onosproject.store.AbstractStore;
-import org.onosproject.store.cluster.messaging.ClusterCommunicationService;
-import org.onosproject.store.ecmap.EventuallyConsistentMap;
-import org.onosproject.store.ecmap.EventuallyConsistentMapEvent;
-import org.onosproject.store.ecmap.EventuallyConsistentMapImpl;
-import org.onosproject.store.ecmap.EventuallyConsistentMapListener;
 import org.onosproject.store.impl.MultiValuedTimestamp;
 import org.onosproject.store.impl.WallClockTimestamp;
 import org.onosproject.store.serializers.KryoNamespaces;
+import org.onosproject.store.service.EventuallyConsistentMap;
+import org.onosproject.store.service.EventuallyConsistentMapEvent;
+import org.onosproject.store.service.EventuallyConsistentMapListener;
+import org.onosproject.store.service.StorageService;
 import org.slf4j.Logger;
 
 import java.util.Collection;
@@ -51,7 +50,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static org.onosproject.net.intent.IntentState.*;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.onosproject.net.intent.IntentState.PURGE_REQ;
 import static org.slf4j.LoggerFactory.getLogger;
 
 /**
@@ -60,7 +60,7 @@ import static org.slf4j.LoggerFactory.getLogger;
  */
 //FIXME we should listen for leadership changes. if the local instance has just
 // ...  become a leader, scan the pending map and process those
-@Component(immediate = false, enabled = true)
+@Component(immediate = true, enabled = true)
 @Service
 public class GossipIntentStore
         extends AbstractStore<IntentEvent, IntentStoreDelegate>
@@ -75,10 +75,10 @@ public class GossipIntentStore
     private EventuallyConsistentMap<Key, IntentData> pendingMap;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected ClusterCommunicationService clusterCommunicator;
+    protected ClusterService clusterService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected ClusterService clusterService;
+    protected StorageService storageService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected PartitionService partitionService;
@@ -91,19 +91,19 @@ public class GossipIntentStore
                 .register(MultiValuedTimestamp.class)
                 .register(WallClockTimestamp.class);
 
-        currentMap = new EventuallyConsistentMapImpl<>("intent-current",
-                                                       clusterService,
-                                                       clusterCommunicator,
-                                                       intentSerializer,
-                                                       new IntentDataLogicalClockManager<>(),
-                                                       (key, intentData) -> getPeerNodes(key, intentData));
+        currentMap = storageService.<Key, IntentData>eventuallyConsistentMapBuilder()
+                .withName("intent-current")
+                .withSerializer(intentSerializer)
+                .withClockService(new IntentDataLogicalClockManager<>())
+                .withPeerUpdateFunction((key, intentData) -> getPeerNodes(key, intentData))
+                .build();
 
-        pendingMap = new EventuallyConsistentMapImpl<>("intent-pending",
-                                                       clusterService,
-                                                       clusterCommunicator,
-                                                       intentSerializer,
-                                                       new IntentDataClockManager<>(),
-                                                       (key, intentData) -> getPeerNodes(key, intentData));
+        pendingMap = storageService.<Key, IntentData>eventuallyConsistentMapBuilder()
+                .withName("intent-pending")
+                .withSerializer(intentSerializer)
+                .withClockService(new IntentDataClockManager<>())
+                .withPeerUpdateFunction((key, intentData) -> getPeerNodes(key, intentData))
+                .build();
 
         currentMap.addListener(new InternalCurrentListener());
         pendingMap.addListener(new InternalPendingListener());
@@ -149,110 +149,24 @@ public class GossipIntentStore
         return null;
     }
 
-    private IntentData copyData(IntentData original) {
-        if (original == null) {
-            return null;
-        }
-        IntentData result =
-                new IntentData(original.intent(), original.state(), original.version());
 
-        if (original.installables() != null) {
-            result.setInstallables(original.installables());
-        }
-        result.setOrigin(original.origin());
-        return result;
-    }
-
-    /**
-     * Determines whether an intent data update is allowed. The update must
-     * either have a higher version than the current data, or the state
-     * transition between two updates of the same version must be sane.
-     *
-     * @param currentData existing intent data in the store
-     * @param newData new intent data update proposal
-     * @return true if we can apply the update, otherwise false
-     */
-    private boolean isUpdateAcceptable(IntentData currentData, IntentData newData) {
-
-        if (currentData == null) {
-            return true;
-        } else if (currentData.version().compareTo(newData.version()) < 0) {
-            return true;
-        } else if (currentData.version().compareTo(newData.version()) > 0) {
-            return false;
-        }
-
-        // current and new data versions are the same
-        IntentState currentState = currentData.state();
-        IntentState newState = newData.state();
-
-        switch (newState) {
-        case INSTALLING:
-            if (currentState == INSTALLING) {
-                return false;
-            }
-            // FALLTHROUGH
-        case INSTALLED:
-            if (currentState == INSTALLED) {
-                return false;
-            } else if (currentState == WITHDRAWING || currentState == WITHDRAWN) {
-                log.warn("Invalid state transition from {} to {} for intent {}",
-                         currentState, newState, newData.key());
-                return false;
-            }
-            return true;
-
-        case WITHDRAWING:
-            if (currentState == WITHDRAWING) {
-                return false;
-            }
-            // FALLTHROUGH
-        case WITHDRAWN:
-            if (currentState == WITHDRAWN) {
-                return false;
-            } else if (currentState == INSTALLING || currentState == INSTALLED) {
-                log.warn("Invalid state transition from {} to {} for intent {}",
-                         currentState, newState, newData.key());
-                return false;
-            }
-            return true;
-
-
-        case FAILED:
-            if (currentState == FAILED) {
-                return false;
-            }
-            return true;
-
-        case PURGE_REQ:
-            return true;
-
-        case COMPILING:
-        case RECOMPILING:
-        case INSTALL_REQ:
-        case WITHDRAW_REQ:
-        default:
-            log.warn("Invalid state {} for intent {}", newState, newData.key());
-            return false;
-        }
-    }
 
     @Override
     public void write(IntentData newData) {
+        checkNotNull(newData);
+
         IntentData currentData = currentMap.get(newData.key());
-        if (isUpdateAcceptable(currentData, newData)) {
+        if (IntentData.isUpdateAcceptable(currentData, newData)) {
             // Only the master is modifying the current state. Therefore assume
             // this always succeeds
             if (newData.state() == PURGE_REQ) {
                 currentMap.remove(newData.key(), newData);
             } else {
-                currentMap.put(newData.key(), copyData(newData));
+                currentMap.put(newData.key(), new IntentData(newData));
             }
 
             // if current.put succeeded
             pendingMap.remove(newData.key(), newData);
-        } else {
-            log.debug("not writing update: current {}, new {}", currentData, newData);
         }
     }
 
@@ -307,16 +221,22 @@ public class GossipIntentStore
 
     @Override
     public IntentData getIntentData(Key key) {
-        return copyData(currentMap.get(key));
+        IntentData current = currentMap.get(key);
+        if (current == null) {
+            return null;
+        }
+        return new IntentData(current);
     }
 
     @Override
     public void addPending(IntentData data) {
+        checkNotNull(data);
+
         if (data.version() == null) {
             data.setVersion(new WallClockTimestamp());
         }
         data.setOrigin(clusterService.getLocalNode().id());
-        pendingMap.put(data.key(), copyData(data));
+        pendingMap.put(data.key(), new IntentData(data));
     }
 
     @Override
@@ -361,8 +281,7 @@ public class GossipIntentStore
                 // some work.
                 if (isMaster(event.value().intent().key())) {
                     if (delegate != null) {
-                        log.debug("processing {}", event.key());
-                        delegate.process(copyData(event.value()));
+                        delegate.process(new IntentData(event.value()));
                     }
                 }
 

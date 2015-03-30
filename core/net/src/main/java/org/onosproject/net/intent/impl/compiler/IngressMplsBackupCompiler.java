@@ -75,7 +75,7 @@ public class IngressMplsBackupCompiler extends ConnectivityIntentCompiler<Ingres
                                     IngressMplsBackupIntent intent) {
         return new IngressMplsBackupPathIntent(intent.appId(),
                               intent.selector(), intent.treatment(), path,
-                              intent.ingressLabel(), intent.egressLabel(),
+                              intent.ingressLabel(), intent.previousEgressLabel(),
                               intent.backupLabel(),
                               intent.constraints(), intent.priority());
     }

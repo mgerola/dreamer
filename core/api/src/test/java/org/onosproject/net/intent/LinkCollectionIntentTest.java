@@ -67,22 +67,26 @@ public class LinkCollectionIntentTest extends IntentTest {
         final HashSet<Link> links1 = new HashSet<>();
         links1.add(link("src", 1, "dst", 2));
         final LinkCollectionIntent collectionIntent1 =
-                new LinkCollectionIntent(APP_ID,
-                        selector,
-                        treatment,
-                        links1,
-                        ingress,
-                        egress);
+                LinkCollectionIntent.builder()
+                        .appId(APP_ID)
+                        .selector(selector)
+                        .treatment(treatment)
+                        .links(links1)
+                        .ingressPoints(ImmutableSet.of(ingress))
+                        .egressPoints(ImmutableSet.of(egress))
+                        .build();
 
         final HashSet<Link> links2 = new HashSet<>();
         links2.add(link("src", 1, "dst", 3));
         final LinkCollectionIntent collectionIntent2 =
-                new LinkCollectionIntent(APP_ID,
-                        selector,
-                        treatment,
-                        links2,
-                        ingress,
-                        egress);
+                LinkCollectionIntent.builder()
+                        .appId(APP_ID)
+                        .selector(selector)
+                        .treatment(treatment)
+                        .links(links2)
+                        .ingressPoints(ImmutableSet.of(ingress))
+                        .egressPoints(ImmutableSet.of(egress))
+                        .build();
 
         new EqualsTester()
                 .addEqualityGroup(collectionIntent1)
@@ -98,16 +102,18 @@ public class LinkCollectionIntentTest extends IntentTest {
         final HashSet<Link> links1 = new HashSet<>();
         links1.add(link("src", 1, "dst", 2));
         final LinkCollectionIntent collectionIntent =
-                new LinkCollectionIntent(APP_ID,
-                        selector,
-                        treatment,
-                        links1,
-                        ingress,
-                        egress);
+                LinkCollectionIntent.builder()
+                        .appId(APP_ID)
+                        .selector(selector)
+                        .treatment(treatment)
+                        .links(links1)
+                        .ingressPoints(ImmutableSet.of(ingress))
+                        .egressPoints(ImmutableSet.of(egress))
+                        .build();
 
         final Set<Link> createdLinks = collectionIntent.links();
         assertThat(createdLinks, hasSize(1));
-        assertThat(collectionIntent.isInstallable(), is(true));
+        assertThat(collectionIntent.isInstallable(), is(false));
         assertThat(collectionIntent.treatment(), is(treatment));
         assertThat(collectionIntent.selector(), is(selector));
         assertThat(collectionIntent.ingressPoints(), is(ImmutableSet.of(ingress)));
@@ -128,18 +134,20 @@ public class LinkCollectionIntentTest extends IntentTest {
         links1.add(link("src", 1, "dst", 2));
         constraints.add(new LambdaConstraint(Lambda.valueOf(23)));
         final LinkCollectionIntent collectionIntent =
-                new LinkCollectionIntent(APP_ID,
-                        selector,
-                        treatment,
-                        links1,
-                        ingress,
-                        egress,
-                        constraints,
-                        8888);
+                LinkCollectionIntent.builder()
+                        .appId(APP_ID)
+                        .selector(selector)
+                        .treatment(treatment)
+                        .links(links1)
+                        .ingressPoints(ImmutableSet.of(ingress))
+                        .egressPoints(ImmutableSet.of(egress))
+                        .constraints(constraints)
+                        .priority(8888)
+                        .build();
 
         final Set<Link> createdLinks = collectionIntent.links();
         assertThat(createdLinks, hasSize(1));
-        assertThat(collectionIntent.isInstallable(), is(true));
+        assertThat(collectionIntent.isInstallable(), is(false));
         assertThat(collectionIntent.treatment(), is(treatment));
         assertThat(collectionIntent.selector(), is(selector));
         assertThat(collectionIntent.ingressPoints(), is(ImmutableSet.of(ingress)));
@@ -161,7 +169,7 @@ public class LinkCollectionIntentTest extends IntentTest {
 
         final Set<Link> createdLinks = collectionIntent.links();
         assertThat(createdLinks, nullValue());
-        assertThat(collectionIntent.isInstallable(), is(true));
+        assertThat(collectionIntent.isInstallable(), is(false));
         assertThat(collectionIntent.treatment(), nullValue());
         assertThat(collectionIntent.selector(), nullValue());
         assertThat(collectionIntent.ingressPoints(), nullValue());
@@ -175,23 +183,27 @@ public class LinkCollectionIntentTest extends IntentTest {
     protected Intent createOne() {
         HashSet<Link> links1 = new HashSet<>();
         links1.add(link("src", 1, "dst", 2));
-        return new LinkCollectionIntent(APP_ID,
-                                        selector,
-                                        treatment,
-                                        links1,
-                                        ingress,
-                                        egress);
+        return LinkCollectionIntent.builder()
+                .appId(APP_ID)
+                .selector(selector)
+                .treatment(treatment)
+                .links(links1)
+                .ingressPoints(ImmutableSet.of(ingress))
+                .egressPoints(ImmutableSet.of(egress))
+                .build();
     }
 
     @Override
     protected Intent createAnother() {
         HashSet<Link> links2 = new HashSet<>();
         links2.add(link("src", 1, "dst", 3));
-        return new LinkCollectionIntent(APP_ID,
-                                        selector,
-                                        treatment,
-                                        links2,
-                                        ingress,
-                                        egress);
+        return LinkCollectionIntent.builder()
+                .appId(APP_ID)
+                .selector(selector)
+                .treatment(treatment)
+                .links(links2)
+                .ingressPoints(ImmutableSet.of(ingress))
+                .egressPoints(ImmutableSet.of(egress))
+                .build();
     }
 }

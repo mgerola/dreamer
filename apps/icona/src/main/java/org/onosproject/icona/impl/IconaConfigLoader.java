@@ -99,10 +99,8 @@ public class IconaConfigLoader implements IconaConfigService {
     @Override
     public boolean isLeader() {
 
-        // if null should be the only one!
-        // TODO: to be verified
         if (leadershipService.getLeader(iconaLeaderPath) == null) {
-            return true;
+            return false;
         }
         if (clusterService.getLocalNode().id()
                 .equals(leadershipService.getLeader(iconaLeaderPath))) {

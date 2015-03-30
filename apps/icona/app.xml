@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <app name="org.onosproject.icona" origin="DREAMER" version="1.2.0"
         features="onos-app-icona">
     <description>Description</description>

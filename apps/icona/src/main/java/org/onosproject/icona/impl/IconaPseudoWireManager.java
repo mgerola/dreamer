@@ -61,8 +61,14 @@ public class IconaPseudoWireManager implements IconaPseudoWireService {
 
               TrafficSelector selec = DefaultTrafficSelector.builder().build();
               TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
-              IngressMplsBackupIntent intent = new IngressMplsBackupIntent(iconaConfigService.getApplicationId(), selec, treatment,
-                         ingress, Optional.ofNullable(MplsLabel.mplsLabel(100)), egress, egressLabel, MplsLabel.mplsLabel(200));
+              IngressMplsBackupIntent intent = IngressMplsBackupIntent.builder().appId(iconaConfigService.getApplicationId())
+                      .selector(selec)
+                      .treatment(treatment)
+                       .ingressPoint(ingress)
+                       .ingressLabel(Optional.ofNullable(MplsLabel.mplsLabel(100)))
+                       .egressPoint(egress)
+                       .egressLabel(egressLabel.get())
+                       .backupLabel(MplsLabel.mplsLabel(200)).build();
               log.info("intent subitted");
               intentService.submit(intent);
               return intent.id();

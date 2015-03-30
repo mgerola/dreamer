@@ -534,7 +534,7 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         PortNumber out = link.src().port();
         for (FlowEntry entry : entries) {
             TrafficTreatment treatment = entry.treatment();
-            for (Instruction instruction : treatment.instructions()) {
+            for (Instruction instruction : treatment.allInstructions()) {
                 if (instruction.type() == Instruction.Type.OUTPUT &&
                         ((OutputInstruction) instruction).port().equals(out)) {
                     count++;
@@ -656,7 +656,7 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         Map<String, ObjectNode> pathNodes = new HashMap<>();
         for (BiLink biLink : biLinks.values()) {
             boolean hasTraffic = biLink.hasTraffic;
-            String tc = (biLink.classes + (hasTraffic ? " animated" : "")).trim();
+            String tc = (biLink.classes() + (hasTraffic ? " animated" : "")).trim();
             ObjectNode pathNode = pathNodes.get(tc);
             if (pathNode == null) {
                 pathNode = mapper.createObjectNode()
@@ -830,7 +830,8 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         public Link two;
         public boolean hasTraffic = false;
         public long bytes = 0;
-        public String classes = "";
+
+        private Set<String> classes = new HashSet<>();
 
         BiLink(LinkKey key, Link link) {
             this.key = key;
@@ -849,7 +850,13 @@ public abstract class TopologyViewMessageHandlerBase extends UiMessageHandler {
         }
 
         void addClass(String trafficClass) {
-            classes = classes + " " + trafficClass;
+            classes.add(trafficClass);
+        }
+
+        String classes() {
+            StringBuilder sb = new StringBuilder();
+            classes.forEach(c -> sb.append(c).append(" "));
+            return sb.toString().trim();
         }
     }
 

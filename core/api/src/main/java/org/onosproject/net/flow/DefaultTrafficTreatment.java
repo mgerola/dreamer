@@ -32,6 +32,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Default traffic treatment implementation.
  */
@@ -39,6 +41,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
 
     private final List<Instruction> immediate;
     private final List<Instruction> deferred;
+    private final List<Instruction> all;
     private final Instructions.TableTypeTransition table;
 
     private final boolean hasClear;
@@ -49,29 +52,34 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
     /**
      * Creates a new traffic treatment from the specified list of instructions.
      *
-     * @param instructions treatment instructions
+     * @param immediate immediate instructions
      */
-    private DefaultTrafficTreatment(List<Instruction> instructions) {
-        this.immediate = ImmutableList.copyOf(instructions);
+    private DefaultTrafficTreatment(List<Instruction> immediate) {
+        this.immediate = ImmutableList.copyOf(checkNotNull(immediate));
         this.deferred = ImmutableList.of();
+        this.all = this.immediate;
         this.hasClear = false;
         this.table = null;
     }
 
+    /**
+     * Creates a new traffic treatment from the specified list of instructions.
+     *
+     * @param deferred deferred instructions
+     * @param immediate immediate instructions
+     * @param table table transition instruction
+     * @param clear instruction to clear the deferred actions list
+     */
     private DefaultTrafficTreatment(List<Instruction> deferred,
                                    List<Instruction> immediate,
                                    Instructions.TableTypeTransition table,
                                    boolean clear) {
-        this.immediate = ImmutableList.copyOf(immediate);
-        this.deferred = ImmutableList.copyOf(deferred);
+        this.immediate = ImmutableList.copyOf(checkNotNull(immediate));
+        this.deferred = ImmutableList.copyOf(checkNotNull(deferred));
+        this.all = ListUtils.union(this.immediate, this.deferred);
         this.table = table;
         this.hasClear = clear;
 
-    }
-
-    @Override
-    public List<Instruction> instructions() {
-        return immediate;
     }
 
     @Override
@@ -86,7 +94,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
 
     @Override
     public List<Instruction> allInstructions() {
-        return ListUtils.union(immediate, deferred);
+        return all;
     }
 
     @Override
@@ -95,7 +103,7 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
     }
 
     @Override
-    public Boolean clearedDeferred() {
+    public boolean clearedDeferred() {
         return hasClear;
     }
 
@@ -165,8 +173,6 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
      */
     public static final class Builder implements TrafficTreatment.Builder {
 
-        boolean drop = false;
-
         boolean clear = false;
 
         Instructions.TableTypeTransition table;
@@ -182,11 +188,14 @@ public final class DefaultTrafficTreatment implements TrafficTreatment {
         }
 
         // Creates a new builder based off an existing treatment
-        //FIXME only works for immediate instruction sets.
         private Builder(TrafficTreatment treatment) {
-            for (Instruction instruction : treatment.instructions()) {
-                add(instruction);
-            }
+            deferred();
+            treatment.deferred().forEach(i -> add(i));
+
+            immediate();
+            treatment.immediate().forEach(i -> add(i));
+
+            clear = treatment.clearedDeferred();
         }
 
         @Override

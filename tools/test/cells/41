@@ -4,7 +4,7 @@ export OC1="10.216.160.41"
 # for node clustering
 export ONOS_NIC="172.16.0.*"
 
-export ONOS_APPS="icona,openflow"
+export ONOS_APPS="openflow,icona"
 
 export ONOS_CHANNEL=$ONOS_ROOT/apps/icona/src/main/resources/hazelcast-41.xml 
 export ICONA_INTER=$ONOS_ROOT/apps/icona/src/main/resources/hazelcast-icona-inter.xml

@@ -19,9 +19,19 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import org.onosproject.cluster.NodeId;
 import org.onosproject.store.Timestamp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.onosproject.net.intent.IntentState.FAILED;
+import static org.onosproject.net.intent.IntentState.INSTALLED;
+import static org.onosproject.net.intent.IntentState.INSTALLING;
+import static org.onosproject.net.intent.IntentState.PURGE_REQ;
+import static org.onosproject.net.intent.IntentState.WITHDRAWING;
+import static org.onosproject.net.intent.IntentState.WITHDRAWN;
 
 /**
  * A wrapper class that contains an intents, its state, and other metadata for
@@ -29,7 +39,10 @@ import java.util.Objects;
  */
 public class IntentData { //FIXME need to make this "immutable"
                           // manager should be able to mutate a local copy while processing
-    private Intent intent;
+
+    private static final Logger log = LoggerFactory.getLogger(IntentData.class);
+
+    private final Intent intent;
 
     private IntentState state;
     private Timestamp version;
@@ -37,34 +50,77 @@ public class IntentData { //FIXME need to make this "immutable"
 
     private List<Intent> installables;
 
+    /**
+     * Creates a new intent data object.
+     *
+     * @param intent intent this metadata references
+     * @param state intent state
+     * @param version version of the intent for this key
+     */
     public IntentData(Intent intent, IntentState state, Timestamp version) {
         this.intent = intent;
         this.state = state;
         this.version = version;
     }
 
-    // kryo constructor
-    protected IntentData() {
+    /**
+     * Copy constructor.
+     *
+     * @param intentData intent data to copy
+     */
+    public IntentData(IntentData intentData) {
+        checkNotNull(intentData);
+
+        intent = intentData.intent;
+        state = intentData.state;
+        version = intentData.version;
+        origin = intentData.origin;
+        installables = intentData.installables;
     }
 
+    // kryo constructor
+    protected IntentData() {
+        intent = null;
+    }
+
+    /**
+     * Returns the intent this metadata references.
+     *
+     * @return intent
+     */
     public Intent intent() {
         return intent;
     }
 
+    /**
+     * Returns the state of the intent.
+     *
+     * @return intent state
+     */
     public IntentState state() {
         return state;
     }
 
+    /**
+     * Returns the intent key.
+     *
+     * @return intent key
+     */
     public Key key() {
         return intent.key();
     }
 
+    /**
+     * Returns the version of the intent for this key.
+     *
+     * @return intent version
+     */
     public Timestamp version() {
         return version;
     }
 
     /**
-     * Sets the origin, which is the node that created the instance.
+     * Sets the origin, which is the node that created the intent.
      *
      * @param origin origin instance
      */
@@ -72,10 +128,20 @@ public class IntentData { //FIXME need to make this "immutable"
         this.origin = origin;
     }
 
+    /**
+     * Returns the origin node that created this intent.
+     *
+     * @return origin node ID
+     */
     public NodeId origin() {
         return origin;
     }
 
+    /**
+     * Updates the state of the intent to the given new state.
+     *
+     * @param newState new state of the intent
+     */
     public void setState(IntentState newState) {
         this.state = newState;
     }
@@ -94,12 +160,97 @@ public class IntentData { //FIXME need to make this "immutable"
         this.version = version;
     }
 
+    /**
+     * Sets the intent installables to the given list of intents.
+     *
+     * @param installables list of installables for this intent
+     */
     public void setInstallables(List<Intent> installables) {
         this.installables = ImmutableList.copyOf(installables);
     }
 
+    /**
+     * Returns the installables associated with this intent.
+     *
+     * @return list of installable intents
+     */
     public List<Intent> installables() {
         return installables;
+    }
+
+    /**
+     * Determines whether an intent data update is allowed. The update must
+     * either have a higher version than the current data, or the state
+     * transition between two updates of the same version must be sane.
+     *
+     * @param currentData existing intent data in the store
+     * @param newData new intent data update proposal
+     * @return true if we can apply the update, otherwise false
+     */
+    public static boolean isUpdateAcceptable(IntentData currentData, IntentData newData) {
+
+        if (currentData == null) {
+            return true;
+        } else if (currentData.version().compareTo(newData.version()) < 0) {
+            return true;
+        } else if (currentData.version().compareTo(newData.version()) > 0) {
+            return false;
+        }
+
+        // current and new data versions are the same
+        IntentState currentState = currentData.state();
+        IntentState newState = newData.state();
+
+        switch (newState) {
+        case INSTALLING:
+            if (currentState == INSTALLING) {
+                return false;
+            }
+            // FALLTHROUGH
+        case INSTALLED:
+            if (currentState == INSTALLED) {
+                return false;
+            } else if (currentState == WITHDRAWING || currentState == WITHDRAWN
+                    || currentState == PURGE_REQ) {
+                log.warn("Invalid state transition from {} to {} for intent {}",
+                         currentState, newState, newData.key());
+                return false;
+            }
+            return true;
+
+        case WITHDRAWING:
+            if (currentState == WITHDRAWING) {
+                return false;
+            }
+            // FALLTHROUGH
+        case WITHDRAWN:
+            if (currentState == WITHDRAWN) {
+                return false;
+            } else if (currentState == INSTALLING || currentState == INSTALLED
+                    || currentState == PURGE_REQ) {
+                log.warn("Invalid state transition from {} to {} for intent {}",
+                         currentState, newState, newData.key());
+                return false;
+            }
+            return true;
+
+        case FAILED:
+            if (currentState == FAILED) {
+                return false;
+            }
+            return true;
+
+        case PURGE_REQ:
+            return true;
+
+        case COMPILING:
+        case RECOMPILING:
+        case INSTALL_REQ:
+        case WITHDRAW_REQ:
+        default:
+            log.warn("Invalid state {} for intent {}", newState, newData.key());
+            return false;
+        }
     }
 
     @Override
@@ -120,12 +271,14 @@ public class IntentData { //FIXME need to make this "immutable"
                 && Objects.equals(this.version, other.version);
     }
 
+    @Override
     public String toString() {
         return MoreObjects.toStringHelper(getClass())
                 .add("key", key())
                 .add("state", state())
                 .add("version", version())
                 .add("intent", intent())
+                .add("origin", origin())
                 .add("installables", installables())
                 .toString();
     }
