@@ -1,9 +1,8 @@
 package org.onosproject.icona.channel.impl;
 
 import java.util.Iterator;
-import java.util.Optional;
 
-import org.onlab.packet.MplsLabel;
+import org.onlab.packet.MacAddress;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaPseudoWireService;
 import org.onosproject.icona.channel.inter.IconaPseudoWireIntentEvent;
@@ -92,23 +91,13 @@ public class IconaPseudoWireIntentListener
                                                            PortNumber
                                                                    .portNumber(intentEvent
                                                                            .dstPort()));
-                    Optional<MplsLabel> egressLabel = Optional.empty();
-                    Optional<MplsLabel> ingressLabel = Optional.empty();
-                    if (!intentEvent.ingressLabel().equals(0)) {
-                        ingressLabel = Optional.ofNullable(MplsLabel
-                                .mplsLabel(intentEvent.ingressLabel()));
-                    }
-                    if (!intentEvent.egressLabel().equals(0)) {
-                        egressLabel = Optional.ofNullable(MplsLabel
-                                .mplsLabel(intentEvent.egressLabel()));
-                    }
-                    log.info("Cluster {}, egress {} label {} ingress {} label {}",
-                             iconaConfigService.getClusterName(), egress,
-                             egressLabel, ingress, ingressLabel);
+                    MacAddress srcMac = MacAddress.valueOf(intentEvent.macSrc());
+                    MacAddress dstMac = MacAddress.valueOf(intentEvent.macDst());
+                    
 
                     IntentId intentId = iconaPseudoWireService
-                            .installPseudoWireIntent(ingress, ingressLabel,
-                                                     egress, egressLabel);
+                            .installPseudoWireIntent(ingress,
+                                                     egress, srcMac, dstMac);
                     // TODO: check the correct installation...
                     intentEvent.intentReplayType(IntentReplayType.ACK);
                     interChannelService.addPseudoWireIntentEvent(intentEvent);
@@ -121,8 +110,6 @@ public class IconaPseudoWireIntentListener
                                 .getMasterPseudoWire(intentEvent.pseudoWireId())
                                 .getLocalIntent();
                         pw.intentId(intentId);
-                        pw.ingressLabel(ingressLabel);
-                        pw.egressLabel(egressLabel);
                         pw.installationStatus(PathInstallationStatus.INSTALLED);
 
                     } else {
@@ -133,8 +120,6 @@ public class IconaPseudoWireIntentListener
                                 .getPseudoWire(intentEvent.pseudoWireId())
                                 .getLocalIntent();
                         pw.intentId(intentId);
-                        pw.ingressLabel(ingressLabel);
-                        pw.egressLabel(egressLabel);
                         pw.installationStatus(PathInstallationStatus.INSTALLED);
                     }
                 }
@@ -154,20 +139,6 @@ public class IconaPseudoWireIntentListener
                                                       .srcId()),
                                               DeviceId.deviceId(intentEvent
                                                       .dstId())).isEmpty()) {
-                        int egressLabel = 0;
-                        if (!intentEvent.isEgress()) {
-                            // reserve an available egress label.
-                            MplsLabel egressLabelReserved  = iconaStoreService
-                                    .reserveAvailableMplsLabel(new ConnectPoint(
-                                                                                DeviceId.deviceId(intentEvent
-                                                                                        .dstId()),
-                                                                                PortNumber
-                                                                                        .portNumber(intentEvent
-                                                                                        .dstPort())));
-                            egressLabel = egressLabelReserved.toInt();
-                            intentEvent
-                                    .egressLabel(egressLabel);
-                        }
 
                         // Save localIntent
                         PseudoWireIntent pwIntent = new PseudoWireIntent(
@@ -181,8 +152,8 @@ public class IconaPseudoWireIntentListener
                                                                                  .dstId(),
                                                                          intentEvent
                                                                                  .dstPort(),
-                                                                         null,
-                                                                         egressLabel,
+                                                                         MacAddress.valueOf(intentEvent.macSrc()),
+                                                                         MacAddress.valueOf(intentEvent.macDst()),
                                                                          PathInstallationStatus.RESERVED,
                                                                          intentEvent
                                                                                  .isIngress(),
@@ -263,16 +234,12 @@ public class IconaPseudoWireIntentListener
                 log.info("PW leader: intentEvent {} srcDpid {} dstDpid {}",
                          intentEvent.intentRequestType(), intentEvent.srcId(),
                          intentEvent.dstId());
-                if (intentEvent.intentReplayType() == IntentReplayType.ACK
-                        && intentEvent.egressLabel() != null) {
+                if (intentEvent.intentReplayType() == IntentReplayType.ACK) {
 
                     MasterPseudoWire pseudoWire = iconaStoreService
                             .getMasterPseudoWire(intentEvent.pseudoWireId());
                     pseudoWire.setIntentStatus(intentEvent.dstCluster(),
                                                PathInstallationStatus.RESERVED);
-                    pseudoWire.getIntent(intentEvent.dstCluster())
-                            .egressLabel(MplsLabel.mplsLabel(intentEvent
-                                                 .egressLabel()));
 
                     if (iconaConfigService.isLeader()) {
 
@@ -344,27 +311,7 @@ public class IconaPseudoWireIntentListener
                 }
             }
 
-            Iterator<InterLink> iter = pw.getInterClusterPath().getInterlinks()
-                    .iterator();
-            while (iter.hasNext()) {
-                // For each IL we use the same label for ingress and egress. We
-                // have
-                // the egress label in one cluster, we need to store and send
-                // the
-                // ingress one.
 
-                if (iter.hasNext()) {
-                    InterLink interLink = iter.next();
-                    pw.getIntent(interLink.srcClusterName())
-                            .egressLabel()
-                            .ifPresent(egressLabel -> pw
-                                               .getIntent(interLink
-                                                                  .dstClusterName())
-                                               .ingressLabel(egressLabel));
-
-                }
-
-            }
             log.info("intents {}", pw.getIntents());
             pw.setPwStatus(PathInstallationStatus.RESERVED);
 

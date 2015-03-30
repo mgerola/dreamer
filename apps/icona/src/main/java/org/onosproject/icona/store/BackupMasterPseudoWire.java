@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.onlab.packet.MacAddress;
 import org.onosproject.icona.InterClusterPath;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
@@ -48,15 +49,16 @@ public class BackupMasterPseudoWire extends BackupPseudoWire {
 
     public void addPseudoWireIntent(ConnectPoint src, ConnectPoint dst,
                                     String dstClusterName,
-                                    Integer ingressLabel,
-                                    Integer egressLabel,
+                                    MacAddress srcMac,
+                                    MacAddress dstMac,
                                     PathInstallationStatus installationStatus,
                                     boolean isIngress,
                                     boolean isEgress,
                                     boolean isBackup) {
+        
         PseudoWireIntent pwIntent = new PseudoWireIntent(dstClusterName, src, dst,
-                                                         ingressLabel,
-                                                         egressLabel,
+                                                         srcMac,
+                                                         dstMac,
                                                          installationStatus,
                                                          isIngress,
                                                          isEgress);

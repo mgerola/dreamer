@@ -3,6 +3,7 @@ package org.onosproject.icona.channel.inter;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+import org.onlab.packet.MacAddress;
 import org.onosproject.icona.store.PseudoWireIntent;
 
 public class IconaPseudoWireIntentEvent implements Serializable {
@@ -21,9 +22,10 @@ public class IconaPseudoWireIntentEvent implements Serializable {
 
     private String dstId;
     private long dstPort;
-
-    private int ingressLabel;
-    private int egressLabel;
+    
+    private long macSrc;
+    private long macDst;
+    
 
     private IntentRequestType intentRequestType;
     private IntentReplayType intentReplayType;
@@ -52,17 +54,8 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         this.srcPort = intent.src().port().toLong();
         this.dstId = intent.dst().deviceId().toString();
         this.dstPort = intent.dst().port().toLong();
-        if (intent.ingressLabel().isPresent()) {
-            this.ingressLabel = intent.ingressLabel().get().toInt();
-        } else {
-            this.ingressLabel = 0;
-        }
-        if (intent.egressLabel().isPresent()) {
-            this.egressLabel = intent.egressLabel().get().toInt();
-        } else {
-            this.egressLabel = 0;
-        }
-
+        this.macSrc = intent.macSrc().toLong();
+        this.macDst = intent.macDst().toLong();
         this.clusterLeader = clusterLeader;
         this.pseudoWireId = pwId;
         this.intentRequestType = intentRequestType;
@@ -135,22 +128,6 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         this.intentRequestType = intentRequestType;
     }
 
-    public Integer ingressLabel() {
-        return ingressLabel;
-    }
-
-    public void ingressLabel(int ingressLabel) {
-        this.ingressLabel = ingressLabel;
-    }
-
-    public Integer egressLabel() {
-        return egressLabel;
-    }
-
-    public void egressLabel(int egressLabel) {
-        this.egressLabel = egressLabel;
-    }
-
     public boolean isEgress(){
         return isEgress;
     }
@@ -158,11 +135,20 @@ public class IconaPseudoWireIntentEvent implements Serializable {
     public boolean isIngress(){
         return isIngress;
     }
+    
+    
+    public long macSrc() {
+        return macSrc;
+    }
+
+    public long macDst() {
+        return macDst;
+    }
 
     public byte[] getID() {
 
         return getIntentElementId(this.srcId, this.srcPort, this.dstId,
-                                  this.dstPort, this.intentRequestType,
+                                  this.dstPort, this.macSrc, this.macDst, this.intentRequestType,
                                   this.intentReplayType, this.pseudoWireId)
                 .array();
     }
@@ -171,6 +157,8 @@ public class IconaPseudoWireIntentEvent implements Serializable {
                                                 long srcPort,
                                                 String dstId,
                                                 long dstPort,
+                                                long srcMac,
+                                                long dstMac,
                                                 IntentRequestType intentRequestType,
                                                 IntentReplayType intentReplayType,
                                                 String pseudoWireId) {
@@ -190,7 +178,7 @@ public class IconaPseudoWireIntentEvent implements Serializable {
         }
 
         ByteBuffer id = ByteBuffer
-                .allocate(3 * Character.SIZE + 4 * Long.SIZE + +Character.SIZE
+                .allocate(3 * Character.SIZE + 6 * Long.SIZE + Character.SIZE
                                   * pseudoWireId.length())
                 .putChar('I')
                 .putChar(requestType)
@@ -198,7 +186,10 @@ public class IconaPseudoWireIntentEvent implements Serializable {
                 .putLong(Long.parseLong(srcId.split(":")[1], 16))
                 .putLong(srcPort)
                 .putLong(Long.parseLong(dstId.split(":")[1], 16))
-                .putLong(dstPort);
+                .putLong(dstPort)
+                .putLong(srcMac)
+                .putLong(dstMac);
+            
         for (char ch : pseudoWireId.toCharArray()) {
             id.putChar(ch);
         }

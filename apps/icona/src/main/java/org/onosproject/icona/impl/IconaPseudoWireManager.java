@@ -11,6 +11,7 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaPseudoWireService;
@@ -23,6 +24,7 @@ import org.onosproject.net.intent.IngressMplsBackupIntent;
 import org.onosproject.net.intent.IntentId;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.net.intent.MplsIntent;
+import org.onosproject.net.intent.PointToPointIntent;
 import org.slf4j.Logger;
 
 @Service
@@ -51,19 +53,16 @@ public class IconaPseudoWireManager implements IconaPseudoWireService {
     }
 
     @Override
-    public IntentId installPseudoWireIntent(ConnectPoint ingress, Optional<MplsLabel> ingressLabel,
-                                        ConnectPoint egress, Optional<MplsLabel> egressLabel) {
+    public IntentId installPseudoWireIntent(ConnectPoint ingress,
+                                        ConnectPoint egress, MacAddress srcMac, MacAddress dstMac) {
 
-        TrafficSelector selec = DefaultTrafficSelector.builder().build();
-        TrafficTreatment treatment = DefaultTrafficTreatment.builder().build();
-        MplsIntent intent = MplsIntent.builder()
+        TrafficSelector selec = DefaultTrafficSelector.builder().matchEthSrc(srcMac).matchEthDst(dstMac).build();
+        log.info("ingress {}, egress {}, srcMac {}, dstMac {}", ingress, egress, srcMac, dstMac);
+        PointToPointIntent intent = PointToPointIntent.builder()
                                 .appId(iconaConfigService.getApplicationId())
                                 .selector(selec)
-                                .treatment(treatment)
                                 .ingressPoint(ingress)
-                                .ingressLabel(ingressLabel)
                                 .egressPoint(egress)
-                                .egressLabel(egressLabel)
                                 .build();
         intentService.submit(intent);
         return intent.id();

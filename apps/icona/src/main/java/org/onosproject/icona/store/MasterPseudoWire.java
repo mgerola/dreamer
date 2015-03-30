@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.onlab.packet.MacAddress;
 import org.onosproject.icona.InterClusterPath;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.flow.TrafficSelector;
@@ -52,14 +53,14 @@ public class MasterPseudoWire extends PseudoWire {
 
     public void addPseudoWireIntent(ConnectPoint src, ConnectPoint dst,
                                     String dstClusterName,
-                                    Integer ingressLabel,
-                                    Integer egressLabel,
+                                    MacAddress srcMac,
+                                    MacAddress dstMac,
                                     PathInstallationStatus installationStatus,
                                     boolean isIngress,
                                     boolean isEgress) {
         PseudoWireIntent pwIntent = new PseudoWireIntent(dstClusterName, src, dst,
-                                                         ingressLabel,
-                                                         egressLabel,
+                                                         srcMac,
+                                                         dstMac,
                                                          installationStatus,
                                                          isIngress,
                                                          isEgress);

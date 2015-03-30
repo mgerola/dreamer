@@ -3,11 +3,13 @@ package org.onosproject.icona.channel.impl;
 import static org.slf4j.LoggerFactory.getLogger;
 
 import java.io.FileNotFoundException;
+
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.MacAddress;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.icona.IconaService;
 import org.onosproject.icona.channel.intra.IconaIntraEvent;
@@ -76,11 +78,11 @@ public class IntraChannelManager implements IntraChannelService {
         }
 
     @Override
-    public void intraPseudoWire(ConnectPoint src, ConnectPoint dst, TrafficSelector selector,
+    public void intraPseudoWire(ConnectPoint src, ConnectPoint dst, MacAddress macSrc, MacAddress macDst, TrafficSelector selector,
                                    TrafficTreatment treatment, IntentUpdateType intentUpdateType) {
 
         //TODO manage trat and selec
-        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, intentUpdateType);
+        IntraPseudoWireElement pw = new IntraPseudoWireElement(src, dst, macSrc, macDst, intentUpdateType);
         IconaIntraEvent intraEvent = new IconaIntraEvent(pw, clusterService.getLocalNode().id());
         intraEventChannel.put(intraEvent.getID(), intraEvent);
     }

@@ -3,6 +3,7 @@ package org.onosproject.icona.store;
 import java.util.Date;
 import java.util.Optional;
 
+import org.onlab.packet.MacAddress;
 import org.onlab.packet.MplsLabel;
 import org.onosproject.icona.store.PseudoWire.PathInstallationStatus;
 import org.onosproject.net.ConnectPoint;
@@ -17,9 +18,9 @@ public class PseudoWireIntent {
     private ConnectPoint src;
 
     private ConnectPoint dst;
-
-    private Optional<MplsLabel> ingressLabel;
-    private Optional<MplsLabel> egressLabel;
+    
+    private MacAddress macSrc;
+    private MacAddress macDst;
 
     private boolean isEgress;
     private boolean isIngress;
@@ -30,39 +31,31 @@ public class PseudoWireIntent {
     private IntentId intentId;
 
     public PseudoWireIntent(String dstCluster, String srcDpid, long srcPort,
-                            String dstDpid, long dstPort, Integer ingressLabel,
-                            Integer egressLabel,
+                            String dstDpid, long dstPort, MacAddress macSrc,
+                            MacAddress macDst,
                             PathInstallationStatus installationStatus, boolean isIngress, boolean isEgress) {
         this(dstCluster,
              new ConnectPoint(DeviceId.deviceId(srcDpid),
                                           PortNumber.portNumber(srcPort)),
              new ConnectPoint(DeviceId.deviceId(dstDpid),
                               PortNumber.portNumber(dstPort)),
-             ingressLabel,
-             egressLabel,
+                              macSrc,
+                              macDst,
              installationStatus, isIngress, isEgress);
 
     }
 
     public PseudoWireIntent(String dstClusterName, ConnectPoint src,
-                            ConnectPoint dst, Integer ingressLabel,
-                            Integer egressLabel,
+                            ConnectPoint dst, MacAddress macSrc,
+                            MacAddress macDst,
                             PathInstallationStatus installationStatus,
                             boolean isIngress,
                             boolean isEgress) {
         this.dstClusterName = dstClusterName;
         this.src = src;
         this.dst = dst;
-        if(ingressLabel != null){
-        this.ingressLabel = Optional.ofNullable(MplsLabel.mplsLabel(ingressLabel));
-        }else{
-            this.ingressLabel = Optional.empty();
-        }
-        if(egressLabel !=null){
-        this.egressLabel = Optional.ofNullable(MplsLabel.mplsLabel(egressLabel));
-        }else{
-            this.egressLabel = Optional.empty();
-        }
+        this.macSrc = macSrc;
+        this.macDst = macDst;
         this.installationStatus = installationStatus;
         this.lastStatusUpdate = new Date();
         this.isEgress = isEgress;
@@ -96,28 +89,22 @@ public class PseudoWireIntent {
         this.lastStatusUpdate = new Date();
     }
 
-    public Optional<MplsLabel> ingressLabel() {
-        return ingressLabel;
+    
+
+    public MacAddress macSrc() {
+        return macSrc;
     }
 
-    public void ingressLabel(MplsLabel ingressLabel) {
-        this.ingressLabel = Optional.ofNullable(ingressLabel);
+    public void macSrc(MacAddress macSrc) {
+        this.macSrc = macSrc;
     }
 
-    public void ingressLabel(Optional<MplsLabel> ingressLabel) {
-        this.ingressLabel = ingressLabel;
+    public MacAddress macDst() {
+        return macDst;
     }
 
-    public Optional<MplsLabel> egressLabel() {
-        return egressLabel;
-    }
-
-    public void egressLabel(Optional<MplsLabel> egressLabel) {
-        this.egressLabel = egressLabel;
-    }
-
-    public void egressLabel(MplsLabel egressLabel) {
-        this.egressLabel = Optional.ofNullable(egressLabel);
+    public void macDst(MacAddress macDst) {
+        this.macDst = macDst;
     }
 
     public boolean isEgress() {
@@ -136,15 +123,6 @@ public class PseudoWireIntent {
         this.intentId = intentId;
     }
 
-    @Override
-    public String toString() {
-        return "PseudoWireIntent [dstClusterName=" + dstClusterName + ", src="
-                + src + ", dst=" + dst + ", ingressLabel=" + ingressLabel
-                + ", egressLabel=" + egressLabel + ", isEgress=" + isEgress
-                + ", isIngress=" + isIngress + ", installationStatus="
-                + installationStatus + ", lastStatusUpdate=" + lastStatusUpdate
-                + ", intentId=" + intentId + "]";
-    }
 
 
 

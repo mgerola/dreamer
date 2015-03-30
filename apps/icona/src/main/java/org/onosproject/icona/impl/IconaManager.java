@@ -5,6 +5,7 @@ import static org.slf4j.LoggerFactory.getLogger;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+
 import org.slf4j.Logger;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -12,6 +13,7 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
+import org.onlab.packet.MacAddress;
 import org.onosproject.icona.BFSTree;
 import org.onosproject.icona.IconaConfigService;
 import org.onosproject.icona.IconaService;
@@ -389,7 +391,10 @@ public class IconaManager implements IconaService {
                              PortNumber.portNumber(intraPW.dstPort()))
                 .orElseThrow(() -> new NullPointerException(
                                                             "Destination EndPoint does not exists"));
-
+        
+        MacAddress srcMac = MacAddress.valueOf(intraPW.macSrc());
+        MacAddress dstMac = MacAddress.valueOf(intraPW.macDst());
+        
         // TODO: Fix trafficSelector and TrafficTratement
         MasterPseudoWire pw = new MasterPseudoWire(srcEndPoint, dstEndPoint,
                                                    iconaConfigService
@@ -430,7 +435,7 @@ public class IconaManager implements IconaService {
             // EPs are in the same cluster
             if (interClusterPath.getInterlinks().isEmpty()) {
                 pw.addPseudoWireIntent(srcEndPoint, dstEndPoint,
-                                       srcEndPoint.clusterName(), null, null,
+                                       srcEndPoint.clusterName(), srcMac , dstMac,
                                        PathInstallationStatus.RECEIVED, true,
                                        true);
 
@@ -444,12 +449,12 @@ public class IconaManager implements IconaService {
                 pw.addPseudoWireIntent(srcEndPoint,
                                        interLinks.get(interLinks.size() - 1)
                                                .src(), srcEndPoint
-                                               .clusterName(), null, null,
+                                               .clusterName(), srcMac, dstMac,
                                        PathInstallationStatus.RECEIVED, true,
                                        false);
 
                 pw.addPseudoWireIntent(interLinks.get(0).dst(), dstEndPoint,
-                                       dstEndPoint.clusterName(), null, null,
+                                       dstEndPoint.clusterName(), srcMac, dstMac,
                                        PathInstallationStatus.RECEIVED, false,
                                        true);
 
@@ -458,7 +463,7 @@ public class IconaManager implements IconaService {
                     pw.addPseudoWireIntent(interLinks.get(i).dst(), interLinks
                                                    .get(i - 1).src(),
                                            interLinks.get(i).dstClusterName(),
-                                           null, null,
+                                           srcMac , dstMac,
                                            PathInstallationStatus.RECEIVED,
                                            false, false);
 

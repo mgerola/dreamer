@@ -9,6 +9,7 @@ import java.util.Optional;
 import org.apache.karaf.shell.commands.Argument;
 import org.apache.karaf.shell.commands.Command;
 import org.apache.karaf.shell.commands.Option;
+import org.onlab.packet.MacAddress;
 import org.onosproject.cli.AbstractShellCommand;
 import org.onosproject.cli.net.ConnectivityIntentCommand;
 import org.onosproject.icona.channel.intra.IntraChannelService;
@@ -37,6 +38,12 @@ public class AddPseudoWireCommand extends ConnectivityIntentCommand {
           required = true, multiValued = false)
   String egressString = null;
   
+    @Argument(index = 2, name = "macSrc", description = "MacAddress source", required = true, multiValued = false)
+    String macSrc = null;
+
+    @Argument(index = 3, name = "macDst", description = "MacAddress dest", required = true, multiValued = false)
+    String macDst = null;
+  
   
     @Override
     protected void execute() {
@@ -51,6 +58,8 @@ public class AddPseudoWireCommand extends ConnectivityIntentCommand {
         PortNumber egressPortNumber = portNumber(getPortNumber(egressString));
         ConnectPoint dst = new ConnectPoint(egressDeviceId, egressPortNumber);
         
+        MacAddress dstMac = MacAddress.valueOf(macDst);
+        MacAddress srcMac = MacAddress.valueOf(macSrc);
         
         TrafficSelector selector = buildTrafficSelector();
         TrafficTreatment treatment = buildTrafficTreatment();
@@ -58,7 +67,7 @@ public class AddPseudoWireCommand extends ConnectivityIntentCommand {
         //TODO: to be managed....
         List<Constraint> constraints = buildConstraints();
         
-        intraChannelService.intraPseudoWire(src, dst, selector, treatment,
+        intraChannelService.intraPseudoWire(src, dst, srcMac, dstMac, selector, treatment,
                                                IntentUpdateType.INSTALL);
         
     }
